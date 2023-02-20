@@ -49,6 +49,7 @@ enum pldm_completion_codes {
 enum transfer_op_flag {
 	PLDM_GET_NEXTPART = 0,
 	PLDM_GET_FIRSTPART = 1,
+	PLDM_ACKNOWLEDGEMENT_ONLY = 2
 };
 
 enum transfer_multipart_op_flag {
@@ -93,6 +94,7 @@ typedef enum {
 #define PLDM_GET_VERSION_REQ_BYTES 6
 
 /* Response lengths are inclusive of completion code */
+#define PLDM_CC_ONLY_RESP_BYTES 1
 #define PLDM_GET_TYPES_RESP_BYTES 9
 #define PLDM_GET_TID_RESP_BYTES 2
 #define PLDM_SET_TID_RESP_BYTES 1
@@ -553,6 +555,15 @@ int decode_multipart_receive_req(
  */
 int encode_cc_only_resp(uint8_t instance_id, uint8_t type, uint8_t command,
 			uint8_t cc, struct pldm_msg *msg);
+
+/** @brief Decode PLDM response message containing only cc
+ *  @param[in] msg - Response message
+ *  @param[in] payload_length - Length of response message payload
+ *  @param[out] completion_code - Pointer to response msg's PLDM completion code
+ *  @return pldm_completion_codes
+ */
+int decode_cc_only_resp(const struct pldm_msg *msg, size_t payload_length,
+			uint8_t *completion_code);
 
 /** @brief Create a PLDM message only with the header
  *
