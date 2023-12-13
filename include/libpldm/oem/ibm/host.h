@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
 #ifndef OEM_IBM_HOST_H
 #define OEM_IBM_HOST_H
 
@@ -5,10 +6,10 @@
 extern "C" {
 #endif
 
+#include <libpldm/base.h>
+
 #include <stddef.h>
 #include <stdint.h>
-
-#include "base.h"
 
 /* Maximum size for request */
 #define PLDM_GET_ALERT_STATUS_REQ_BYTES 1

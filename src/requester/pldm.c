@@ -1,188 +1,222 @@
-#include "pldm.h"
-#include "base.h"
+/* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
+#include <libpldm/base.h>
+#include <libpldm/pldm.h>
+#include <libpldm/transport.h>
 
 #include <bits/types/struct_iovec.h>
+#include <fcntl.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
 
-const uint8_t MCTP_MSG_TYPE_PLDM = 1;
+/* Temporary for old api */
+#include <libpldm/transport/mctp-demux.h>
+extern int
+pldm_transport_mctp_demux_get_socket_fd(struct pldm_transport_mctp_demux *ctx);
+extern struct pldm_transport_mctp_demux *
+pldm_transport_mctp_demux_init_with_fd(int mctp_fd);
 
-pldm_requester_rc_t pldm_open()
+/* ---  old APIS written in terms of the new API -- */
+/*
+ * pldm_open returns the file descriptor to the MCTP socket, which needs to
+ * persist over api calls (so a consumer can poll it for incoming messages).
+ * So we need a global variable to store the transport struct
+ */
+static struct pldm_transport_mctp_demux *open_transport;
+
+LIBPLDM_ABI_DEPRECATED
+pldm_requester_rc_t pldm_open(void)
 {
-	int fd = -1;
-	int rc = -1;
+	int fd = PLDM_REQUESTER_OPEN_FAIL;
 
-	fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
-	if (-1 == fd) {
-		return fd;
+	if (open_transport) {
+		fd = pldm_transport_mctp_demux_get_socket_fd(open_transport);
+
+		/* If someone has externally issued close() on fd then we need to start again. Use
+		 * `fcntl(..., F_GETFD)` to test whether fd is valid. */
+		if (fd < 0 || fcntl(fd, F_GETFD) < 0) {
+			pldm_close();
+		}
 	}
 
-	const char path[] = "\0mctp-mux";
-	struct sockaddr_un addr;
-	addr.sun_family = AF_UNIX;
-	memcpy(addr.sun_path, path, sizeof(path) - 1);
-	rc = connect(fd, (struct sockaddr *)&addr,
-		     sizeof(path) + sizeof(addr.sun_family) - 1);
-	if (-1 == rc) {
-		return PLDM_REQUESTER_OPEN_FAIL;
-	}
-	rc = write(fd, &MCTP_MSG_TYPE_PLDM, sizeof(MCTP_MSG_TYPE_PLDM));
-	if (-1 == rc) {
-		return PLDM_REQUESTER_OPEN_FAIL;
+	/* We retest open_transport as it may have been set to NULL by pldm_close() above. */
+	if (!open_transport) {
+		struct pldm_transport_mctp_demux *demux = NULL;
+
+		if (pldm_transport_mctp_demux_init(&demux) < 0) {
+			return PLDM_REQUESTER_OPEN_FAIL;
+		}
+
+		open_transport = demux;
+
+		fd = pldm_transport_mctp_demux_get_socket_fd(open_transport);
 	}
 
 	return fd;
 }
 
-/**
- * @brief Read MCTP socket. If there's data available, return success only if
- *        data is a PLDM message.
- *
- * @param[in] eid - destination MCTP eid
- * @param[in] mctp_fd - MCTP socket fd
- * @param[out] pldm_resp_msg - *pldm_resp_msg will point to PLDM msg,
- *             this function allocates memory, caller to free(*pldm_resp_msg) on
- *             success.
- * @param[out] resp_msg_len - caller owned pointer that will be made point to
- *             the size of the PLDM msg.
- *
- * @return pldm_requester_rc_t (errno may be set). failure is returned even
- *         when data was read, but wasn't a PLDM response message
- */
-static pldm_requester_rc_t mctp_recv(mctp_eid_t eid, int mctp_fd,
-				     uint8_t **pldm_resp_msg,
-				     size_t *resp_msg_len)
-{
-	ssize_t min_len = sizeof(eid) + sizeof(MCTP_MSG_TYPE_PLDM) +
-			  sizeof(struct pldm_msg_hdr);
-	ssize_t length = recv(mctp_fd, NULL, 0, MSG_PEEK | MSG_TRUNC);
-	if (length <= 0) {
-		return PLDM_REQUESTER_RECV_FAIL;
-	} else if (length < min_len) {
-		/* read and discard */
-		uint8_t buf[length];
-		recv(mctp_fd, buf, length, 0);
-		return PLDM_REQUESTER_INVALID_RECV_LEN;
-	} else {
-		struct iovec iov[2];
-		size_t mctp_prefix_len =
-		    sizeof(eid) + sizeof(MCTP_MSG_TYPE_PLDM);
-		uint8_t mctp_prefix[mctp_prefix_len];
-		size_t pldm_len = length - mctp_prefix_len;
-		iov[0].iov_len = mctp_prefix_len;
-		iov[0].iov_base = mctp_prefix;
-		*pldm_resp_msg = malloc(pldm_len);
-		iov[1].iov_len = pldm_len;
-		iov[1].iov_base = *pldm_resp_msg;
-		struct msghdr msg = {0};
-		msg.msg_iov = iov;
-		msg.msg_iovlen = sizeof(iov) / sizeof(iov[0]);
-		ssize_t bytes = recvmsg(mctp_fd, &msg, 0);
-		if (length != bytes) {
-			free(*pldm_resp_msg);
-			return PLDM_REQUESTER_INVALID_RECV_LEN;
-		}
-		if ((mctp_prefix[0] != eid) ||
-		    (mctp_prefix[1] != MCTP_MSG_TYPE_PLDM)) {
-			free(*pldm_resp_msg);
-			return PLDM_REQUESTER_NOT_PLDM_MSG;
-		}
-		*resp_msg_len = pldm_len;
-		return PLDM_REQUESTER_SUCCESS;
-	}
-}
+/* This macro does the setup and teardown required for the old API to use the
+ * new API. Since the setup/teardown logic is the same for all four send/recv
+ * functions, it makes sense to only define it once. */
+#define PLDM_REQ_FN(eid, fd, fn, rc, ...)                                        \
+	do {                                                                     \
+		struct pldm_transport_mctp_demux *demux;                         \
+		bool using_open_transport = false;                               \
+		pldm_tid_t tid = eid;                                            \
+		struct pldm_transport *ctx;                                      \
+		/* The fd can be for a socket we opened or one the consumer    \
+		 * opened. */ \
+		if (open_transport &&                                            \
+		    mctp_fd == pldm_transport_mctp_demux_get_socket_fd(          \
+				       open_transport)) {                        \
+			using_open_transport = true;                             \
+			demux = open_transport;                                  \
+		} else {                                                         \
+			demux = pldm_transport_mctp_demux_init_with_fd(fd);      \
+			if (!demux) {                                            \
+				rc = PLDM_REQUESTER_OPEN_FAIL;                   \
+				goto transport_out;                              \
+			}                                                        \
+		}                                                                \
+		ctx = pldm_transport_mctp_demux_core(demux);                     \
+		rc = pldm_transport_mctp_demux_map_tid(demux, tid, eid);         \
+		if (rc) {                                                        \
+			rc = PLDM_REQUESTER_OPEN_FAIL;                           \
+			goto transport_out;                                      \
+		}                                                                \
+		rc = fn(ctx, tid, __VA_ARGS__);                                  \
+	transport_out:                                                           \
+		if (!using_open_transport) {                                     \
+			pldm_transport_mctp_demux_destroy(demux);                \
+		}                                                                \
+		break;                                                           \
+	} while (0)
 
+LIBPLDM_ABI_DEPRECATED
 pldm_requester_rc_t pldm_recv_any(mctp_eid_t eid, int mctp_fd,
 				  uint8_t **pldm_resp_msg, size_t *resp_msg_len)
 {
-	pldm_requester_rc_t rc =
-	    mctp_recv(eid, mctp_fd, pldm_resp_msg, resp_msg_len);
+	pldm_requester_rc_t rc = 0;
+
+	struct pldm_transport_mctp_demux *demux;
+	bool using_open_transport = false;
+	pldm_tid_t tid = eid;
+	struct pldm_transport *ctx;
+	/* The fd can be for a socket we opened or one the consumer
+	 * opened. */
+	if (open_transport &&
+	    mctp_fd ==
+		    pldm_transport_mctp_demux_get_socket_fd(open_transport)) {
+		using_open_transport = true;
+		demux = open_transport;
+	} else {
+		demux = pldm_transport_mctp_demux_init_with_fd(mctp_fd);
+		if (!demux) {
+			rc = PLDM_REQUESTER_OPEN_FAIL;
+			goto transport_out;
+		}
+	}
+	ctx = pldm_transport_mctp_demux_core(demux);
+	rc = pldm_transport_mctp_demux_map_tid(demux, tid, eid);
+	if (rc) {
+		rc = PLDM_REQUESTER_OPEN_FAIL;
+		goto transport_out;
+	}
+	/* TODO this is the only change, can we work this into the macro? */
+	rc = pldm_transport_recv_msg(ctx, &tid, (void **)pldm_resp_msg,
+				     resp_msg_len);
+
+	struct pldm_msg_hdr *hdr = (struct pldm_msg_hdr *)(*pldm_resp_msg);
 	if (rc != PLDM_REQUESTER_SUCCESS) {
 		return rc;
 	}
-
-	struct pldm_msg_hdr *hdr = (struct pldm_msg_hdr *)(*pldm_resp_msg);
-	if (hdr->request != PLDM_RESPONSE) {
+	if (hdr && (hdr->request || hdr->datagram)) {
 		free(*pldm_resp_msg);
+		*pldm_resp_msg = NULL;
 		return PLDM_REQUESTER_NOT_RESP_MSG;
 	}
-
-	uint8_t pldm_rc = 0;
-	if (*resp_msg_len < (sizeof(struct pldm_msg_hdr) + sizeof(pldm_rc))) {
+	uint8_t pldm_cc = 0;
+	if (*resp_msg_len < (sizeof(struct pldm_msg_hdr) + sizeof(pldm_cc))) {
 		free(*pldm_resp_msg);
+		*pldm_resp_msg = NULL;
 		return PLDM_REQUESTER_RESP_MSG_TOO_SMALL;
 	}
 
-	return PLDM_REQUESTER_SUCCESS;
-}
-
-pldm_requester_rc_t pldm_recv(mctp_eid_t eid, int mctp_fd, uint8_t instance_id,
-			      uint8_t **pldm_resp_msg, size_t *resp_msg_len)
-{
-	pldm_requester_rc_t rc =
-	    pldm_recv_any(eid, mctp_fd, pldm_resp_msg, resp_msg_len);
-	if (rc != PLDM_REQUESTER_SUCCESS) {
-		return rc;
-	}
-
-	struct pldm_msg_hdr *hdr = (struct pldm_msg_hdr *)(*pldm_resp_msg);
-	if (hdr->instance_id != instance_id) {
-		free(*pldm_resp_msg);
-		return PLDM_REQUESTER_INSTANCE_ID_MISMATCH;
-	}
-
-	return PLDM_REQUESTER_SUCCESS;
-}
-
-pldm_requester_rc_t pldm_send_recv(mctp_eid_t eid, int mctp_fd,
-				   const uint8_t *pldm_req_msg,
-				   size_t req_msg_len, uint8_t **pldm_resp_msg,
-				   size_t *resp_msg_len)
-{
-	struct pldm_msg_hdr *hdr = (struct pldm_msg_hdr *)pldm_req_msg;
-	if ((hdr->request != PLDM_REQUEST) &&
-	    (hdr->request != PLDM_ASYNC_REQUEST_NOTIFY)) {
-		return PLDM_REQUESTER_NOT_REQ_MSG;
-	}
-
-	pldm_requester_rc_t rc =
-	    pldm_send(eid, mctp_fd, pldm_req_msg, req_msg_len);
-	if (rc != PLDM_REQUESTER_SUCCESS) {
-		return rc;
-	}
-
-	while (1) {
-		rc = pldm_recv(eid, mctp_fd, hdr->instance_id, pldm_resp_msg,
-			       resp_msg_len);
-		if (rc == PLDM_REQUESTER_SUCCESS) {
-			break;
-		}
+transport_out:
+	if (!using_open_transport) {
+		pldm_transport_mctp_demux_destroy(demux);
 	}
 
 	return rc;
 }
 
+LIBPLDM_ABI_DEPRECATED
+pldm_requester_rc_t pldm_recv(mctp_eid_t eid, int mctp_fd,
+			      __attribute__((unused)) uint8_t instance_id,
+			      uint8_t **pldm_resp_msg, size_t *resp_msg_len)
+{
+	pldm_requester_rc_t rc =
+		pldm_recv_any(eid, mctp_fd, pldm_resp_msg, resp_msg_len);
+	struct pldm_msg_hdr *hdr = (struct pldm_msg_hdr *)(*pldm_resp_msg);
+	if (rc == PLDM_REQUESTER_SUCCESS && hdr &&
+	    hdr->instance_id != instance_id) {
+		free(*pldm_resp_msg);
+		*pldm_resp_msg = NULL;
+		return PLDM_REQUESTER_INSTANCE_ID_MISMATCH;
+	}
+	return rc;
+}
+
+LIBPLDM_ABI_DEPRECATED
+pldm_requester_rc_t pldm_send_recv(mctp_eid_t eid, int mctp_fd,
+				   const uint8_t *pldm_req_msg,
+				   size_t req_msg_len, uint8_t **pldm_resp_msg,
+				   size_t *resp_msg_len)
+{
+	pldm_requester_rc_t rc = 0;
+	struct pldm_msg_hdr *hdr = (struct pldm_msg_hdr *)pldm_req_msg;
+	if (hdr && !hdr->request) {
+		return PLDM_REQUESTER_NOT_REQ_MSG;
+	}
+	PLDM_REQ_FN(eid, mctp_fd, pldm_transport_send_recv_msg, rc,
+		    pldm_req_msg, req_msg_len, (void **)pldm_resp_msg,
+		    resp_msg_len);
+	if (rc != PLDM_REQUESTER_SUCCESS) {
+		return rc;
+	}
+	hdr = (struct pldm_msg_hdr *)(*pldm_resp_msg);
+	if (hdr && (hdr->request || hdr->datagram)) {
+		free(*pldm_resp_msg);
+		*pldm_resp_msg = NULL;
+		return PLDM_REQUESTER_NOT_RESP_MSG;
+	}
+	return rc;
+}
+
+LIBPLDM_ABI_DEPRECATED
 pldm_requester_rc_t pldm_send(mctp_eid_t eid, int mctp_fd,
 			      const uint8_t *pldm_req_msg, size_t req_msg_len)
 {
-	uint8_t hdr[2] = {eid, MCTP_MSG_TYPE_PLDM};
-
-	struct iovec iov[2];
-	iov[0].iov_base = hdr;
-	iov[0].iov_len = sizeof(hdr);
-	iov[1].iov_base = (uint8_t *)pldm_req_msg;
-	iov[1].iov_len = req_msg_len;
-
-	struct msghdr msg = {0};
-	msg.msg_iov = iov;
-	msg.msg_iovlen = sizeof(iov) / sizeof(iov[0]);
-
-	ssize_t rc = sendmsg(mctp_fd, &msg, 0);
-	if (rc == -1) {
-		return PLDM_REQUESTER_SEND_FAIL;
+	pldm_requester_rc_t rc = 0;
+	struct pldm_msg_hdr *hdr = (struct pldm_msg_hdr *)pldm_req_msg;
+	if (!hdr->request) {
+		return PLDM_REQUESTER_NOT_REQ_MSG;
 	}
-	return PLDM_REQUESTER_SUCCESS;
+	PLDM_REQ_FN(eid, mctp_fd, pldm_transport_send_msg, rc,
+		    (void *)pldm_req_msg, req_msg_len);
+	return rc;
+}
+
+/* Adding this here for completeness in the case we can't smoothly
+ * transition apps over to the new api */
+LIBPLDM_ABI_DEPRECATED
+void pldm_close(void)
+{
+	if (open_transport) {
+		pldm_transport_mctp_demux_destroy(open_transport);
+	}
+	open_transport = NULL;
 }
