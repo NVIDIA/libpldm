@@ -501,11 +501,26 @@ enum pldm_event_message_type {
 
 /** @brief PLDM state set IDs */
 enum pldm_state_set_id {
+	PLDM_STATESET_ID_HEALTHSTATE = 1,
 	PLDM_STATESET_ID_PRESENCE = 13,
 	PLDM_STATESET_ID_PERFORMANCE = 14,
 	PLDM_STATESET_ID_LINKSTATE = 33,
 	PLDM_STATESET_ID_BOOT_REQUEST = 193,
 	PLDM_STATESET_ID_POWERSUPPLY = 256
+};
+
+/** @brief PLDM state set ID 1 Health values  */
+enum pldm_stateset_health_state_values {
+	PLDM_STATESET_HEALTH_STATE_NORMAL = 1,
+	PLDM_STATESET_HEALTH_STATE_NON_CRITICAL = 2,
+	PLDM_STATESET_HEALTH_STATE_CRITICAL = 3,
+	PLDM_STATESET_HEALTH_STATE_FATAL = 4,
+	PLDM_STATESET_HEALTH_STATE_UPPER_NON_CRITICAL = 5,
+	PLDM_STATESET_HEALTH_STATE_LOWER_NON_CRITICAL = 6,
+	PLDM_STATESET_HEALTH_STATE_UPPER_CRITICAL = 7,
+	PLDM_STATESET_HEALTH_STATE_LOWER_CRITICAL = 8,
+	PLDM_STATESET_HEALTH_STATE_LOWER_FATAL = 9,
+	PLDM_STATESET_HEALTH_STATE_UPPER_FATAL = 10
 };
 
 /** @brief PLDM state set ID 13 Presence values  */
@@ -527,8 +542,8 @@ enum pldm_stateset_powersupply_values {
 	PLDM_STATESET_POWERSUPPLY_OUTOFRANGE = 8
 };
 
-/** @brief PLDM state set ID 33 Remote Debug values  */
-enum pldm_stateset_remotedebug_values {
+/** @brief PLDM state set ID 33 Link State values  */
+enum pldm_stateset_link_state_values {
 	PLDM_STATESET_LINK_STATE_CONNECTED = 1,
 	PLDM_STATESET_LINK_STATE_DISCONNECTED = 2
 };

@@ -21,6 +21,10 @@ if get_option('oem-meta').allowed()
    subdir('oem/meta')
 endif
 
+if get_option('oem-nvidia').allowed()
+   subdir('oem/nvidia')
+endif
+
 libpldm = library(
   'pldm',
    libpldm_sources,

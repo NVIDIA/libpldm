@@ -42,5 +42,11 @@ if get_option('oem-meta').allowed()
   )
 endif
 
+if get_option('oem-nvidia').allowed()
+  libpldm_headers += files(
+    'oem/nvidia/energy_count_numeric_sensor_oem.h',
+    'oem/nvidia/state_set_oem_nvidia.h',
+  )
+endif
 
 install_headers(libpldm_headers, subdir: 'libpldm', preserve_path: true)
