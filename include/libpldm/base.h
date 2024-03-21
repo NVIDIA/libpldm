@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
 #ifndef BASE_H
 #define BASE_H
 
@@ -5,20 +6,25 @@
 extern "C" {
 #endif
 
+#include <libpldm/pldm_types.h>
+
 #include <asm/byteorder.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-#include "pldm_types.h"
+typedef uint8_t pldm_tid_t;
 
 /** @brief PLDM Types
  */
 enum pldm_supported_types {
 	PLDM_BASE = 0x00,
+	PLDM_SMBIOS = 0x01,
 	PLDM_PLATFORM = 0x02,
 	PLDM_BIOS = 0x03,
 	PLDM_FRU = 0x04,
 	PLDM_FWUP = 0x05,
+	PLDM_RDE = 0x06,
 	PLDM_OEM = 0x3F,
 };
 
@@ -49,6 +55,7 @@ enum pldm_completion_codes {
 enum transfer_op_flag {
 	PLDM_GET_NEXTPART = 0,
 	PLDM_GET_FIRSTPART = 1,
+	PLDM_ACKNOWLEDGEMENT_ONLY = 2,
 };
 
 enum transfer_multipart_op_flag {
@@ -84,24 +91,25 @@ typedef enum {
 	PLDM_ASYNC_REQUEST_NOTIFY, //!< Unacknowledged PLDM request messages
 } MessageType;
 
-#define PLDM_INSTANCE_MAX 31
-#define PLDM_MAX_TYPES 64
+#define PLDM_INSTANCE_MAX      31
+#define PLDM_MAX_TYPES	       64
 #define PLDM_MAX_CMDS_PER_TYPE 256
+#define PLDM_MAX_TIDS	       256
 
 /* Message payload lengths */
 #define PLDM_GET_COMMANDS_REQ_BYTES 5
-#define PLDM_GET_VERSION_REQ_BYTES 6
+#define PLDM_GET_VERSION_REQ_BYTES  6
 
 /* Response lengths are inclusive of completion code */
-#define PLDM_GET_TYPES_RESP_BYTES 9
-#define PLDM_GET_TID_RESP_BYTES 2
-#define PLDM_SET_TID_RESP_BYTES 1
+#define PLDM_GET_TYPES_RESP_BYTES    9
+#define PLDM_GET_TID_RESP_BYTES	     2
+#define PLDM_SET_TID_RESP_BYTES	     1
 #define PLDM_GET_COMMANDS_RESP_BYTES 33
 /* Response data has only one version and does not contain the checksum */
-#define PLDM_GET_VERSION_RESP_BYTES 10
+#define PLDM_GET_VERSION_RESP_BYTES	 10
 #define PLDM_MULTIPART_RECEIVE_REQ_BYTES 18
 
-#define PLDM_VERSION_0 0
+#define PLDM_VERSION_0	     0
 #define PLDM_CURRENT_VERSION PLDM_VERSION_0
 
 #define PLDM_TIMESTAMP104_SIZE 13
@@ -127,17 +135,17 @@ struct pldm_msg_hdr {
 	uint8_t type : 6;	//!< PLDM type
 	uint8_t header_ver : 2; //!< Header version
 #elif defined(__BIG_ENDIAN_BITFIELD)
-	uint8_t header_ver : 2;	 //!< Header version
-	uint8_t type : 6;	 //!< PLDM type
+	uint8_t header_ver : 2; //!< Header version
+	uint8_t type : 6;	//!< PLDM type
 #endif
 	uint8_t command; //!< PLDM command code
 } __attribute__((packed));
 
 // Macros for byte-swapping variables in-place
-#define HTOLE32(X) (X = htole32(X))
-#define HTOLE16(X) (X = htole16(X))
-#define LE32TOH(X) (X = le32toh(X))
-#define LE16TOH(X) (X = le16toh(X))
+#define HTOLE32(X) ((X) = htole32(X))
+#define HTOLE16(X) ((X) = htole16(X))
+#define LE32TOH(X) ((X) = le32toh(X))
+#define LE16TOH(X) ((X) = le16toh(X))
 
 /** @struct pldm_msg
  *
@@ -147,6 +155,22 @@ struct pldm_msg {
 	struct pldm_msg_hdr hdr; //!< PLDM message header
 	uint8_t payload[1]; //!< &payload[0] is the beginning of the payload
 } __attribute__((packed));
+
+/**
+ * @brief Compare the headers from two PLDM messages to determine if the latter
+ * is a message representing a response to the former, where the former must be
+ * a request.
+ *
+ * @param[in] req - A pointer to a PLDM header object, which must represent a
+ *                  request
+ * @param[in] resp - A pointer to a PLDM header object, which may represent a
+ *		     response to the provided request.
+ *
+ * @return true if the header pointed to by resp represents a message that is a
+ *	   response to the header pointed to by req, otherwise false.
+ */
+bool pldm_msg_hdr_correlate_response(const struct pldm_msg_hdr *req,
+				     const struct pldm_msg_hdr *resp);
 
 /** @struct pldm_header_info
  *
@@ -196,11 +220,9 @@ struct pldm_get_commands_resp {
  *  Structure representing PLDM get version request.
  */
 struct pldm_get_version_req {
-	uint32_t
-	    transfer_handle; //!< handle to identify PLDM version data transfer
+	uint32_t transfer_handle; //!< handle to identify PLDM version data transfer
 	uint8_t transfer_opflag; //!< PLDM GetVersion operation flag
-	uint8_t type; //!< PLDM Type for which version information is being
-		      //!< requested
+	uint8_t type; //!< PLDM Type for which version information is being requested
 } __attribute__((packed));
 
 /** @struct pldm_get_version_resp
@@ -537,10 +559,13 @@ int encode_set_tid_req(uint8_t instance_id, uint8_t tid, struct pldm_msg *msg);
  *  @param[out] section_length - The length of the requested section
  *  @return pldm_completion_codes
  */
-int decode_multipart_receive_req(
-    const struct pldm_msg *msg, size_t payload_length, uint8_t *pldm_type,
-    uint8_t *transfer_opflag, uint32_t *transfer_ctx, uint32_t *transfer_handle,
-    uint32_t *section_offset, uint32_t *section_length);
+int decode_multipart_receive_req(const struct pldm_msg *msg,
+				 size_t payload_length, uint8_t *pldm_type,
+				 uint8_t *transfer_opflag,
+				 uint32_t *transfer_ctx,
+				 uint32_t *transfer_handle,
+				 uint32_t *section_offset,
+				 uint32_t *section_length);
 
 /** @brief Create a PLDM response message containing only cc
  *
@@ -553,6 +578,15 @@ int decode_multipart_receive_req(
  */
 int encode_cc_only_resp(uint8_t instance_id, uint8_t type, uint8_t command,
 			uint8_t cc, struct pldm_msg *msg);
+
+/** @brief Decode PLDM response message containing only cc
+ *  @param[in] msg - Response message
+ *  @param[in] payload_length - Length of response message payload
+ *  @param[out] completion_code - Pointer to response msg's PLDM completion code
+ *  @return pldm_completion_codes
+ */
+int decode_cc_only_resp(const struct pldm_msg *msg, size_t payload_length,
+			uint8_t *completion_code);
 
 /** @brief Create a PLDM message only with the header
  *

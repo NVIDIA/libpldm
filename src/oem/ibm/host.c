@@ -1,10 +1,12 @@
-#include "base.h"
+/* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
+#include <libpldm/base.h>
+#include <libpldm/oem/ibm/host.h>
+
 #include <endian.h>
 #include <stdint.h>
 #include <string.h>
 
-#include "libpldm/host.h"
-
+LIBPLDM_ABI_STABLE
 int encode_get_alert_status_req(uint8_t instance_id, uint8_t version_id,
 				struct pldm_msg *msg, size_t payload_length)
 {
@@ -16,7 +18,7 @@ int encode_get_alert_status_req(uint8_t instance_id, uint8_t version_id,
 		return PLDM_ERROR_INVALID_LENGTH;
 	}
 
-	struct pldm_header_info header = {0};
+	struct pldm_header_info header = { 0 };
 	header.msg_type = PLDM_REQUEST;
 	header.instance = instance_id;
 	header.pldm_type = PLDM_OEM;
@@ -31,6 +33,7 @@ int encode_get_alert_status_req(uint8_t instance_id, uint8_t version_id,
 	return PLDM_SUCCESS;
 }
 
+LIBPLDM_ABI_STABLE
 int decode_get_alert_status_resp(const struct pldm_msg *msg,
 				 size_t payload_length,
 				 uint8_t *completion_code, uint32_t *rack_entry,
@@ -51,7 +54,7 @@ int decode_get_alert_status_resp(const struct pldm_msg *msg,
 	}
 
 	struct pldm_get_alert_status_resp *response =
-	    (struct pldm_get_alert_status_resp *)msg->payload;
+		(struct pldm_get_alert_status_resp *)msg->payload;
 
 	*rack_entry = le32toh(response->rack_entry);
 	*pri_cec_node = le32toh(response->pri_cec_node);
@@ -59,6 +62,7 @@ int decode_get_alert_status_resp(const struct pldm_msg *msg,
 	return PLDM_SUCCESS;
 }
 
+LIBPLDM_ABI_STABLE
 int decode_get_alert_status_req(const struct pldm_msg *msg,
 				size_t payload_length, uint8_t *version_id)
 {
@@ -75,6 +79,7 @@ int decode_get_alert_status_req(const struct pldm_msg *msg,
 	return PLDM_SUCCESS;
 }
 
+LIBPLDM_ABI_STABLE
 int encode_get_alert_status_resp(uint8_t instance_id, uint8_t completion_code,
 				 uint32_t rack_entry, uint32_t pri_cec_node,
 				 struct pldm_msg *msg, size_t payload_length)
@@ -87,7 +92,7 @@ int encode_get_alert_status_resp(uint8_t instance_id, uint8_t completion_code,
 		return PLDM_ERROR_INVALID_DATA;
 	}
 
-	struct pldm_header_info header = {0};
+	struct pldm_header_info header = { 0 };
 	header.msg_type = PLDM_RESPONSE;
 	header.instance = instance_id;
 	header.pldm_type = PLDM_OEM;
@@ -98,7 +103,7 @@ int encode_get_alert_status_resp(uint8_t instance_id, uint8_t completion_code,
 	}
 
 	struct pldm_get_alert_status_resp *response =
-	    (struct pldm_get_alert_status_resp *)msg->payload;
+		(struct pldm_get_alert_status_resp *)msg->payload;
 
 	response->completion_code = completion_code;
 	response->rack_entry = htole32(rack_entry);

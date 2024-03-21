@@ -1,13 +1,15 @@
 #include <endian.h>
-#include <string.h>
+#include <libpldm/base.h>
+#include <libpldm/entity.h>
+#include <libpldm/platform.h>
+#include <libpldm/pldm_types.h>
 
 #include <array>
 #include <cstdint>
+#include <cstring>
 #include <vector>
 
-#include "libpldm/base.h"
-#include "libpldm/platform.h"
-#include "pldm_types.h"
+#include "msgbuf.h"
 
 #include <gtest/gtest.h>
 
@@ -350,7 +352,7 @@ TEST(GetPDR, testBadDecodeResponse)
     uint8_t transferFlag = PLDM_END;
     constexpr uint16_t respCnt = 9;
     uint8_t transferCRC = 96;
-    size_t recordDataLength = 32;
+    size_t recordDataLength = respCnt - 1;
     std::array<uint8_t, hdrSize + PLDM_GET_PDR_MIN_RESP_BYTES + respCnt +
                             sizeof(transferCRC)>
         responseMsg{};
@@ -841,7 +843,7 @@ TEST(GetStateSensorReadings, testBadDecodeResponse)
            (sizeof(get_sensor_state_field) * comp_sensorCnt));
 
     rc = decode_get_state_sensor_readings_resp(
-        response, responseMsg.size() - hdrSize + 1, &retcompletion_code,
+        response, responseMsg.size() - hdrSize, &retcompletion_code,
         &retcomp_sensorCnt, retstateField.data());
 
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
@@ -1180,6 +1182,672 @@ TEST(PlatformEventMessageSupported, testBadDecodeRespond)
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
 }
 
+TEST(PollForPlatformEventMessage, testGoodEncodeRequest)
+{
+    uint8_t formatVersion = 0x01;
+    uint8_t transferOperationFlag = 0x1;
+    uint32_t dataTransferHandle = 0xffffffff;
+    uint16_t eventIdToAcknowledge = 0x0;
+
+    std::array<uint8_t,
+               hdrSize + PLDM_POLL_FOR_PLATFORM_EVENT_MESSAGE_REQ_BYTES>
+        requestMsg{};
+    auto request = reinterpret_cast<pldm_msg*>(requestMsg.data());
+
+    auto rc = encode_poll_for_platform_event_message_req(
+        0, formatVersion, transferOperationFlag, dataTransferHandle,
+        eventIdToAcknowledge, request,
+        PLDM_POLL_FOR_PLATFORM_EVENT_MESSAGE_REQ_BYTES);
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+
+    struct pldm_msgbuf _buf;
+    struct pldm_msgbuf* buf = &_buf;
+    rc = pldm_msgbuf_init(buf, PLDM_POLL_FOR_PLATFORM_EVENT_MESSAGE_REQ_BYTES,
+                          request->payload,
+                          PLDM_POLL_FOR_PLATFORM_EVENT_MESSAGE_REQ_BYTES);
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+
+    uint8_t retFormatVersion;
+    uint8_t retTransferOperationFlag;
+    uint32_t retDataTransferHandle;
+    uint16_t retEventIdToAcknowledge;
+
+    pldm_msgbuf_extract_uint8(buf, &retFormatVersion);
+    pldm_msgbuf_extract_uint8(buf, &retTransferOperationFlag);
+    pldm_msgbuf_extract_uint32(buf, &retDataTransferHandle);
+    pldm_msgbuf_extract_uint16(buf, &retEventIdToAcknowledge);
+
+    EXPECT_EQ(retFormatVersion, formatVersion);
+    EXPECT_EQ(retTransferOperationFlag, transferOperationFlag);
+    EXPECT_EQ(retDataTransferHandle, dataTransferHandle);
+    EXPECT_EQ(retEventIdToAcknowledge, eventIdToAcknowledge);
+    EXPECT_EQ(pldm_msgbuf_destroy(buf), PLDM_SUCCESS);
+}
+
+TEST(PollForPlatformEventMessage, testBadEncodeRequest)
+{
+    uint8_t formatVersion = 0x01;
+    uint8_t transferOperationFlag = 0x1;
+    uint32_t dataTransferHandle = 0xffffffff;
+    uint16_t eventIdToAcknowledge = 0x0;
+
+    std::array<uint8_t,
+               hdrSize + PLDM_POLL_FOR_PLATFORM_EVENT_MESSAGE_REQ_BYTES>
+        requestMsg{};
+    auto request = reinterpret_cast<pldm_msg*>(requestMsg.data());
+
+    auto rc = encode_poll_for_platform_event_message_req(
+        0, formatVersion, transferOperationFlag, dataTransferHandle,
+        eventIdToAcknowledge, nullptr,
+        PLDM_POLL_FOR_PLATFORM_EVENT_MESSAGE_REQ_BYTES);
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+
+    encode_poll_for_platform_event_message_req(
+        0, formatVersion, transferOperationFlag, dataTransferHandle,
+        eventIdToAcknowledge, request, hdrSize);
+}
+
+TEST(PollForPlatformEventMessage, testGoodDecodeRespond)
+{
+    uint8_t completionCode = PLDM_SUCCESS;
+    uint8_t tId = 0x9;
+    uint16_t eventId = 159;
+    uint32_t nextDataTransferHandle = 0x11223344;
+    uint8_t transferFlag = PLDM_START_AND_END;
+    uint8_t eventClass = 0x5;
+    uint8_t eventData[5] = {0x55, 0x44, 0x33, 0x22, 0x11};
+    constexpr uint32_t eventDataSize = 0x00000005;
+    uint32_t eventDataIntegrityChecksum = 0x66778899;
+
+    std::vector<uint8_t> responseMsg{
+        0x1,
+        0x0,
+        0x0,
+        PLDM_SUCCESS,
+        0x9, // tid
+        159,
+        0x0, // event id
+        0x44,
+        0x33,
+        0x22,
+        0x11,               // next_data_transfer_handle
+        PLDM_START_AND_END, // transfer_flag
+        0x05,               // event class
+        0x05,
+        0x00,
+        0x00,
+        0x00, // event_data_size
+        0x55,
+        0x44,
+        0x33,
+        0x22,
+        0x11, // event_data[5]
+        0x99,
+        0x88,
+        0x77,
+        0x66 // event_data_integrity_checksum
+    };
+    const uint32_t respMsgLen = 23;
+
+    auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
+
+    uint8_t retCompletionCode;
+    uint8_t retTid = 0;
+    uint16_t retEventId = 0;
+    uint32_t retNextDataTransferHandle = 0;
+    uint8_t retTransferFlag = 0;
+    uint8_t retEventClass = 0;
+    uint32_t retEventDataSize = 0;
+    uint8_t* retEventData = nullptr;
+    uint32_t retEventDataIntegrityChecksum = 0;
+
+    auto rc = decode_poll_for_platform_event_message_resp(
+        response, respMsgLen, &retCompletionCode, &retTid, &retEventId,
+        &retNextDataTransferHandle, &retTransferFlag, &retEventClass,
+        &retEventDataSize, (void**)&retEventData,
+        &retEventDataIntegrityChecksum);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(retCompletionCode, completionCode);
+    EXPECT_EQ(retTid, tId);
+    EXPECT_EQ(retEventId, eventId);
+    EXPECT_EQ(retNextDataTransferHandle, nextDataTransferHandle);
+    EXPECT_EQ(retTransferFlag, transferFlag);
+    EXPECT_EQ(retEventClass, eventClass);
+    EXPECT_EQ(retEventDataSize, eventDataSize);
+    EXPECT_EQ(retEventDataIntegrityChecksum, eventDataIntegrityChecksum);
+    EXPECT_EQ(0, memcmp(eventData, retEventData, eventDataSize));
+}
+
+TEST(PollForPlatformEventMessage, testGoodDecodeAckOnlyRespond)
+{
+    uint8_t completionCode = PLDM_SUCCESS;
+    uint8_t tId = 0x9;
+    uint16_t eventId = 0xffff;
+
+    std::vector<uint8_t> responseMsg{
+        0x1,  0x0, 0x0, PLDM_SUCCESS,
+        0x9, // tid
+        0xff,
+        0xff // event id
+    };
+    const uint32_t respMsgLen = 4;
+
+    auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
+
+    uint8_t retCompletionCode;
+    uint8_t retTid = 0;
+    uint16_t retEventId = 0;
+    uint32_t retNextDataTransferHandle = 0;
+    uint8_t retTransferFlag = 0;
+    uint8_t retEventClass = 0;
+    uint32_t retEventDataSize = 0;
+    uint8_t* retEventData = nullptr;
+    uint32_t retEventDataIntegrityChecksum = 0;
+
+    auto rc = decode_poll_for_platform_event_message_resp(
+        response, respMsgLen, &retCompletionCode, &retTid, &retEventId,
+        &retNextDataTransferHandle, &retTransferFlag, &retEventClass,
+        &retEventDataSize, (void**)&retEventData,
+        &retEventDataIntegrityChecksum);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(retCompletionCode, completionCode);
+    EXPECT_EQ(retTid, tId);
+    EXPECT_EQ(retEventId, eventId);
+
+    eventId = 0x0000;
+    responseMsg[5] = 0x00;
+    responseMsg[6] = 0x00;
+    response = reinterpret_cast<pldm_msg*>(responseMsg.data());
+
+    rc = decode_poll_for_platform_event_message_resp(
+        response, respMsgLen, &retCompletionCode, &retTid, &retEventId,
+        &retNextDataTransferHandle, &retTransferFlag, &retEventClass,
+        &retEventDataSize, (void**)&retEventData,
+        &retEventDataIntegrityChecksum);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(retCompletionCode, completionCode);
+    EXPECT_EQ(retTid, tId);
+    EXPECT_EQ(retEventId, eventId);
+}
+
+TEST(PollForPlatformEventMessage, testBadDecodeRespond)
+{
+    std::vector<uint8_t> responseMsg{
+        0x1,
+        0x0,
+        0x0,
+        PLDM_SUCCESS,
+        0x9, // tid
+        159,
+        0x0, // event id
+        0x44,
+        0x33,
+        0x22,
+        0x11,               // next_data_transfer_handle
+        PLDM_START_AND_END, // transfer_flag
+        0x05,               // event class
+        0x05,
+        0x00,
+        0x00,
+        0x00, // event_data_size
+        0x55,
+        0x44,
+        0x33,
+        0x22,
+        0x11, // event_data[5]
+        0x99,
+        0x88,
+        0x77,
+        0x66 // event_data_integrity_checksum
+    };
+    // const uint32_t respMsgLen = 23;
+
+    auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
+
+    auto rc = decode_poll_for_platform_event_message_resp(
+        nullptr, 0, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
+        nullptr, nullptr, nullptr);
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+
+    uint8_t retCompletionCode;
+    uint8_t retTid = 0;
+    uint16_t retEventId = 0;
+    uint32_t retNextDataTransferHandle = 0;
+    uint8_t retTransferFlag = 0;
+    uint8_t retEventClass = 0;
+    uint32_t retEventDataSize = 0;
+    uint8_t* retEventData = nullptr;
+    uint32_t retEventDataIntegrityChecksum = 0;
+
+    rc = decode_poll_for_platform_event_message_resp(
+        response, PLDM_POLL_FOR_PLATFORM_EVENT_MESSAGE_MIN_RESP_BYTES - 1,
+        &retCompletionCode, &retTid, &retEventId, &retNextDataTransferHandle,
+        &retTransferFlag, &retEventClass, &retEventDataSize,
+        (void**)&retEventData, &retEventDataIntegrityChecksum);
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
+}
+
+TEST(PollForPlatformEventMessage, testGoodDecodeRequestFirstPart)
+{
+    uint8_t formatVersion = 0x1;
+    uint8_t transferOperationFlag = PLDM_GET_FIRSTPART;
+    uint32_t dataTransferHandle = 0x11223344;
+    uint16_t eventIdToAcknowledge = 0x0;
+    std::vector<uint8_t> requestMsg{0x1,  0x0,  0x0,  0x1,  PLDM_GET_FIRSTPART,
+                                    0x44, 0x33, 0x22, 0x11, 0x00,
+                                    0x00};
+    auto request = reinterpret_cast<pldm_msg*>(requestMsg.data());
+
+    uint8_t retFormatVersion;
+    uint8_t retTransferOperationFlag;
+    uint32_t retDataTransferHandle;
+    uint16_t retEventIdToAcknowledge;
+
+    auto rc = decode_poll_for_platform_event_message_req(
+        request, requestMsg.size() - hdrSize, &retFormatVersion,
+        &retTransferOperationFlag, &retDataTransferHandle,
+        &retEventIdToAcknowledge);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(retFormatVersion, formatVersion);
+    EXPECT_EQ(retTransferOperationFlag, transferOperationFlag);
+    EXPECT_EQ(retDataTransferHandle, dataTransferHandle);
+    EXPECT_EQ(retEventIdToAcknowledge, eventIdToAcknowledge);
+}
+
+TEST(PollForPlatformEventMessage, testGoodDecodeRequestNextPart)
+{
+    uint8_t formatVersion = 0x1;
+    uint8_t transferOperationFlag = PLDM_GET_NEXTPART;
+    uint32_t dataTransferHandle = 0x11223344;
+    uint16_t eventIdToAcknowledge = 0xffff;
+    std::vector<uint8_t> requestMsg{0x1,  0x0,  0x0,  0x1,  PLDM_GET_NEXTPART,
+                                    0x44, 0x33, 0x22, 0x11, 0xff,
+                                    0xff};
+    auto request = reinterpret_cast<pldm_msg*>(requestMsg.data());
+
+    uint8_t retFormatVersion;
+    uint8_t retTransferOperationFlag;
+    uint32_t retDataTransferHandle;
+    uint16_t retEventIdToAcknowledge;
+
+    auto rc = decode_poll_for_platform_event_message_req(
+        request, requestMsg.size() - hdrSize, &retFormatVersion,
+        &retTransferOperationFlag, &retDataTransferHandle,
+        &retEventIdToAcknowledge);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(retFormatVersion, formatVersion);
+    EXPECT_EQ(retTransferOperationFlag, transferOperationFlag);
+    EXPECT_EQ(retDataTransferHandle, dataTransferHandle);
+    EXPECT_EQ(retEventIdToAcknowledge, eventIdToAcknowledge);
+}
+
+TEST(PollForPlatformEventMessage, testGoodDecodeRequestAck)
+{
+    uint8_t formatVersion = 0x1;
+    uint8_t transferOperationFlag = PLDM_ACKNOWLEDGEMENT_ONLY;
+    uint32_t dataTransferHandle = 0x11223344;
+    uint16_t eventIdToAcknowledge = 0xffff;
+    std::vector<uint8_t> requestMsg{
+        0x1,  0x0,  0x0,  0x1, PLDM_ACKNOWLEDGEMENT_ONLY, 0x44, 0x33,
+        0x22, 0x11, 0xff, 0xff};
+    auto request = reinterpret_cast<pldm_msg*>(requestMsg.data());
+
+    uint8_t retFormatVersion;
+    uint8_t retTransferOperationFlag;
+    uint32_t retDataTransferHandle;
+    uint16_t retEventIdToAcknowledge;
+
+    auto rc = decode_poll_for_platform_event_message_req(
+        request, requestMsg.size() - hdrSize, &retFormatVersion,
+        &retTransferOperationFlag, &retDataTransferHandle,
+        &retEventIdToAcknowledge);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(retFormatVersion, formatVersion);
+    EXPECT_EQ(retTransferOperationFlag, transferOperationFlag);
+    EXPECT_EQ(retDataTransferHandle, dataTransferHandle);
+    EXPECT_EQ(retEventIdToAcknowledge, eventIdToAcknowledge);
+}
+
+TEST(PollForPlatformEventMessage, testBadDecodeRequest)
+{
+    std::vector<uint8_t> requestMsg{0x1,  0x0,  0x0,  0x1,  PLDM_GET_FIRSTPART,
+                                    0x44, 0x33, 0x22, 0x11, 0x66,
+                                    0x55};
+    auto request = reinterpret_cast<pldm_msg*>(requestMsg.data());
+
+    uint8_t retFormatVersion;
+    uint8_t retTransferOperationFlag;
+    uint32_t retDataTransferHandle;
+    uint16_t retEventIdToAcknowledge;
+
+    auto rc = decode_poll_for_platform_event_message_req(
+        NULL, requestMsg.size() - hdrSize, &retFormatVersion,
+        &retTransferOperationFlag, &retDataTransferHandle,
+        &retEventIdToAcknowledge);
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+
+    /*
+     * transfer_operation_flag is not PLDM_GET_FIRSTPART or PLDM_GET_NEXTPART or
+     * PLDM_ACKNOWLEDGEMENT_ONLY
+     */
+
+    requestMsg[4] = PLDM_ACKNOWLEDGEMENT_ONLY + 1;
+
+    rc = decode_poll_for_platform_event_message_req(
+        request, requestMsg.size() - hdrSize, &retFormatVersion,
+        &retTransferOperationFlag, &retDataTransferHandle,
+        &retEventIdToAcknowledge);
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+    /*
+     * transfer_operation_flag is PLDM_GET_FIRSTPART and
+     * event_id_to_acknowledge not 0x0000
+     */
+    requestMsg[4] = PLDM_GET_FIRSTPART;
+    requestMsg[9] = 0x0;
+    requestMsg[10] = 0x1;
+
+    rc = decode_poll_for_platform_event_message_req(
+        request, requestMsg.size() - hdrSize, &retFormatVersion,
+        &retTransferOperationFlag, &retDataTransferHandle,
+        &retEventIdToAcknowledge);
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+
+    /*
+     * transfer_operation_flag is not PLDM_GET_FIRSTPART and
+     * event_id_to_acknowledge is 0x0000
+     */
+    requestMsg[4] = PLDM_GET_NEXTPART;
+    requestMsg[9] = 0x0;
+    requestMsg[10] = 0x0;
+
+    rc = decode_poll_for_platform_event_message_req(
+        request, requestMsg.size() - hdrSize, &retFormatVersion,
+        &retTransferOperationFlag, &retDataTransferHandle,
+        &retEventIdToAcknowledge);
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+
+    /*
+     * transfer_operation_flag is PLDM_GET_NEXTPART and
+     * event_id_to_acknowledge not 0xffff
+     */
+    requestMsg[4] = PLDM_GET_NEXTPART;
+    requestMsg[9] = 0x0;
+    requestMsg[10] = 0x1;
+
+    rc = decode_poll_for_platform_event_message_req(
+        request, requestMsg.size() - hdrSize, &retFormatVersion,
+        &retTransferOperationFlag, &retDataTransferHandle,
+        &retEventIdToAcknowledge);
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+
+    /*
+     * transfer_operation_flag is not PLDM_GET_NEXTPART and
+     * event_id_to_acknowledge is 0xffff
+     */
+    requestMsg[4] = PLDM_GET_FIRSTPART;
+    requestMsg[9] = 0xff;
+    requestMsg[10] = 0xff;
+
+    rc = decode_poll_for_platform_event_message_req(
+        request, requestMsg.size() - hdrSize, &retFormatVersion,
+        &retTransferOperationFlag, &retDataTransferHandle,
+        &retEventIdToAcknowledge);
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+}
+
+TEST(PollForPlatformEventMessage, testGoodEncodeResposeP1)
+{
+    uint8_t completionCode = PLDM_SUCCESS;
+    uint8_t instance_id = 0;
+    uint8_t tId = 0x9;
+    uint16_t eventId = 0x1;
+    uint32_t nextDataTransferHandle = 0xffff;
+    uint8_t transferFlag = PLDM_END;
+    uint8_t eventClass = 0x5;
+    constexpr uint32_t eventDataSize = 9;
+    uint8_t pEventData[eventDataSize] = {0x31, 0x32, 0x33, 0x34, 0x35,
+                                         0x36, 0x37, 0x38, 0x39};
+    uint32_t eventDataIntegrityChecksum = 0x11223344;
+    constexpr size_t payloadLength =
+        PLDM_POLL_FOR_PLATFORM_EVENT_MESSAGE_RESP_BYTES + eventDataSize + 4;
+
+    std::array<uint8_t, hdrSize + payloadLength> responseMsg{};
+    auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
+
+    auto rc = encode_poll_for_platform_event_message_resp(
+        instance_id, completionCode, tId, eventId, nextDataTransferHandle,
+        transferFlag, eventClass, eventDataSize, pEventData,
+        eventDataIntegrityChecksum, response, payloadLength);
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+
+    struct pldm_msgbuf _buf;
+    struct pldm_msgbuf* buf = &_buf;
+    rc = pldm_msgbuf_init(buf,
+                          PLDM_POLL_FOR_PLATFORM_EVENT_MESSAGE_MIN_RESP_BYTES,
+                          response->payload, payloadLength);
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+
+    uint8_t retCompletionCode;
+    uint8_t retTid = 0;
+    uint16_t retEventId = 0;
+    uint32_t retNextDataTransferHandle = 0;
+    uint8_t retTransferFlag = 0;
+    uint8_t retEventClass = 0;
+    uint32_t retEventDataSize = 0;
+    uint8_t retEventData[payloadLength] = {0};
+    uint32_t retEventDataIntegrityChecksum = 0;
+
+    pldm_msgbuf_extract_uint8(buf, &retCompletionCode);
+    pldm_msgbuf_extract_uint8(buf, &retTid);
+    pldm_msgbuf_extract_uint16(buf, &retEventId);
+    pldm_msgbuf_extract_uint32(buf, &retNextDataTransferHandle);
+    pldm_msgbuf_extract_uint8(buf, &retTransferFlag);
+    pldm_msgbuf_extract_uint8(buf, &retEventClass);
+    pldm_msgbuf_extract_uint32(buf, &retEventDataSize);
+    pldm_msgbuf_extract_array_uint8(buf, retEventData, retEventDataSize);
+    pldm_msgbuf_extract_uint32(buf, &retEventDataIntegrityChecksum);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(retCompletionCode, completionCode);
+    EXPECT_EQ(retTid, tId);
+    EXPECT_EQ(retEventId, eventId);
+    EXPECT_EQ(retNextDataTransferHandle, nextDataTransferHandle);
+    EXPECT_EQ(retTransferFlag, transferFlag);
+    EXPECT_EQ(retEventClass, eventClass);
+    EXPECT_EQ(retEventDataSize, eventDataSize);
+    EXPECT_EQ(retEventDataIntegrityChecksum, eventDataIntegrityChecksum);
+    EXPECT_EQ(0, memcmp(pEventData, retEventData, eventDataSize));
+
+    EXPECT_EQ(pldm_msgbuf_destroy(buf), PLDM_SUCCESS);
+}
+
+TEST(PollForPlatformEventMessage, testGoodEncodeResposeP2)
+{
+    uint8_t completionCode = PLDM_SUCCESS;
+    uint8_t instance_id = 0;
+    uint8_t tId = 0x9;
+    uint16_t eventId = 0x0000;
+    constexpr size_t payloadLength =
+        PLDM_POLL_FOR_PLATFORM_EVENT_MESSAGE_MIN_RESP_BYTES;
+
+    std::array<uint8_t, hdrSize + payloadLength> responseMsg{};
+    auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
+
+    auto rc = encode_poll_for_platform_event_message_resp(
+        instance_id, completionCode, tId, eventId, 0, 0, 0, 0, NULL, 0,
+        response, payloadLength);
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+
+    struct pldm_msgbuf _buf;
+    struct pldm_msgbuf* buf = &_buf;
+    rc = pldm_msgbuf_init(buf,
+                          PLDM_POLL_FOR_PLATFORM_EVENT_MESSAGE_MIN_RESP_BYTES,
+                          response->payload, payloadLength);
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+
+    uint8_t retCompletionCode;
+    uint8_t retTid = 0;
+    uint16_t retEventId = 0;
+
+    pldm_msgbuf_extract_uint8(buf, &retCompletionCode);
+    pldm_msgbuf_extract_uint8(buf, &retTid);
+    pldm_msgbuf_extract_uint16(buf, &retEventId);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(retCompletionCode, completionCode);
+    EXPECT_EQ(retTid, tId);
+    EXPECT_EQ(retEventId, eventId);
+    EXPECT_EQ(pldm_msgbuf_destroy(buf), PLDM_SUCCESS);
+}
+
+TEST(PollForPlatformEventMessage, testGoodEncodeResposeP3)
+{
+    uint8_t completionCode = PLDM_SUCCESS;
+    uint8_t instance_id = 0;
+    uint8_t tId = 0x9;
+    uint16_t eventId = 0xffff;
+    constexpr size_t payloadLength =
+        PLDM_POLL_FOR_PLATFORM_EVENT_MESSAGE_MIN_RESP_BYTES;
+
+    std::array<uint8_t, hdrSize + payloadLength> responseMsg{};
+    auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
+
+    auto rc = encode_poll_for_platform_event_message_resp(
+        instance_id, completionCode, tId, eventId, 0, 0, 0, 0, NULL, 0,
+        response, payloadLength);
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+
+    struct pldm_msgbuf _buf;
+    struct pldm_msgbuf* buf = &_buf;
+    rc = pldm_msgbuf_init(buf,
+                          PLDM_POLL_FOR_PLATFORM_EVENT_MESSAGE_MIN_RESP_BYTES,
+                          response->payload, payloadLength);
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+
+    uint8_t retCompletionCode;
+    uint8_t retTid = 0;
+    uint16_t retEventId = 0;
+
+    pldm_msgbuf_extract_uint8(buf, &retCompletionCode);
+    pldm_msgbuf_extract_uint8(buf, &retTid);
+    pldm_msgbuf_extract_uint16(buf, &retEventId);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(retCompletionCode, completionCode);
+    EXPECT_EQ(retTid, tId);
+    EXPECT_EQ(retEventId, eventId);
+    EXPECT_EQ(pldm_msgbuf_destroy(buf), PLDM_SUCCESS);
+}
+
+TEST(PollForPlatformEventMessage, testGoodEncodeResposeP4)
+{
+    uint8_t completionCode = PLDM_SUCCESS;
+    uint8_t instance_id = 0;
+    uint8_t tId = 0x9;
+    uint16_t eventId = 0x1;
+    uint32_t nextDataTransferHandle = 0xffff;
+    uint8_t transferFlag = PLDM_END;
+    uint8_t eventClass = 0x5;
+    constexpr uint32_t eventDataSize = 0;
+    uint32_t eventDataIntegrityChecksum = 0x11223344;
+    size_t payloadLength =
+        PLDM_POLL_FOR_PLATFORM_EVENT_MESSAGE_RESP_BYTES + eventDataSize + 4;
+
+    std::array<uint8_t, hdrSize +
+                            PLDM_POLL_FOR_PLATFORM_EVENT_MESSAGE_RESP_BYTES +
+                            eventDataSize + 4>
+        responseMsg{};
+    auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
+
+    auto rc = encode_poll_for_platform_event_message_resp(
+        instance_id, completionCode, tId, eventId, nextDataTransferHandle,
+        transferFlag, eventClass, eventDataSize, NULL,
+        eventDataIntegrityChecksum, response, payloadLength);
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+
+    struct pldm_msgbuf _buf;
+    struct pldm_msgbuf* buf = &_buf;
+    rc = pldm_msgbuf_init(buf,
+                          PLDM_POLL_FOR_PLATFORM_EVENT_MESSAGE_MIN_RESP_BYTES,
+                          response->payload, payloadLength);
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+
+    uint8_t retCompletionCode;
+    uint8_t retTid = 0;
+    uint16_t retEventId = 0;
+    uint32_t retNextDataTransferHandle = 0;
+    uint8_t retTransferFlag = 0;
+    uint8_t retEventClass = 0;
+    uint32_t retEventDataSize = 0;
+    uint32_t retEventDataIntegrityChecksum = 0;
+
+    pldm_msgbuf_extract_uint8(buf, &retCompletionCode);
+    pldm_msgbuf_extract_uint8(buf, &retTid);
+    pldm_msgbuf_extract_uint16(buf, &retEventId);
+    pldm_msgbuf_extract_uint32(buf, &retNextDataTransferHandle);
+    pldm_msgbuf_extract_uint8(buf, &retTransferFlag);
+    pldm_msgbuf_extract_uint8(buf, &retEventClass);
+    pldm_msgbuf_extract_uint32(buf, &retEventDataSize);
+    pldm_msgbuf_extract_uint32(buf, &retEventDataIntegrityChecksum);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(retCompletionCode, completionCode);
+    EXPECT_EQ(retTid, tId);
+    EXPECT_EQ(retEventId, eventId);
+    EXPECT_EQ(retNextDataTransferHandle, nextDataTransferHandle);
+    EXPECT_EQ(retTransferFlag, transferFlag);
+    EXPECT_EQ(retEventClass, eventClass);
+    EXPECT_EQ(retEventDataSize, eventDataSize);
+    EXPECT_EQ(retEventDataIntegrityChecksum, eventDataIntegrityChecksum);
+
+    EXPECT_EQ(pldm_msgbuf_destroy(buf), PLDM_SUCCESS);
+}
+
+TEST(PollForPlatformEventMessage, testBadEncodeResponse)
+{
+    uint8_t completionCode = PLDM_SUCCESS;
+    uint8_t instance_id = 0;
+    uint8_t tId = 0x9;
+    uint16_t eventId = 0x1;
+    uint32_t nextDataTransferHandle = 0xffff;
+    uint8_t transferFlag = 0x0;
+    uint8_t eventClass = 0x5;
+    const uint32_t eventDataSize = 0;
+    uint32_t eventDataIntegrityChecksum = 0x11223344;
+    constexpr size_t payloadLength =
+        PLDM_POLL_FOR_PLATFORM_EVENT_MESSAGE_RESP_BYTES + eventDataSize + 4;
+
+    std::array<uint8_t, hdrSize + payloadLength> responseMsg{};
+    auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
+
+    auto rc = encode_poll_for_platform_event_message_resp(
+        instance_id, completionCode, tId, eventId, nextDataTransferHandle,
+        transferFlag, eventClass, eventDataSize, NULL,
+        eventDataIntegrityChecksum, NULL, payloadLength);
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+
+    rc = encode_poll_for_platform_event_message_resp(
+        instance_id, completionCode, tId, eventId, nextDataTransferHandle,
+        transferFlag, eventClass, 1, NULL, eventDataIntegrityChecksum, response,
+        payloadLength);
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+}
+
 TEST(PlatformEventMessage, testGoodStateSensorDecodeRequest)
 {
     std::array<uint8_t,
@@ -1456,6 +2124,155 @@ TEST(PlatformEventMessage, testBadSensorEventDataDecodeRequest)
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
 }
 
+#ifdef LIBPLDM_API_TESTING
+TEST(PlatformEventMessage, testGoodPldmMsgPollEventDataDecodeRequest)
+{
+    std::array<uint8_t, PLDM_PLATFORM_EVENT_MESSAGE_FORMAT_VERSION +
+                            PLDM_PLATFORM_EVENT_MESSAGE_EVENT_ID +
+                            PLDM_PLATFORM_EVENT_MESSAGE_TRANFER_HANDLE>
+        eventData{
+            0x1,                   // version
+            0x88, 0x77,            // Event Id
+            0x44, 0x33, 0x22, 0x11 // Tranfer Handle
+        };
+
+    uint8_t formatVersion = 0x01;
+    uint16_t eventID = 0x7788;
+    uint32_t dataTransferHandle = 0x11223344;
+
+    uint8_t retFormatVersion;
+    uint16_t reteventID;
+    uint32_t retDataTransferHandle;
+
+    auto rc = decode_pldm_message_poll_event_data(
+        reinterpret_cast<uint8_t*>(eventData.data()), eventData.size(),
+        &retFormatVersion, &reteventID, &retDataTransferHandle);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(retFormatVersion, formatVersion);
+    EXPECT_EQ(reteventID, eventID);
+    EXPECT_EQ(retDataTransferHandle, dataTransferHandle);
+}
+#endif
+
+#ifdef LIBPLDM_API_TESTING
+TEST(PlatformEventMessage, testBadPldmMsgPollEventDataDecodeRequest)
+{
+
+    std::array<uint8_t, PLDM_PLATFORM_EVENT_MESSAGE_FORMAT_VERSION +
+                            PLDM_PLATFORM_EVENT_MESSAGE_EVENT_ID +
+                            PLDM_PLATFORM_EVENT_MESSAGE_TRANFER_HANDLE>
+        eventData{
+            0x1,                   // version
+            0x88, 0x77,            // Event Id
+            0x44, 0x33, 0x22, 0x11 // Tranfer Handle
+        };
+
+    uint8_t retFormatVersion;
+    uint16_t reteventID;
+    uint32_t retDataTransferHandle;
+
+    auto rc = decode_pldm_message_poll_event_data(
+        NULL, eventData.size(), &retFormatVersion, &reteventID,
+        &retDataTransferHandle);
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+
+    rc = decode_pldm_message_poll_event_data(
+        reinterpret_cast<uint8_t*>(eventData.data()), eventData.size() - 1,
+        &retFormatVersion, &reteventID, &retDataTransferHandle);
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
+
+    // Event id is 0x0000
+    eventData[1] = 0x00;
+    eventData[2] = 0x00;
+    rc = decode_pldm_message_poll_event_data(
+        reinterpret_cast<uint8_t*>(eventData.data()), eventData.size(),
+        &retFormatVersion, &reteventID, &retDataTransferHandle);
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+
+    // Event id is 0xffff
+    eventData[1] = 0xff;
+    eventData[2] = 0xff;
+    rc = decode_pldm_message_poll_event_data(
+        reinterpret_cast<uint8_t*>(eventData.data()), eventData.size(),
+        &retFormatVersion, &reteventID, &retDataTransferHandle);
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+}
+#endif
+
+#ifdef LIBPLDM_API_TESTING
+TEST(PlatformEventMessage, testGoodPldmMsgPollEventDataEncode)
+{
+    std::array<uint8_t, PLDM_PLATFORM_EVENT_MESSAGE_FORMAT_VERSION +
+                            PLDM_PLATFORM_EVENT_MESSAGE_EVENT_ID +
+                            PLDM_PLATFORM_EVENT_MESSAGE_TRANFER_HANDLE>
+        eventData{};
+
+    uint8_t formatVersion = 0x01;
+    uint16_t eventID = 0x7788;
+    uint32_t dataTransferHandle = 0x11223344;
+
+    int rc = encode_pldm_message_poll_event_data(
+        formatVersion, eventID, dataTransferHandle,
+        reinterpret_cast<uint8_t*>(eventData.data()), eventData.size());
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+
+    struct pldm_msgbuf _buf;
+    struct pldm_msgbuf* buf = &_buf;
+
+    rc = pldm_msgbuf_init(buf, PLDM_MSG_POLL_EVENT_LENGTH,
+                          reinterpret_cast<uint8_t*>(eventData.data()),
+                          eventData.size());
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+
+    uint8_t retFormatVersion;
+    uint16_t reteventID;
+    uint32_t retDataTransferHandle;
+
+    EXPECT_EQ(pldm_msgbuf_extract_uint8(buf, &retFormatVersion), PLDM_SUCCESS);
+    EXPECT_EQ(pldm_msgbuf_extract_uint16(buf, &reteventID), PLDM_SUCCESS);
+    EXPECT_EQ(pldm_msgbuf_extract_uint32(buf, &retDataTransferHandle),
+              PLDM_SUCCESS);
+    EXPECT_EQ(retFormatVersion, formatVersion);
+    EXPECT_EQ(reteventID, eventID);
+    EXPECT_EQ(retDataTransferHandle, dataTransferHandle);
+    EXPECT_EQ(pldm_msgbuf_destroy_consumed(buf), PLDM_SUCCESS);
+}
+#endif
+
+#ifdef LIBPLDM_API_TESTING
+TEST(PlatformEventMessage, testBadPldmMsgPollEventDataEncode)
+{
+    std::array<uint8_t, PLDM_PLATFORM_EVENT_MESSAGE_FORMAT_VERSION +
+                            PLDM_PLATFORM_EVENT_MESSAGE_EVENT_ID +
+                            PLDM_PLATFORM_EVENT_MESSAGE_TRANFER_HANDLE>
+        eventData{};
+
+    uint8_t formatVersion = 0x01;
+    uint16_t eventID = 0x7788;
+    uint32_t dataTransferHandle = 0x11223344;
+
+    int rc = encode_pldm_message_poll_event_data(
+        formatVersion, eventID, dataTransferHandle, NULL, eventData.size());
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+
+    eventID = 0x0000;
+    rc = encode_pldm_message_poll_event_data(
+        formatVersion, eventID, dataTransferHandle,
+        reinterpret_cast<uint8_t*>(eventData.data()), eventData.size());
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+
+    eventID = 0xffff;
+    rc = encode_pldm_message_poll_event_data(
+        formatVersion, eventID, dataTransferHandle,
+        reinterpret_cast<uint8_t*>(eventData.data()), eventData.size());
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+}
+#endif
+
 TEST(PlatformEventMessage, testGoodSensorOpEventDataDecodeRequest)
 {
     std::array<uint8_t, PLDM_SENSOR_EVENT_SENSOR_OP_STATE_DATA_LENGTH>
@@ -1564,14 +2381,11 @@ TEST(PlatformEventMessage, testGoodNumericSensorEventDataDecodeRequest)
     sensorData->event_state = eventState;
     sensorData->previous_event_state = previousEventState;
     sensorData->sensor_data_size = sensorDataSize;
-    sensorData->present_reading[3] =
-        static_cast<uint8_t>(htole32(presentReading) & (0x000000ff));
-    sensorData->present_reading[2] =
-        static_cast<uint8_t>((htole32(presentReading) & (0x0000ff00)) >> 8);
-    sensorData->present_reading[1] =
-        static_cast<uint8_t>((htole32(presentReading) & (0x00ff0000)) >> 16);
-    sensorData->present_reading[0] =
-        static_cast<uint8_t>((htole32(presentReading) & (0xff000000)) >> 24);
+    {
+        uint32_t presentReadingLE = htole32(presentReading);
+        memcpy(&sensorData->present_reading, &presentReadingLE,
+               sizeof(presentReadingLE));
+    }
 
     uint8_t retEventState;
     uint8_t retPreviousEventState;
@@ -1589,10 +2403,11 @@ TEST(PlatformEventMessage, testGoodNumericSensorEventDataDecodeRequest)
     EXPECT_EQ(retPresentReading, presentReading);
 
     int16_t presentReadingNew = -31432;
-    sensorData->present_reading[1] =
-        static_cast<uint8_t>(htole16(presentReadingNew) & (0x000000ff));
-    sensorData->present_reading[0] =
-        static_cast<uint8_t>((htole16(presentReadingNew) & (0x0000ff00)) >> 8);
+    {
+        int16_t presentReadingNewLE = htole16(presentReadingNew);
+        memcpy(&sensorData->present_reading, &presentReadingNewLE,
+               sizeof(presentReadingNewLE));
+    }
     sensorDataSize = PLDM_SENSOR_DATA_SIZE_SINT16;
     sensorData->sensor_data_size = sensorDataSize;
     sensorDataLength = PLDM_SENSOR_EVENT_NUMERIC_SENSOR_STATE_16BIT_DATA_LENGTH;
@@ -1639,12 +2454,6 @@ TEST(PlatformEventMessage, testBadNumericSensorEventDataDecodeRequest)
     numericSensorData->sensor_data_size = PLDM_SENSOR_DATA_SIZE_UINT16;
     rc = decode_numeric_sensor_data(
         reinterpret_cast<uint8_t*>(sensorData.data()), sensorDataLength,
-        &eventState, &previousEventState, &sensorDataSize, &presentReading);
-    EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
-
-    numericSensorData->sensor_data_size = PLDM_SENSOR_DATA_SIZE_UINT32;
-    rc = decode_numeric_sensor_data(
-        reinterpret_cast<uint8_t*>(sensorData.data()), sensorDataLength - 1,
         &eventState, &previousEventState, &sensorDataSize, &presentReading);
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
 }
@@ -1731,6 +2540,8 @@ TEST(GetNumericEffecterValue, testGoodEncodeResponse)
     uint8_t effecter_operState = EFFECTER_OPER_STATE_ENABLED_NOUPDATEPENDING;
     uint32_t pendingValue = 0x12345678;
     uint32_t presentValue = 0xABCDEF11;
+    uint32_t val_pending;
+    uint32_t val_present;
 
     std::array<uint8_t,
                hdrSize + PLDM_GET_NUMERIC_EFFECTER_VALUE_MIN_RESP_BYTES + 6>
@@ -1747,16 +2558,18 @@ TEST(GetNumericEffecterValue, testGoodEncodeResponse)
         reinterpret_cast<struct pldm_get_numeric_effecter_value_resp*>(
             response->payload);
 
-    uint32_t* val_pending = (uint32_t*)(&resp->pending_and_present_values[0]);
-    *val_pending = le32toh(*val_pending);
-    uint32_t* val_present = (uint32_t*)(&resp->pending_and_present_values[4]);
-    *val_present = le32toh(*val_present);
+    memcpy(&val_pending, &resp->pending_and_present_values[0],
+           sizeof(val_pending));
+    val_pending = le32toh(val_pending);
+    memcpy(&val_present, &resp->pending_and_present_values[4],
+           sizeof(val_present));
+    val_present = le32toh(val_present);
 
     EXPECT_EQ(rc, PLDM_SUCCESS);
     EXPECT_EQ(effecter_dataSize, resp->effecter_data_size);
     EXPECT_EQ(effecter_operState, resp->effecter_oper_state);
-    EXPECT_EQ(pendingValue, *val_pending);
-    EXPECT_EQ(presentValue, *val_present);
+    EXPECT_EQ(pendingValue, val_pending);
+    EXPECT_EQ(presentValue, val_present);
 }
 
 TEST(GetNumericEffecterValue, testBadEncodeResponse)
@@ -2434,4 +3247,1092 @@ TEST(SetEventReceiver, testBadDecodeRequest)
         &rettransportProtocolType, &reteventReceiverAddressInfo,
         &retheartbeatTimer);
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
+}
+
+TEST(decodeNumericSensorPdrData, Uint8Test)
+{
+    std::vector<uint8_t> pdr1{
+        0x1,
+        0x0,
+        0x0,
+        0x0,                     // record handle
+        0x1,                     // PDRHeaderVersion
+        PLDM_NUMERIC_SENSOR_PDR, // PDRType
+        0x0,
+        0x0, // recordChangeNumber
+        PLDM_PDR_NUMERIC_SENSOR_PDR_MIN_LENGTH,
+        0, // dataLength
+        0,
+        0, // PLDMTerminusHandle
+        0x1,
+        0x0, // sensorID=1
+        PLDM_ENTITY_POWER_SUPPLY,
+        0, // entityType=Power Supply(120)
+        1,
+        0, // entityInstanceNumber
+        1,
+        0,                           // containerID=1
+        PLDM_NO_INIT,                // sensorInit
+        false,                       // sensorAuxiliaryNamesPDR
+        PLDM_SENSOR_UNIT_DEGRESS_C,  // baseUint(2)=degrees C
+        0,                           // unitModifier
+        0,                           // rateUnit
+        0,                           // baseOEMUnitHandle
+        0,                           // auxUnit
+        0,                           // auxUnitModifier
+        0,                           // auxRateUnit
+        0,                           // rel
+        0,                           // auxOEMUnitHandle
+        true,                        // isLinear
+        PLDM_SENSOR_DATA_SIZE_UINT8, // sensorDataSize
+        0,
+        0,
+        0xc0,
+        0x3f, // resolution=1.5
+        0,
+        0,
+        0x80,
+        0x3f, // offset=1.0
+        0,
+        0, // accuracy
+        0, // plusTolerance
+        0, // minusTolerance
+        3, // hysteresis = 3
+        0, // supportedThresholds
+        0, // thresholdAndHysteresisVolatility
+        0,
+        0,
+        0x80,
+        0x3f, // stateTransistionInterval=1.0
+        0,
+        0,
+        0x80,
+        0x3f,                          // updateInverval=1.0
+        255,                           // maxReadable
+        0,                             // minReadable
+        PLDM_RANGE_FIELD_FORMAT_UINT8, // rangeFieldFormat
+        0,                             // rangeFieldsupport
+        50,                            // nominalValue = 50
+        60,                            // normalMax = 60
+        40,                            // normalMin = 40
+        70,                            // warningHigh = 70
+        30,                            // warningLow = 30
+        80,                            // criticalHigh = 80
+        20,                            // criticalLow = 20
+        90,                            // fatalHigh = 90
+        10                             // fatalLow = 10
+    };
+
+    struct pldm_numeric_sensor_value_pdr decodedPdr;
+    auto rc =
+        decode_numeric_sensor_pdr_data(pdr1.data(), pdr1.size(), &decodedPdr);
+    EXPECT_EQ(PLDM_SUCCESS, rc);
+    EXPECT_EQ(1, decodedPdr.hdr.record_handle);
+    EXPECT_EQ(1, decodedPdr.hdr.version);
+    EXPECT_EQ(PLDM_NUMERIC_SENSOR_PDR, decodedPdr.hdr.type);
+    EXPECT_EQ(0, decodedPdr.hdr.record_change_num);
+    EXPECT_EQ(PLDM_PDR_NUMERIC_SENSOR_PDR_MIN_LENGTH, decodedPdr.hdr.length);
+    EXPECT_EQ(1, decodedPdr.sensor_id);
+    EXPECT_EQ(PLDM_ENTITY_POWER_SUPPLY, decodedPdr.entity_type);
+    EXPECT_EQ(1, decodedPdr.entity_instance_num);
+    EXPECT_EQ(1, decodedPdr.container_id);
+    EXPECT_EQ(PLDM_NO_INIT, decodedPdr.sensor_init);
+    EXPECT_EQ(false, decodedPdr.sensor_auxiliary_names_pdr);
+    EXPECT_EQ(PLDM_SENSOR_UNIT_DEGRESS_C, decodedPdr.base_unit);
+    EXPECT_EQ(0, decodedPdr.unit_modifier);
+    EXPECT_EQ(0, decodedPdr.rate_unit);
+    EXPECT_EQ(0, decodedPdr.base_oem_unit_handle);
+    EXPECT_EQ(0, decodedPdr.aux_unit);
+    EXPECT_EQ(0, decodedPdr.aux_unit_modifier);
+    EXPECT_EQ(0, decodedPdr.aux_rate_unit);
+    EXPECT_EQ(0, decodedPdr.rel);
+    EXPECT_EQ(0, decodedPdr.aux_oem_unit_handle);
+    EXPECT_EQ(true, decodedPdr.is_linear);
+    EXPECT_EQ(PLDM_SENSOR_DATA_SIZE_UINT8, decodedPdr.sensor_data_size);
+    EXPECT_FLOAT_EQ(1.5f, decodedPdr.resolution);
+    EXPECT_FLOAT_EQ(1.0f, decodedPdr.offset);
+    EXPECT_EQ(0, decodedPdr.accuracy);
+    EXPECT_EQ(0, decodedPdr.plus_tolerance);
+    EXPECT_EQ(0, decodedPdr.minus_tolerance);
+    EXPECT_EQ(3, decodedPdr.hysteresis.value_u8);
+    EXPECT_EQ(0, decodedPdr.supported_thresholds.byte);
+    EXPECT_EQ(0, decodedPdr.threshold_and_hysteresis_volatility.byte);
+    EXPECT_FLOAT_EQ(1.0f, decodedPdr.state_transition_interval);
+    EXPECT_FLOAT_EQ(1.0f, decodedPdr.update_interval);
+    EXPECT_EQ(255, decodedPdr.max_readable.value_u8);
+    EXPECT_EQ(0, decodedPdr.min_readable.value_u8);
+    EXPECT_EQ(PLDM_RANGE_FIELD_FORMAT_UINT8, decodedPdr.range_field_format);
+    EXPECT_EQ(0, decodedPdr.range_field_support.byte);
+    EXPECT_EQ(50, decodedPdr.nominal_value.value_u8);
+    EXPECT_EQ(60, decodedPdr.normal_max.value_u8);
+    EXPECT_EQ(40, decodedPdr.normal_min.value_u8);
+    EXPECT_EQ(70, decodedPdr.warning_high.value_u8);
+    EXPECT_EQ(30, decodedPdr.warning_low.value_u8);
+    EXPECT_EQ(80, decodedPdr.critical_high.value_u8);
+    EXPECT_EQ(20, decodedPdr.critical_low.value_u8);
+    EXPECT_EQ(90, decodedPdr.fatal_high.value_u8);
+    EXPECT_EQ(10, decodedPdr.fatal_low.value_u8);
+}
+
+TEST(decodeNumericSensorPdrData, Sint8Test)
+{
+    std::vector<uint8_t> pdr1{
+        0x1,
+        0x0,
+        0x0,
+        0x0,                     // record handle
+        0x1,                     // PDRHeaderVersion
+        PLDM_NUMERIC_SENSOR_PDR, // PDRType
+        0x0,
+        0x0, // recordChangeNumber
+        PLDM_PDR_NUMERIC_SENSOR_PDR_FIXED_LENGTH +
+            PLDM_PDR_NUMERIC_SENSOR_PDR_VARIED_SENSOR_DATA_SIZE_MIN_LENGTH +
+            PLDM_PDR_NUMERIC_SENSOR_PDR_VARIED_RANGE_FIELD_MIN_LENGTH,
+        0, // dataLength
+        0,
+        0, // PLDMTerminusHandle
+        0x1,
+        0x0, // sensorID=1
+        PLDM_ENTITY_POWER_SUPPLY,
+        0, // entityType=Power Supply(120)
+        1,
+        0, // entityInstanceNumber
+        0x1,
+        0x0,                           // containerID=1
+        PLDM_NO_INIT,                  // sensorInit
+        false,                         // sensorAuxiliaryNamesPDR
+        PLDM_SENSOR_UNIT_DEGRESS_C,    // baseUint(2)=degrees C
+        0,                             // unitModifier
+        0,                             // rateUnit
+        0,                             // baseOEMUnitHandle
+        0,                             // auxUnit
+        0,                             // auxUnitModifier
+        0,                             // auxRateUnit
+        0,                             // rel
+        0,                             // auxOEMUnitHandle
+        true,                          // isLinear
+        PLDM_RANGE_FIELD_FORMAT_SINT8, // sensorDataSize
+        0,
+        0,
+        0,
+        0, // resolution
+        0,
+        0,
+        0,
+        0, // offset
+        0,
+        0, // accuracy
+        0, // plusTolerance
+        0, // minusTolerance
+        3, // hysteresis = 3
+        0, // supportedThresholds
+        0, // thresholdAndHysteresisVolatility
+        0,
+        0,
+        0x80,
+        0x3f, // stateTransistionInterval=1.0
+        0,
+        0,
+        0x80,
+        0x3f,                          // updateInverval=1.0
+        0x64,                          // maxReadable = 100
+        0x9c,                          // minReadable = -100
+        PLDM_RANGE_FIELD_FORMAT_SINT8, // rangeFieldFormat
+        0,                             // rangeFieldsupport
+        0,                             // nominalValue = 0
+        5,                             // normalMax = 5
+        0xfb,                          // normalMin = -5
+        10,                            // warningHigh = 10
+        0xf6,                          // warningLow = -10
+        20,                            // criticalHigh = 20
+        0xec,                          // criticalLow = -20
+        30,                            // fatalHigh = 30
+        0xe2                           // fatalLow = -30
+    };
+
+    struct pldm_numeric_sensor_value_pdr decodedPdr;
+    auto rc =
+        decode_numeric_sensor_pdr_data(pdr1.data(), pdr1.size(), &decodedPdr);
+    EXPECT_EQ(PLDM_SUCCESS, rc);
+
+    EXPECT_EQ(PLDM_SENSOR_DATA_SIZE_SINT8, decodedPdr.sensor_data_size);
+    EXPECT_EQ(100, decodedPdr.max_readable.value_s8);
+    EXPECT_EQ(-100, decodedPdr.min_readable.value_s8);
+    EXPECT_EQ(PLDM_RANGE_FIELD_FORMAT_SINT8, decodedPdr.range_field_format);
+    EXPECT_EQ(0, decodedPdr.nominal_value.value_s8);
+    EXPECT_EQ(5, decodedPdr.normal_max.value_s8);
+    EXPECT_EQ(-5, decodedPdr.normal_min.value_s8);
+    EXPECT_EQ(10, decodedPdr.warning_high.value_s8);
+    EXPECT_EQ(-10, decodedPdr.warning_low.value_s8);
+    EXPECT_EQ(20, decodedPdr.critical_high.value_s8);
+    EXPECT_EQ(-20, decodedPdr.critical_low.value_s8);
+    EXPECT_EQ(30, decodedPdr.fatal_high.value_s8);
+    EXPECT_EQ(-30, decodedPdr.fatal_low.value_s8);
+}
+
+TEST(decodeNumericSensorPdrData, Uint16Test)
+{
+    std::vector<uint8_t> pdr1{
+        0x1,
+        0x0,
+        0x0,
+        0x0,                     // record handle
+        0x1,                     // PDRHeaderVersion
+        PLDM_NUMERIC_SENSOR_PDR, // PDRType
+        0x0,
+        0x0, // recordChangeNumber
+        PLDM_PDR_NUMERIC_SENSOR_PDR_FIXED_LENGTH +
+            PLDM_PDR_NUMERIC_SENSOR_PDR_VARIED_SENSOR_DATA_SIZE_MIN_LENGTH * 2 +
+            PLDM_PDR_NUMERIC_SENSOR_PDR_VARIED_RANGE_FIELD_MIN_LENGTH * 2,
+        0, // dataLength
+        0,
+        0, // PLDMTerminusHandle
+        0x1,
+        0x0, // sensorID=1
+        PLDM_ENTITY_POWER_SUPPLY,
+        0, // entityType=Power Supply(120)
+        1,
+        0, // entityInstanceNumber
+        0x1,
+        0x0,                          // containerID=1
+        PLDM_NO_INIT,                 // sensorInit
+        false,                        // sensorAuxiliaryNamesPDR
+        PLDM_SENSOR_UNIT_DEGRESS_C,   // baseUint(2)=degrees C
+        0,                            // unitModifier
+        0,                            // rateUnit
+        0,                            // baseOEMUnitHandle
+        0,                            // auxUnit
+        0,                            // auxUnitModifier
+        0,                            // auxRateUnit
+        0,                            // rel
+        0,                            // auxOEMUnitHandle
+        true,                         // isLinear
+        PLDM_SENSOR_DATA_SIZE_UINT16, // sensorDataSize
+        0,
+        0,
+        0,
+        0, // resolution
+        0,
+        0,
+        0,
+        0, // offset
+        0,
+        0, // accuracy
+        0, // plusTolerance
+        0, // minusTolerance
+        3,
+        0, // hysteresis = 3
+        0, // supportedThresholds
+        0, // thresholdAndHysteresisVolatility
+        0,
+        0,
+        0x80,
+        0x3f, // stateTransistionInterval=1.0
+        0,
+        0,
+        0x80,
+        0x3f, // updateInverval=1.0
+        0,
+        0x10, // maxReadable = 4096
+        0,
+        0,                              // minReadable = 0
+        PLDM_RANGE_FIELD_FORMAT_UINT16, // rangeFieldFormat
+        0,                              // rangeFieldsupport
+        0x88,
+        0x13, // nominalValue = 5,000
+        0x70,
+        0x17, // normalMax = 6,000
+        0xa0,
+        0x0f, // normalMin = 4,000
+        0x58,
+        0x1b, // warningHigh = 7,000
+        0xb8,
+        0x0b, // warningLow = 3,000
+        0x40,
+        0x1f, // criticalHigh = 8,000
+        0xd0,
+        0x07, // criticalLow = 2,000
+        0x28,
+        0x23, // fatalHigh = 9,000
+        0xe8,
+        0x03 // fatalLow = 1,000
+    };
+
+    struct pldm_numeric_sensor_value_pdr decodedPdr;
+    auto rc =
+        decode_numeric_sensor_pdr_data(pdr1.data(), pdr1.size(), &decodedPdr);
+    EXPECT_EQ(PLDM_SUCCESS, rc);
+
+    EXPECT_EQ(PLDM_SENSOR_DATA_SIZE_UINT16, decodedPdr.sensor_data_size);
+    EXPECT_EQ(4096, decodedPdr.max_readable.value_u16);
+    EXPECT_EQ(0, decodedPdr.min_readable.value_u16);
+    EXPECT_EQ(PLDM_RANGE_FIELD_FORMAT_UINT16, decodedPdr.range_field_format);
+    EXPECT_EQ(5000, decodedPdr.nominal_value.value_u16);
+    EXPECT_EQ(6000, decodedPdr.normal_max.value_u16);
+    EXPECT_EQ(4000, decodedPdr.normal_min.value_u16);
+    EXPECT_EQ(7000, decodedPdr.warning_high.value_u16);
+    EXPECT_EQ(3000, decodedPdr.warning_low.value_u16);
+    EXPECT_EQ(8000, decodedPdr.critical_high.value_u16);
+    EXPECT_EQ(2000, decodedPdr.critical_low.value_u16);
+    EXPECT_EQ(9000, decodedPdr.fatal_high.value_u16);
+    EXPECT_EQ(1000, decodedPdr.fatal_low.value_u16);
+}
+
+TEST(decodeNumericSensorPdrData, Sint16Test)
+{
+    std::vector<uint8_t> pdr1{
+        0x1,
+        0x0,
+        0x0,
+        0x0,                     // record handle
+        0x1,                     // PDRHeaderVersion
+        PLDM_NUMERIC_SENSOR_PDR, // PDRType
+        0x0,
+        0x0, // recordChangeNumber
+        PLDM_PDR_NUMERIC_SENSOR_PDR_FIXED_LENGTH +
+            PLDM_PDR_NUMERIC_SENSOR_PDR_VARIED_SENSOR_DATA_SIZE_MIN_LENGTH * 2 +
+            PLDM_PDR_NUMERIC_SENSOR_PDR_VARIED_RANGE_FIELD_MIN_LENGTH * 2,
+        0, // dataLength
+        0,
+        0, // PLDMTerminusHandle
+        0x1,
+        0x0, // sensorID=1
+        PLDM_ENTITY_POWER_SUPPLY,
+        0, // entityType=Power Supply(120)
+        1,
+        0, // entityInstanceNumber
+        0x1,
+        0x0,                          // containerID=1
+        PLDM_NO_INIT,                 // sensorInit
+        false,                        // sensorAuxiliaryNamesPDR
+        PLDM_SENSOR_UNIT_DEGRESS_C,   // baseUint(2)=degrees C
+        0,                            // unitModifier
+        0,                            // rateUnit
+        0,                            // baseOEMUnitHandle
+        0,                            // auxUnit
+        0,                            // auxUnitModifier
+        0,                            // auxRateUnit
+        0,                            // rel
+        0,                            // auxOEMUnitHandle
+        true,                         // isLinear
+        PLDM_SENSOR_DATA_SIZE_SINT16, // sensorDataSize
+        0,
+        0,
+        0,
+        0, // resolution
+        0,
+        0,
+        0,
+        0, // offset
+        0,
+        0, // accuracy
+        0, // plusTolerance
+        0, // minusTolerance
+        3,
+        0, // hysteresis
+        0, // supportedThresholds
+        0, // thresholdAndHysteresisVolatility
+        0,
+        0,
+        0x80,
+        0x3f, // stateTransistionInterval=1.0
+        0,
+        0,
+        0x80,
+        0x3f, // updateInverval=1.0
+        0xe8,
+        0x03, // maxReadable = 1000
+        0x18,
+        0xfc,                           // minReadable = -1000
+        PLDM_RANGE_FIELD_FORMAT_SINT16, // rangeFieldFormat
+        0,                              // rangeFieldsupport
+        0,
+        0, // nominalValue = 0
+        0xf4,
+        0x01, // normalMax = 500
+        0x0c,
+        0xfe, // normalMin = -500
+        0xe8,
+        0x03, // warningHigh = 1,000
+        0x18,
+        0xfc, // warningLow = -1,000
+        0xd0,
+        0x07, // criticalHigh = 2,000
+        0x30,
+        0xf8, // criticalLow = -2,000
+        0xb8,
+        0x0b, // fatalHigh = 3,000
+        0x48,
+        0xf4 // fatalLow = -3,000
+    };
+
+    struct pldm_numeric_sensor_value_pdr decodedPdr;
+    auto rc =
+        decode_numeric_sensor_pdr_data(pdr1.data(), pdr1.size(), &decodedPdr);
+    EXPECT_EQ(PLDM_SUCCESS, rc);
+
+    EXPECT_EQ(PLDM_SENSOR_DATA_SIZE_SINT16, decodedPdr.sensor_data_size);
+    EXPECT_EQ(1000, decodedPdr.max_readable.value_s16);
+    EXPECT_EQ(-1000, decodedPdr.min_readable.value_s16);
+    EXPECT_EQ(PLDM_RANGE_FIELD_FORMAT_SINT16, decodedPdr.range_field_format);
+    EXPECT_EQ(0, decodedPdr.nominal_value.value_s16);
+    EXPECT_EQ(500, decodedPdr.normal_max.value_s16);
+    EXPECT_EQ(-500, decodedPdr.normal_min.value_s16);
+    EXPECT_EQ(1000, decodedPdr.warning_high.value_s16);
+    EXPECT_EQ(-1000, decodedPdr.warning_low.value_s16);
+    EXPECT_EQ(2000, decodedPdr.critical_high.value_s16);
+    EXPECT_EQ(-2000, decodedPdr.critical_low.value_s16);
+    EXPECT_EQ(3000, decodedPdr.fatal_high.value_s16);
+    EXPECT_EQ(-3000, decodedPdr.fatal_low.value_s16);
+}
+
+TEST(decodeNumericSensorPdrData, Uint32Test)
+{
+    std::vector<uint8_t> pdr1{
+        0x1,
+        0x0,
+        0x0,
+        0x0,                     // record handle
+        0x1,                     // PDRHeaderVersion
+        PLDM_NUMERIC_SENSOR_PDR, // PDRType
+        0x0,
+        0x0, // recordChangeNumber
+        PLDM_PDR_NUMERIC_SENSOR_PDR_FIXED_LENGTH +
+            PLDM_PDR_NUMERIC_SENSOR_PDR_VARIED_SENSOR_DATA_SIZE_MIN_LENGTH * 4 +
+            PLDM_PDR_NUMERIC_SENSOR_PDR_VARIED_RANGE_FIELD_MIN_LENGTH * 4,
+        0, // dataLength
+        0,
+        0, // PLDMTerminusHandle
+        0x1,
+        0x0, // sensorID=1
+        PLDM_ENTITY_POWER_SUPPLY,
+        0, // entityType=Power Supply(120)
+        1,
+        0, // entityInstanceNumber
+        0x1,
+        0x0,                          // containerID=1
+        PLDM_NO_INIT,                 // sensorInit
+        false,                        // sensorAuxiliaryNamesPDR
+        PLDM_SENSOR_UNIT_DEGRESS_C,   // baseUint(2)=degrees C
+        0,                            // unitModifier
+        0,                            // rateUnit
+        0,                            // baseOEMUnitHandle
+        0,                            // auxUnit
+        0,                            // auxUnitModifier
+        0,                            // auxRateUnit
+        0,                            // rel
+        0,                            // auxOEMUnitHandle
+        true,                         // isLinear
+        PLDM_SENSOR_DATA_SIZE_UINT32, // sensorDataSize
+        0,
+        0,
+        0,
+        0, // resolution
+        0,
+        0,
+        0,
+        0, // offset
+        0,
+        0, // accuracy
+        0, // plusTolerance
+        0, // minusTolerance
+        3,
+        0,
+        0,
+        0, // hysteresis
+        0, // supportedThresholds
+        0, // thresholdAndHysteresisVolatility
+        0,
+        0,
+        0x80,
+        0x3f, // stateTransistionInterval=1.0
+        0,
+        0,
+        0x80,
+        0x3f, // updateInverval=1.0
+        0,
+        0x10,
+        0,
+        0, // maxReadable = 4096
+        0,
+        0,
+        0,
+        0,                              // minReadable = 0
+        PLDM_RANGE_FIELD_FORMAT_UINT32, // rangeFieldFormat
+        0,                              // rangeFieldsupport
+        0x40,
+        0x4b,
+        0x4c,
+        0x00, // nominalValue = 5,000,000
+        0x80,
+        0x8d,
+        0x5b,
+        0x00, // normalMax = 6,000,000
+        0x00,
+        0x09,
+        0x3d,
+        0x00, // normalMin = 4,000,000
+        0xc0,
+        0xcf,
+        0x6a,
+        0x00, // warningHigh = 7,000,000
+        0xc0,
+        0xc6,
+        0x2d,
+        0x00, // warningLow = 3,000,000
+        0x00,
+        0x12,
+        0x7a,
+        0x00, // criticalHigh = 8,000,000
+        0x80,
+        0x84,
+        0x1e,
+        0x00, // criticalLow = 2,000,000
+        0x40,
+        0x54,
+        0x89,
+        0x00, // fatalHigh = 9,000,000
+        0x40,
+        0x42,
+        0x0f,
+        0x00 // fatalLow = 1,000,000
+    };
+
+    struct pldm_numeric_sensor_value_pdr decodedPdr;
+    auto rc =
+        decode_numeric_sensor_pdr_data(pdr1.data(), pdr1.size(), &decodedPdr);
+    EXPECT_EQ(PLDM_SUCCESS, rc);
+
+    EXPECT_EQ(PLDM_SENSOR_DATA_SIZE_UINT32, decodedPdr.sensor_data_size);
+    EXPECT_EQ(4096, decodedPdr.max_readable.value_u32);
+    EXPECT_EQ(0, decodedPdr.min_readable.value_u32);
+    EXPECT_EQ(PLDM_RANGE_FIELD_FORMAT_UINT32, decodedPdr.range_field_format);
+    EXPECT_EQ(5000000, decodedPdr.nominal_value.value_u32);
+    EXPECT_EQ(6000000, decodedPdr.normal_max.value_u32);
+    EXPECT_EQ(4000000, decodedPdr.normal_min.value_u32);
+    EXPECT_EQ(7000000, decodedPdr.warning_high.value_u32);
+    EXPECT_EQ(3000000, decodedPdr.warning_low.value_u32);
+    EXPECT_EQ(8000000, decodedPdr.critical_high.value_u32);
+    EXPECT_EQ(2000000, decodedPdr.critical_low.value_u32);
+    EXPECT_EQ(9000000, decodedPdr.fatal_high.value_u32);
+    EXPECT_EQ(1000000, decodedPdr.fatal_low.value_u32);
+}
+
+TEST(decodeNumericSensorPdrData, Sint32Test)
+{
+    std::vector<uint8_t> pdr1{
+        0x1,
+        0x0,
+        0x0,
+        0x0,                     // record handle
+        0x1,                     // PDRHeaderVersion
+        PLDM_NUMERIC_SENSOR_PDR, // PDRType
+        0x0,
+        0x0, // recordChangeNumber
+        PLDM_PDR_NUMERIC_SENSOR_PDR_FIXED_LENGTH +
+            PLDM_PDR_NUMERIC_SENSOR_PDR_VARIED_SENSOR_DATA_SIZE_MIN_LENGTH * 4 +
+            PLDM_PDR_NUMERIC_SENSOR_PDR_VARIED_RANGE_FIELD_MIN_LENGTH * 4,
+        0, // dataLength
+        0,
+        0, // PLDMTerminusHandle
+        0x1,
+        0x0, // sensorID=1
+        PLDM_ENTITY_POWER_SUPPLY,
+        0, // entityType=Power Supply(120)
+        1,
+        0, // entityInstanceNumber
+        0x1,
+        0x0,                          // containerID=1
+        PLDM_NO_INIT,                 // sensorInit
+        false,                        // sensorAuxiliaryNamesPDR
+        PLDM_SENSOR_UNIT_DEGRESS_C,   // baseUint(2)=degrees C
+        0,                            // unitModifier
+        0,                            // rateUnit
+        0,                            // baseOEMUnitHandle
+        0,                            // auxUnit
+        0,                            // auxUnitModifier
+        0,                            // auxRateUnit
+        0,                            // rel
+        0,                            // auxOEMUnitHandle
+        true,                         // isLinear
+        PLDM_SENSOR_DATA_SIZE_SINT32, // sensorDataSize
+        0,
+        0,
+        0,
+        0, // resolution
+        0,
+        0,
+        0,
+        0, // offset
+        0,
+        0, // accuracy
+        0, // plusTolerance
+        0, // minusTolerance
+        3,
+        0,
+        0,
+        0, // hysteresis
+        0, // supportedThresholds
+        0, // thresholdAndHysteresisVolatility
+        0,
+        0,
+        0x80,
+        0x3f, // stateTransistionInterval=1.0
+        0,
+        0,
+        0x80,
+        0x3f, // updateInverval=1.0
+        0xa0,
+        0x86,
+        0x01,
+        0x00, // maxReadable = 100000
+        0x60,
+        0x79,
+        0xfe,
+        0xff,                           // minReadable = -10000
+        PLDM_RANGE_FIELD_FORMAT_SINT32, // rangeFieldFormat
+        0,                              // rangeFieldsupport
+        0,
+        0,
+        0,
+        0, // nominalValue = 0
+        0x20,
+        0xa1,
+        0x07,
+        0x00, // normalMax = 500,000
+        0xe0,
+        0x5e,
+        0xf8,
+        0xff, // normalMin = -500,000
+        0x40,
+        0x42,
+        0x0f,
+        0x00, // warningHigh = 1,000,000
+        0xc0,
+        0xbd,
+        0xf0,
+        0xff, // warningLow = -1,000,000
+        0x80,
+        0x84,
+        0x1e,
+        0x00, // criticalHigh = 2,000,000
+        0x80,
+        0x7b,
+        0xe1,
+        0xff, // criticalLow = -2,000,000
+        0xc0,
+        0xc6,
+        0x2d,
+        0x00, // fatalHigh = 3,000,000
+        0x40,
+        0x39,
+        0xd2,
+        0xff // fatalLow = -3,000,000
+    };
+
+    struct pldm_numeric_sensor_value_pdr decodedPdr;
+    auto rc =
+        decode_numeric_sensor_pdr_data(pdr1.data(), pdr1.size(), &decodedPdr);
+    EXPECT_EQ(PLDM_SUCCESS, rc);
+
+    EXPECT_EQ(PLDM_SENSOR_DATA_SIZE_SINT32, decodedPdr.sensor_data_size);
+    EXPECT_EQ(100000, decodedPdr.max_readable.value_s32);
+    EXPECT_EQ(-100000, decodedPdr.min_readable.value_s32);
+    EXPECT_EQ(PLDM_RANGE_FIELD_FORMAT_SINT32, decodedPdr.range_field_format);
+    EXPECT_EQ(0, decodedPdr.nominal_value.value_s32);
+    EXPECT_EQ(500000, decodedPdr.normal_max.value_s32);
+    EXPECT_EQ(-500000, decodedPdr.normal_min.value_s32);
+    EXPECT_EQ(1000000, decodedPdr.warning_high.value_s32);
+    EXPECT_EQ(-1000000, decodedPdr.warning_low.value_s32);
+    EXPECT_EQ(2000000, decodedPdr.critical_high.value_s32);
+    EXPECT_EQ(-2000000, decodedPdr.critical_low.value_s32);
+    EXPECT_EQ(3000000, decodedPdr.fatal_high.value_s32);
+    EXPECT_EQ(-3000000, decodedPdr.fatal_low.value_s32);
+}
+
+TEST(decodeNumericSensorPdrData, Real32Test)
+{
+    std::vector<uint8_t> pdr1{
+        0x1,
+        0x0,
+        0x0,
+        0x0,                     // record handle
+        0x1,                     // PDRHeaderVersion
+        PLDM_NUMERIC_SENSOR_PDR, // PDRType
+        0x0,
+        0x0, // recordChangeNumber
+        PLDM_PDR_NUMERIC_SENSOR_PDR_FIXED_LENGTH +
+            PLDM_PDR_NUMERIC_SENSOR_PDR_VARIED_SENSOR_DATA_SIZE_MIN_LENGTH * 4 +
+            PLDM_PDR_NUMERIC_SENSOR_PDR_VARIED_RANGE_FIELD_MIN_LENGTH * 4,
+        0, // dataLength
+        0,
+        0, // PLDMTerminusHandle
+        0x1,
+        0x0, // sensorID=1
+        PLDM_ENTITY_POWER_SUPPLY,
+        0, // entityType=Power Supply(120)
+        1,
+        0, // entityInstanceNumber
+        0x1,
+        0x0,                          // containerID=1
+        PLDM_NO_INIT,                 // sensorInit
+        false,                        // sensorAuxiliaryNamesPDR
+        PLDM_SENSOR_UNIT_DEGRESS_C,   // baseUint(2)=degrees C
+        0,                            // unitModifier
+        0,                            // rateUnit
+        0,                            // baseOEMUnitHandle
+        0,                            // auxUnit
+        0,                            // auxUnitModifier
+        0,                            // auxRateUnit
+        0,                            // rel
+        0,                            // auxOEMUnitHandle
+        true,                         // isLinear
+        PLDM_SENSOR_DATA_SIZE_SINT32, // sensorDataSize
+        0,
+        0,
+        0,
+        0, // resolution
+        0,
+        0,
+        0,
+        0, // offset
+        0,
+        0, // accuracy
+        0, // plusTolerance
+        0, // minusTolerance
+        3,
+        0,
+        0,
+        0, // hysteresis
+        0, // supportedThresholds
+        0, // thresholdAndHysteresisVolatility
+        0,
+        0,
+        0x80,
+        0x3f, // stateTransistionInterval=1.0
+        0,
+        0,
+        0x80,
+        0x3f, // updateInverval=1.0
+        0xa0,
+        0x86,
+        0x01,
+        0x00, // maxReadable = 100000
+        0x60,
+        0x79,
+        0xfe,
+        0xff,                           // minReadable = -10000
+        PLDM_RANGE_FIELD_FORMAT_REAL32, // rangeFieldFormat
+        0,                              // rangeFieldsupport
+        0,
+        0,
+        0,
+        0, // nominalValue = 0.0
+        0x33,
+        0x33,
+        0x48,
+        0x42, // normalMax = 50.05
+        0x33,
+        0x33,
+        0x48,
+        0xc2, // normalMin = -50.05
+        0x83,
+        0x00,
+        0xc8,
+        0x42, // warningHigh = 100.001
+        0x83,
+        0x00,
+        0xc8,
+        0xc2, // warningLow = -100.001
+        0x83,
+        0x00,
+        0x48,
+        0x43, // criticalHigh = 200.002
+        0x83,
+        0x00,
+        0x48,
+        0xc3, // criticalLow = -200.002
+        0x62,
+        0x00,
+        0x96,
+        0x43, // fatalHigh = 300.003
+        0x62,
+        0x00,
+        0x96,
+        0xc3 // fatalLow = -300.003
+    };
+
+    struct pldm_numeric_sensor_value_pdr decodedPdr;
+    auto rc =
+        decode_numeric_sensor_pdr_data(pdr1.data(), pdr1.size(), &decodedPdr);
+    EXPECT_EQ(PLDM_SUCCESS, rc);
+
+    EXPECT_EQ(PLDM_SENSOR_DATA_SIZE_SINT32, decodedPdr.sensor_data_size);
+    EXPECT_EQ(100000, decodedPdr.max_readable.value_s32);
+    EXPECT_EQ(-100000, decodedPdr.min_readable.value_s32);
+    EXPECT_EQ(PLDM_RANGE_FIELD_FORMAT_REAL32, decodedPdr.range_field_format);
+    EXPECT_FLOAT_EQ(0, decodedPdr.nominal_value.value_f32);
+    EXPECT_FLOAT_EQ(50.05f, decodedPdr.normal_max.value_f32);
+    EXPECT_FLOAT_EQ(-50.05f, decodedPdr.normal_min.value_f32);
+    EXPECT_FLOAT_EQ(100.001f, decodedPdr.warning_high.value_f32);
+    EXPECT_FLOAT_EQ(-100.001f, decodedPdr.warning_low.value_f32);
+    EXPECT_FLOAT_EQ(200.002f, decodedPdr.critical_high.value_f32);
+    EXPECT_FLOAT_EQ(-200.002f, decodedPdr.critical_low.value_f32);
+    EXPECT_FLOAT_EQ(300.003f, decodedPdr.fatal_high.value_f32);
+    EXPECT_FLOAT_EQ(-300.003f, decodedPdr.fatal_low.value_f32);
+}
+
+TEST(decodeNumericSensorPdrDataDeathTest, InvalidSizeTest)
+{
+    // A corrupted PDR. The data after plusTolerance missed.
+    std::vector<uint8_t> pdr1{
+        0x1,
+        0x0,
+        0x0,
+        0x0,                     // record handle
+        0x1,                     // PDRHeaderVersion
+        PLDM_NUMERIC_SENSOR_PDR, // PDRType
+        0x0,
+        0x0, // recordChangeNumber
+        PLDM_PDR_NUMERIC_SENSOR_PDR_FIXED_LENGTH,
+        0, // dataLength
+        0,
+        0, // PLDMTerminusHandle
+        0x1,
+        0x0, // sensorID=1
+        PLDM_ENTITY_POWER_SUPPLY,
+        0, // entityType=Power Supply(120)
+        1,
+        0, // entityInstanceNumber
+        0x1,
+        0x0,                         // containerID=1
+        PLDM_NO_INIT,                // sensorInit
+        false,                       // sensorAuxiliaryNamesPDR
+        2,                           // baseUint(2)=degrees C
+        0,                           // unitModifier
+        0,                           // rateUnit
+        0,                           // baseOEMUnitHandle
+        0,                           // auxUnit
+        0,                           // auxUnitModifier
+        0,                           // auxRateUnit
+        0,                           // rel
+        0,                           // auxOEMUnitHandle
+        true,                        // isLinear
+        PLDM_SENSOR_DATA_SIZE_UINT8, // sensorDataSize
+        0,
+        0,
+        0,
+        0, // resolution
+        0,
+        0,
+        0,
+        0, // offset
+        0,
+        0, // accuracy
+        0  // plusTolerance
+    };
+
+    struct pldm_numeric_sensor_value_pdr decodedPdr;
+    int rc =
+        decode_numeric_sensor_pdr_data(pdr1.data(), pdr1.size(), &decodedPdr);
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
+}
+
+TEST(GetStateEffecterStates, testGoodEncodeRequest)
+{
+    std::vector<uint8_t> requestMsg(hdrSize +
+                                    PLDM_GET_STATE_EFFECTER_STATES_REQ_BYTES);
+
+    uint16_t effecter_id = 0xAB01;
+
+    auto request = reinterpret_cast<pldm_msg*>(requestMsg.data());
+
+    auto rc = encode_get_state_effecter_states_req(0, effecter_id, request);
+
+    struct pldm_get_state_effecter_states_req* req =
+        reinterpret_cast<struct pldm_get_state_effecter_states_req*>(
+            request->payload);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(effecter_id, le16toh(req->effecter_id));
+}
+
+TEST(GetStateEffecterStates, testBadEncodeRequest)
+{
+    std::vector<uint8_t> requestMsg(hdrSize +
+                                    PLDM_GET_STATE_EFFECTER_STATES_REQ_BYTES);
+
+    auto rc = encode_get_state_effecter_states_req(0, 0, nullptr);
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+}
+
+TEST(GetStateEffecterStates, testGoodDecodeResponse)
+{
+    std::array<uint8_t,
+               hdrSize + PLDM_GET_STATE_EFFECTER_STATES_MIN_RESP_BYTES + 24>
+        responseMsg{};
+
+    uint8_t completionCode = 0;
+    uint8_t compEffecterCount = 1;
+    get_effecter_state_field stateField = {
+        .effecter_op_state = EFFECTER_OPER_STATE_ENABLED_NOUPDATEPENDING,
+        .pending_state = 0,
+        .present_state = PLDM_STATESET_LINK_STATE_CONNECTED,
+    };
+
+    uint8_t ret_completionCode;
+    uint8_t ret_compEffecterCount;
+    std::array<get_effecter_state_field, 8> ret_stateField{};
+
+    auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
+    struct pldm_get_state_effecter_states_resp* resp =
+        reinterpret_cast<struct pldm_get_state_effecter_states_resp*>(
+            response->payload);
+
+    resp->completion_code = completionCode;
+    resp->comp_effecter_count = compEffecterCount;
+    memcpy(resp->field, &stateField,
+           sizeof(get_effecter_state_field) * compEffecterCount);
+
+    auto rc = decode_get_state_effecter_states_resp(
+        response, responseMsg.size() - hdrSize, &ret_completionCode,
+        &ret_compEffecterCount, ret_stateField.data());
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(completionCode, ret_completionCode);
+    EXPECT_EQ(compEffecterCount, ret_compEffecterCount);
+    EXPECT_EQ(stateField.effecter_op_state,
+              ret_stateField[0].effecter_op_state);
+    EXPECT_EQ(stateField.pending_state, ret_stateField[0].pending_state);
+    EXPECT_EQ(stateField.present_state, ret_stateField[0].present_state);
+}
+
+TEST(GetStateEffecterStates, testBadDecodeResponse)
+{
+    std::array<uint8_t, hdrSize + PLDM_GET_STATE_EFFECTER_STATES_MIN_RESP_BYTES>
+        responseMsg{};
+
+    auto rc = decode_get_state_effecter_states_resp(
+        nullptr, responseMsg.size() - hdrSize, nullptr, nullptr, nullptr);
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+
+    uint8_t completionCode = 0;
+    uint8_t compEffecterCount = 0;
+
+    uint8_t ret_completionCode;
+    uint8_t ret_compEffecterCount;
+    std::array<get_effecter_state_field, 8> ret_stateField{};
+
+    auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
+    struct pldm_get_state_effecter_states_resp* resp =
+        reinterpret_cast<struct pldm_get_state_effecter_states_resp*>(
+            response->payload);
+
+    resp->completion_code = completionCode;
+    resp->comp_effecter_count = compEffecterCount;
+
+    rc = decode_get_state_effecter_states_resp(
+        response, responseMsg.size() - hdrSize, &ret_completionCode,
+        &ret_compEffecterCount, ret_stateField.data());
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+}
+
+TEST(GetStateEffecterStates, testInvalidDataLengthDecodeResponse)
+{
+    const uint8_t state_fields_size = (sizeof(get_effecter_state_field) *
+                                       (PLDM_COMPOSITE_EFFECTER_MAX_COUNT + 2));
+    std::array<uint8_t, hdrSize +
+                            PLDM_GET_STATE_EFFECTER_STATES_MIN_RESP_BYTES +
+                            state_fields_size>
+        responseMsg{};
+
+    uint8_t completionCode = 0;
+    uint8_t compEffecterCount = 1;
+
+    uint8_t ret_completionCode;
+    uint8_t ret_compEffecterCount;
+    std::array<get_effecter_state_field, 8> ret_stateField{};
+
+    auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
+    struct pldm_get_state_effecter_states_resp* resp =
+        reinterpret_cast<struct pldm_get_state_effecter_states_resp*>(
+            response->payload);
+
+    resp->completion_code = completionCode;
+    resp->comp_effecter_count = compEffecterCount;
+
+    auto rc = decode_get_state_effecter_states_resp(
+        response, responseMsg.size() - hdrSize, &ret_completionCode,
+        &ret_compEffecterCount, ret_stateField.data());
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
+}
+
+TEST(SetStateEffecterEnables, testEncodeRequest)
+{
+    std::array<uint8_t,
+               sizeof(pldm_msg_hdr) + PLDM_SET_STATE_EFFECTER_ENABLES_REQ_BYTES>
+        requestMsg{};
+    auto request = reinterpret_cast<pldm_msg*>(requestMsg.data());
+
+    uint16_t effecterId = 0x0A;
+    uint8_t compEffecterCnt = 0x2;
+    std::array<set_effecter_op_field, 8> opField{};
+    opField[0] = {EFFECTER_OPER_STATE_DISABLED, EFFECTER_EVENT_DISABLE};
+    opField[1] = {EFFECTER_OPER_STATE_ENABLED_NOUPDATEPENDING,
+                  EFFECTER_EVENT_ENABLE};
+
+    auto rc = encode_set_state_effecter_enables_req(
+        0, effecterId, compEffecterCnt, opField.data(), request);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(effecterId, request->payload[0]);
+    EXPECT_EQ(compEffecterCnt, request->payload[sizeof(effecterId)]);
+    EXPECT_EQ(opField[0].effecter_op_state,
+              request->payload[sizeof(effecterId) + sizeof(compEffecterCnt)]);
+    EXPECT_EQ(opField[0].event_msg_enable,
+              request->payload[sizeof(effecterId) + sizeof(compEffecterCnt) +
+                               sizeof(opField[0].effecter_op_state)]);
+    EXPECT_EQ(opField[1].effecter_op_state,
+              request->payload[sizeof(effecterId) + sizeof(compEffecterCnt) +
+                               sizeof(opField[0])]);
+    EXPECT_EQ(opField[1].event_msg_enable,
+              request->payload[sizeof(effecterId) + sizeof(compEffecterCnt) +
+                               sizeof(opField[0]) +
+                               sizeof(opField[1].effecter_op_state)]);
+}
+
+TEST(SetStateEffecterEnables, testBadEncodeRequest)
+{
+    std::array<uint8_t,
+               sizeof(pldm_msg_hdr) + PLDM_SET_STATE_EFFECTER_ENABLES_REQ_BYTES>
+        requestMsg{};
+    auto request = reinterpret_cast<pldm_msg*>(requestMsg.data());
+
+    uint16_t effecterId = 0x0A;
+    uint8_t compEffecterCnt = 0x2;
+    std::array<set_effecter_op_field, 8> opField{};
+    opField[0] = {EFFECTER_OPER_STATE_DISABLED, EFFECTER_EVENT_DISABLE};
+    opField[1] = {EFFECTER_OPER_STATE_ENABLED_NOUPDATEPENDING,
+                  EFFECTER_EVENT_ENABLE};
+
+    auto rc = encode_set_state_effecter_enables_req(
+        0, effecterId, compEffecterCnt, opField.data(), nullptr);
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+
+    rc = encode_set_state_effecter_enables_req(0, effecterId, compEffecterCnt,
+                                               nullptr, request);
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+
+    rc = encode_set_state_effecter_enables_req(
+        0, effecterId, PLDM_COMPOSITE_EFFECTER_MAX_COUNT + 2, opField.data(),
+        request);
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+
+    rc = encode_set_state_effecter_enables_req(0, effecterId, 0, opField.data(),
+                                               request);
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
 }

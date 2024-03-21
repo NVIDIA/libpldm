@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
 #ifndef STATE_SET_H
 #define STATE_SET_H
 
@@ -149,11 +150,18 @@ enum pldm_state_set_availability_values {
 	PLDM_STATE_SET_AVAILABILITY_REBOOTING = 8
 };
 
-/* @brief List of states for the Operational Fault status (ID 10).
+/* @brief List of states for the Operational Stress status (ID 9).
+ */
+enum pldm_state_set_operational_stress_status_values {
+	PLDM_STATE_SET_OPERATIONAL_STRESS_STATUS_NORMAL = 1,
+	PLDM_STATE_SET_OPERATIONAL_STRESS_STATUS_STRESSED = 2,
+};
+/* @brief List of states for Operational Fault status (ID 10).
  */
 enum pldm_state_set_operational_fault_status_values {
 	PLDM_STATE_SET_OPERATIONAL_FAULT_STATUS_NORMAL = 1,
-	PLDM_STATE_SET_OPERATIONAL_FAULT_STATUS_STRESSED = 2,
+	PLDM_STATE_SET_OPERATIONAL_FAULT_STATUS_ERROR = 2,
+	PLDM_STATE_SET_OPERATIONAL_FAULT_STATUS_NON_RECOVERABLE_ERROR = 3,
 };
 
 /* @brief List of states for the Operational Running Status state set (ID 11).
@@ -228,7 +236,7 @@ enum pldm_state_set_system_power_state_values {
 
 /* OEM ranges */
 #define PLDM_OEM_STATE_SET_ID_START 32768
-#define PLDM_OEM_STATE_SET_ID_END 65535
+#define PLDM_OEM_STATE_SET_ID_END   65535
 
 #ifdef __cplusplus
 }

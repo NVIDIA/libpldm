@@ -1,35 +1,52 @@
-libpldm_include_dir += include_directories('.')
-
-libpldm_headers += files(
+libpldm_headers = files(
   'base.h',
-  'pldm_types.h',
-  'platform.h',
   'bios.h',
   'bios_table.h',
   'entity.h',
-  'states.h',
-  'state_set.h',
+  'firmware_update.h',
   'fru.h',
-  'utils.h',
+  'instance-id.h',
   'pdr.h',
-  'firmware_update.h'
+  'platform.h',
+  'pldm_types.h',
+  'pldm.h',
+  'state_set.h',
+  'states.h',
+  'transport.h',
+  'transport/af-mctp.h',
+  'transport/mctp-demux.h',
+  'utils.h',
   )
 
-if get_option('oem-ibm').enabled()
-  libpldm_include_dir += include_directories('oem/ibm')
+if get_option('oem-ibm').allowed()
   libpldm_headers += files(
-    'oem/ibm/libpldm/entity_oem_ibm.h',
-    'oem/ibm/libpldm/file_io.h',
-    'oem/ibm/libpldm/host.h',
-    'oem/ibm/libpldm/fru_oem_ibm.h',
-    'oem/ibm/libpldm/platform_oem_ibm.h',
-    'oem/ibm/libpldm/state_set_oem_ibm.h'
+    'oem/ibm/entity.h',
+    'oem/ibm/file_io.h',
+    'oem/ibm/fru.h',
+    'oem/ibm/host.h',
+    'oem/ibm/platform.h',
+    'oem/ibm/state_set.h'
+  )
+
+  install_symlink('file_io.h', pointing_to: 'oem/ibm/file_io.h', install_dir: 'include/libpldm')
+  install_symlink('entity_oem_ibm.h', pointing_to: 'oem/ibm/entity.h', install_dir: 'include/libpldm')
+  install_symlink('fru_oem_ibm.h', pointing_to: 'oem/ibm/fru.h', install_dir: 'include/libpldm')
+  install_symlink('host.h', pointing_to: 'oem/ibm/host.h', install_dir: 'include/libpldm')
+  install_symlink('platform_oem_ibm.h', pointing_to: 'oem/ibm/platform.h', install_dir: 'include/libpldm')
+  install_symlink('state_set_oem_ibm.h', pointing_to: 'oem/ibm/state_set.h', install_dir: 'include/libpldm')
+endif
+
+if get_option('oem-meta').allowed()
+  libpldm_headers += files(
+    'oem/meta/file_io.h',
   )
 endif
 
-if get_option('requester-api').enabled()
-   libpldm_headers += files(
-    'requester/pldm.h'
-    )
+if get_option('oem-nvidia').allowed()
+  libpldm_headers += files(
+    'oem/nvidia/energy_count_numeric_sensor_oem.h',
+    'oem/nvidia/state_set_oem_nvidia.h',
+  )
 endif
 
+install_headers(libpldm_headers, subdir: 'libpldm', preserve_path: true)

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
 #ifndef STATES_H
 #define STATES_H
 
@@ -5,7 +6,7 @@
 extern "C" {
 #endif
 
-#include "pldm_types.h"
+#include <libpldm/pldm_types.h>
 
 /** @brief PLDM enums for the boot progress state set
  */

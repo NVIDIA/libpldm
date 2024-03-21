@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
 #ifndef ENTITY_H
 #define ENTITY_H
 
@@ -137,10 +138,16 @@ enum pldm_entity_id_codes {
 	PLDM_ENTITY_PLUG = 189,
 	PLDM_ENTITY_SOCKET = 190,
 
+	/* Network ports connection types */
+	PLDM_ENTITY_ETHERNET = 300,
+
 	/* OEM ranges */
 	PLDM_OEM_ENTITY_TYPE_START = 24576,
 	PLDM_OEM_ENTITY_TYPE_END = 32767,
 };
+
+#define PLDM_ENTITY_PHYSCIAL 0
+#define PLDM_ENTITY_LOGICAL 0x8000
 
 #ifdef __cplusplus
 }
