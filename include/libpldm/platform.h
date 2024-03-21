@@ -946,7 +946,7 @@ int decode_get_state_effecter_states_resp(const struct pldm_msg *msg,
 					  size_t payload_length,
 					  uint8_t *completion_code,
 					  uint8_t *comp_effecter_count,
-					  get_effecter_state_field *field);
+					  get_effecter_state_field *state_fields);
 
 /** @struct pldm_oem_pdr
  *
@@ -2137,25 +2137,6 @@ int decode_event_message_supported_resp(const struct pldm_msg *msg,
  int decode_sensor_op_data(const uint8_t *sensor_data,
 			   size_t sensor_data_length, uint8_t *present_op_state,
 			   uint8_t *previous_op_state);
-
-/** @brief Decode pldmMessagePollEventData response data
- *
- *  @param[in] event_data - event data from the response message
- *  @param[in] event_data_length - length of the event data
- *  @param[out] format_version - version of the event format
- *  @param[out] event_id - identifier for the event that requires multipart
- * transfer
- *  @param[out] data_transfer_handle - a handle that is used to identify the
- * event data to be received via the PollForPlatformEventMessage command
- *  @return pldm_completion_codes
- *  @note  Caller is responsible for memory alloc and dealloc of param
- *         'event_data'
- */
-int decode_pldm_message_poll_event_data(const uint8_t *event_data,
-					size_t event_data_length,
-					uint8_t *format_version,
-					uint16_t *event_id,
-					uint32_t *data_transfer_handle);
 
 /** @brief Decode cperEvent response data
  *
