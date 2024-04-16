@@ -142,7 +142,7 @@ enum pldm_range_field_format {
 
 enum set_request { PLDM_NO_CHANGE = 0x00, PLDM_REQUEST_SET = 0x01 };
 
-enum effecter_state { PLDM_INVALID_VALUE = 0xFF };
+enum effecter_state { PLDM_INVALID_VALUE = 0xff };
 
 enum pldm_sensor_present_state {
 	PLDM_SENSOR_UNKNOWN = 0x0,
@@ -186,10 +186,10 @@ enum pldm_effecter_event_message_enable {
 
 enum pldm_platform_commands {
 	PLDM_SET_EVENT_RECEIVER = 0x04,
-	PLDM_PLATFORM_EVENT_MESSAGE = 0x0A,
-	PLDM_POLL_FOR_PLATFORM_EVENT_MESSAGE = 0x0B,
-	PLDM_EVENT_MESSAGE_SUPPORTED = 0x0C,
-	PLDM_EVENT_MESSAGE_BUFFER_SIZE = 0x0D,
+	PLDM_PLATFORM_EVENT_MESSAGE = 0x0a,
+	PLDM_POLL_FOR_PLATFORM_EVENT_MESSAGE = 0x0b,
+	PLDM_EVENT_MESSAGE_SUPPORTED = 0x0c,
+	PLDM_EVENT_MESSAGE_BUFFER_SIZE = 0x0d,
 	PLDM_GET_SENSOR_READING = 0x11,
 	PLDM_GET_STATE_SENSOR_READINGS = 0x21,
 	PLDM_SET_NUMERIC_EFFECTER_ENABLE = 0x30,
@@ -202,7 +202,7 @@ enum pldm_platform_commands {
 	PLDM_GET_PDR = 0x51,
 };
 
-/** @brief PLDM PDR types
+/** @brief PLDM PDR types defined in DSP0248_1.2.0 section 28.2
  */
 enum pldm_pdr_types {
 	PLDM_TERMINUS_LOCATOR_PDR = 1,
@@ -226,6 +226,9 @@ enum pldm_pdr_types {
 	PLDM_EVENT_LOG_PDR = 19,
 	PLDM_PDR_FRU_RECORD_SET = 20,
 	PLDM_COMPACT_NUMERIC_SENSOR_PDR = 21,
+	PLDM_REDFISH_RESOURCE_PDR = 22,
+	PLDM_REDFISH_ENTITY_ASSOCIATION_PDR = 23,
+	PLDM_REDFISH_ACTION_PDR = 24,
 	PLDM_OEM_DEVICE_PDR = 126,
 	PLDM_OEM_PDR = 127,
 };
@@ -314,13 +317,18 @@ enum pldm_pdr_repository_chg_event_data_format {
 };
 
 /** @brief PLDM pldmPDRRepositoryChgEvent class changeRecord format
- * eventDataOperation
+ * eventDataOperation. See CHANGELOG.md for info on the alias members.
  */
 enum pldm_pdr_repository_chg_event_change_record_event_data_operation {
-	PLDM_REFRESH_ALL_RECORDS,
-	PLDM_RECORDS_DELETED,
-	PLDM_RECORDS_ADDED,
-	PLDM_RECORDS_MODIFIED
+	PLDM_REFRESH_ALL_RECORDS = 0,
+	PLDM_RECORDS_DELETED = 1,
+	PLDM_RECORDS_ADDED = 2,
+	PLDM_RECORDS_MODIFIED = 3,
+
+	PLDM_PDR_RECORDS_REFRESH_ALL = 0,
+	PLDM_PDR_RECORDS_DELETED = 1,
+	PLDM_PDR_RECORDS_ADDED = 2,
+	PLDM_PDR_RECORDS_MODIFIED = 3
 };
 
 /** @brief PLDM NumericSensorStatePresentReading data type

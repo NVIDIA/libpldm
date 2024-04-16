@@ -24,6 +24,21 @@ Change categories:
 3. oem: ibm: Add chapdata file type support
 4. base: Added PLDM_SMBIOS & PLDM_RDE message types
 5. oem: meta: Add decode_oem_meta_file_io_req()
+6. state-set: Add all state set values to system power state enum as per DSP0249
+7. platform: Add alias members to the enum
+   pldm_pdr_repository_chg_event_change_record_event_data_operation.
+
+   enum constants with inconsistent names are deprecated with this change.
+   remove old inconsistent enum members after backward compatibility cleanup is
+   done
+
+8. oem-ibm: Alias `pldm_oem_ibm_fru_field_type` members as `PLDM_OEM_IBM_*`
+9. oem: ibm: Add Firmware Update Access Key(UAK) as a FRU field type
+10. platform: Add 3 PDR type enum for Redfish Device Enablement per
+    DSP0248_1.2.0
+11. state_set: Add CONNECTED and DISCONNECTED enum for Link State set
+12. entity: Add enum for Network Interface Connectors and Network Ports
+    Connection Types
 
 ### Changed
 
@@ -35,6 +50,11 @@ Change categories:
 6. pdr: Stabilise pldm_entity_association_pdr_add_from_node_with_record_handle()
 7. oem: meta: stabilise decode_oem_meta_file_io_req()
 8. pdr: pldm_entity_association_tree_copy_root(): Document preconditions
+
+### Deprecated
+
+1. Deprecate `pldm_oem_ibm_fru_field_type` members that that are not prefixed
+   with `PLDM_OEM_IBM_`
 
 ### Fixed
 
