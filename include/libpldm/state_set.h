@@ -189,6 +189,13 @@ enum pldm_state_set_thermal_trip_values {
 	PLDM_STATE_SET_THERMAL_TRIP_STATUS_THERMAL_TRIP = 2,
 };
 
+/* @brief List of states for the Set Link state (ID 33).
+ */
+enum pldm_state_set_link_state_values {
+	PLDM_STATE_SET_LINK_STATE_CONNECTED = 1,
+	PLDM_STATE_SET_LINK_STATE_DISCONNECTED = 2,
+};
+
 /* @brief List of states for the Software-related state set (ID 129).
  */
 enum pldm_software_termination_status_values {
@@ -231,7 +238,29 @@ enum pldm_state_set_boot_progress_state_values {
 /* @brief List of states for the System Power State set (ID 260).
  */
 enum pldm_state_set_system_power_state_values {
-	PLDM_STATE_SET_SYS_POWER_STATE_OFF_SOFT_GRACEFUL = 9
+	PLDM_STATE_SET_SYS_POWER_STATE_ON = 1,
+	PLDM_STATE_SET_SYS_POWER_STATE_HIBERNATE = 2,
+	PLDM_STATE_SET_SYS_POWER_STATE_SLEEP_LIGHT = 3,
+	PLDM_STATE_SET_SYS_POWER_STATE_SLEEP_DEEP = 4,
+	PLDM_STATE_SET_SYS_POWER_CYCLE_SOFT = 5,
+	PLDM_STATE_SET_SYS_POWER_CYCLE_HARD = 6,
+	PLDM_STATE_SET_SYS_POWER_CYCLE_OFF_SOFT_GRACEFUL = 7,
+	PLDM_STATE_SET_SYS_POWER_CYCLE_OFF_HARD_GRACEFUL = 8,
+	PLDM_STATE_SET_SYS_POWER_STATE_OFF_SOFT_GRACEFUL = 9,
+	PLDM_STATE_SET_SYS_POWER_STATE_OFF_HARD_GRACEFUL = 10,
+	PLDM_STATE_SET_SYS_POWER_STATE_MASTER_BUS_RESET = 11,
+	PLDM_STATE_SET_SYS_POWER_STATE_MASTER_BUS_RESET_GRACEFUL = 12,
+	PLDM_STATE_SET_SYS_POWER_STATE_NMI = 13,
+};
+
+/* @brief List of states for Device Power State set (ID 257).
+ */
+enum pldm_state_set_device_power_state_values {
+	PLDM_STATE_SET_ACPI_DEVICE_POWER_STATE_UNKNOWN = 0,
+	PLDM_STATE_SET_ACPI_DEVICE_POWER_STATE_FULLY_ON = 1,
+	PLDM_STATE_SET_ACPI_DEVICE_POWER_STATE_INTERMEDIATE_1 = 2,
+	PLDM_STATE_SET_ACPI_DEVICE_POWER_STATE_INTERMEDIATE_2 = 3,
+	PLDM_STATE_SET_ACPI_DEVICE_POWER_STATE_OFF = 4,
 };
 
 /* OEM ranges */
