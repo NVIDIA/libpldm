@@ -19,10 +19,10 @@ extern "C" {
 #define PLDM_GET_OEM_ENERGYCOUNT_SENSOR_READING_MIN_RESP_BYTES 4
 
 // Minimum length of OEM energyCount numeric sensor PDR
-#define PLDM_PDR_OEM_ENERGYCOUNT_NUMERIC_SENSOR_PDR_FIXED_LENGTH 19
+#define PLDM_PDR_OEM_ENERGYCOUNT_NUMERIC_SENSOR_PDR_FIXED_LENGTH      19
 #define PLDM_PDR_OEM_ENERGYCOUNT_NUMERIC_SENSOR_PDR_VARIED_MIN_LENGTH 2
-#define PLDM_PDR_OEM_ENERGYCOUNT_NUMERIC_SENSOR_PDR_MIN_LENGTH                                 \
-	(PLDM_PDR_OEM_ENERGYCOUNT_NUMERIC_SENSOR_PDR_FIXED_LENGTH +                            \
+#define PLDM_PDR_OEM_ENERGYCOUNT_NUMERIC_SENSOR_PDR_MIN_LENGTH                 \
+	(PLDM_PDR_OEM_ENERGYCOUNT_NUMERIC_SENSOR_PDR_FIXED_LENGTH +            \
 	 PLDM_PDR_OEM_ENERGYCOUNT_NUMERIC_SENSOR_PDR_VARIED_MIN_LENGTH)
 
 enum pldm_sensor_readings_oem_data_type {
@@ -38,9 +38,7 @@ enum pldm_sensor_readings_oem_data_type {
 
 /** @brief PLDM OEM type supported commands
  */
-enum pldm_oem_commands {
-	PLDM_OEM_GET_ENERGYCOUNT_SENSOR_READING = 0x11
-};
+enum pldm_oem_commands { PLDM_OEM_GET_ENERGYCOUNT_SENSOR_READING = 0x11 };
 
 /** @union union_sensor_oem_data_size
  *
@@ -109,8 +107,9 @@ struct pldm_get_oem_energycount_sensor_reading_resp {
  *  @note	Caller is responsible for memory alloc and dealloc of param
  * 		'msg.payload'
  */
-int encode_get_oem_enegy_count_sensor_reading_req(uint8_t instance_id, uint16_t sensor_id,
-				  struct pldm_msg *msg);
+int encode_get_oem_enegy_count_sensor_reading_req(uint8_t instance_id,
+						  uint16_t sensor_id,
+						  struct pldm_msg *msg);
 
 /** @brief Decode GetOEMEnergyCountSensorReading response data
  *
@@ -125,9 +124,9 @@ int encode_get_oem_enegy_count_sensor_reading_req(uint8_t instance_id, uint16_t 
  */
 
 int decode_get_oem_energy_count_sensor_reading_resp(
-    const struct pldm_msg *msg, size_t payload_length, uint8_t *completion_code,
-    uint8_t *sensor_data_size, uint8_t *sensor_operational_state,
-    uint8_t *present_reading);
+	const struct pldm_msg *msg, size_t payload_length,
+	uint8_t *completion_code, uint8_t *sensor_data_size,
+	uint8_t *sensor_operational_state, uint8_t *present_reading);
 
 #ifdef __cplusplus
 }
