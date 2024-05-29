@@ -566,7 +566,7 @@ int encode_set_numeric_effecter_enable_req(uint8_t instance_id,
 		return PLDM_ERROR_INVALID_DATA;
 	}
 
-	struct pldm_header_info header = {0};
+	struct pldm_header_info header = { 0 };
 	header.msg_type = PLDM_REQUEST;
 	header.instance = instance_id;
 	header.pldm_type = PLDM_PLATFORM;
@@ -578,7 +578,7 @@ int encode_set_numeric_effecter_enable_req(uint8_t instance_id,
 	}
 
 	struct pldm_set_numeric_effecter_enable_req *request =
-	    (struct pldm_set_numeric_effecter_enable_req *)msg->payload;
+		(struct pldm_set_numeric_effecter_enable_req *)msg->payload;
 
 	request->effecter_id = htole16(effecter_id);
 	request->effecter_operational_state = effecter_operational_state;
@@ -1417,7 +1417,7 @@ int decode_pldm_cper_event_data(const uint8_t *event_data,
 	}
 
 	struct pldm_cper_event_data *pldm_cper_event =
-	    (struct pldm_cper_event_data *)event_data;
+		(struct pldm_cper_event_data *)event_data;
 	*format_version = pldm_cper_event->format_version;
 	*format_type = pldm_cper_event->format_type;
 	*cper_event_data_length = le16toh(pldm_cper_event->event_data_length);
@@ -2404,9 +2404,9 @@ int encode_poll_for_platform_event_message_req(uint8_t instance_id,
 		return rc;
 	}
 
-	rc = pldm_msgbuf_init(
-		buf, PLDM_POLL_FOR_PLATFORM_EVENT_MESSAGE_REQ_BYTES,
-		msg->payload, payload_length);
+	rc = pldm_msgbuf_init(buf,
+			      PLDM_POLL_FOR_PLATFORM_EVENT_MESSAGE_REQ_BYTES,
+			      msg->payload, payload_length);
 	if (rc) {
 		return rc;
 	}
@@ -2499,7 +2499,7 @@ int encode_get_state_effecter_states_req(uint8_t instance_id,
 		return PLDM_ERROR_INVALID_DATA;
 	}
 
-	struct pldm_header_info header = {0};
+	struct pldm_header_info header = { 0 };
 	header.msg_type = PLDM_REQUEST;
 	header.instance = instance_id;
 	header.pldm_type = PLDM_PLATFORM;
@@ -2511,7 +2511,7 @@ int encode_get_state_effecter_states_req(uint8_t instance_id,
 	}
 
 	struct pldm_get_state_effecter_states_req *request =
-	    (struct pldm_get_state_effecter_states_req *)msg->payload;
+		(struct pldm_get_state_effecter_states_req *)msg->payload;
 	request->effecter_id = htole16(effecter_id);
 
 	return PLDM_SUCCESS;
@@ -2519,8 +2519,9 @@ int encode_get_state_effecter_states_req(uint8_t instance_id,
 
 LIBPLDM_ABI_STABLE
 int decode_get_state_effecter_states_resp(
-    const struct pldm_msg *msg, size_t payload_length, uint8_t *completion_code,
-    uint8_t *comp_effecter_count, get_effecter_state_field *state_fields)
+	const struct pldm_msg *msg, size_t payload_length,
+	uint8_t *completion_code, uint8_t *comp_effecter_count,
+	get_effecter_state_field *state_fields)
 {
 	if (msg == NULL || completion_code == NULL ||
 	    comp_effecter_count == NULL || state_fields == NULL) {
@@ -2533,16 +2534,17 @@ int decode_get_state_effecter_states_resp(
 	}
 
 	struct pldm_get_state_effecter_states_resp *response =
-	    (struct pldm_get_state_effecter_states_resp *)msg->payload;
+		(struct pldm_get_state_effecter_states_resp *)msg->payload;
 
 	if (response->comp_effecter_count < PLDM_COMPOSITE_EFFECTER_MIN_COUNT ||
 	    response->comp_effecter_count > PLDM_COMPOSITE_EFFECTER_MAX_COUNT) {
 		return PLDM_ERROR_INVALID_DATA;
 	}
 
-	if (payload_length > PLDM_GET_STATE_EFFECTER_STATES_MIN_RESP_BYTES +
-				 sizeof(get_effecter_state_field) *
-				     PLDM_COMPOSITE_EFFECTER_MAX_COUNT) {
+	if (payload_length >
+	    PLDM_GET_STATE_EFFECTER_STATES_MIN_RESP_BYTES +
+		    sizeof(get_effecter_state_field) *
+			    PLDM_COMPOSITE_EFFECTER_MAX_COUNT) {
 		return PLDM_ERROR_INVALID_LENGTH;
 	}
 
@@ -2570,7 +2572,7 @@ int encode_set_state_effecter_enables_req(uint8_t instance_id,
 		return PLDM_ERROR_INVALID_DATA;
 	}
 
-	struct pldm_header_info header = {0};
+	struct pldm_header_info header = { 0 };
 	header.msg_type = PLDM_REQUEST;
 	header.instance = instance_id;
 	header.pldm_type = PLDM_PLATFORM;
@@ -2582,7 +2584,7 @@ int encode_set_state_effecter_enables_req(uint8_t instance_id,
 	}
 
 	struct pldm_set_state_effecter_enables_req *request =
-	    (struct pldm_set_state_effecter_enables_req *)msg->payload;
+		(struct pldm_set_state_effecter_enables_req *)msg->payload;
 	request->effecter_id = htole16(effecter_id);
 	request->comp_effecter_count = comp_effecter_count;
 	memcpy(request->field, field,
@@ -2590,4 +2592,3 @@ int encode_set_state_effecter_enables_req(uint8_t instance_id,
 
 	return PLDM_SUCCESS;
 }
-
