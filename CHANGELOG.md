@@ -17,6 +17,8 @@ Change categories:
 
 ## [Unreleased]
 
+## [0.8.0] - 2024-05-23
+
 ### Added
 
 1. base: Provide pldm_msg_hdr_correlate_response()
@@ -39,6 +41,11 @@ Change categories:
 11. state_set: Add CONNECTED and DISCONNECTED enum for Link State set
 12. entity: Add enum for Network Interface Connectors and Network Ports
     Connection Types
+13. pdr: Add decode_numeric_effecter_pdr_data()
+14. oem: ibm: Support for the Real SAI entity id
+15. fw_update: Add encode req & decode resp for query_downstream_devices
+16. fw_update: Add encode req & decode resp for query_downstream_identifiers
+17. platform: Add support for GetStateEffecterStates command
 
 ### Changed
 
@@ -62,6 +69,7 @@ Change categories:
 2. pdr: Assign record_handle in entity_association_pdr_add_children()
 3. msgbuf: Require sensor data enum in pldm_msgbuf_extract_sensor_value()
 4. pdr: Remove redundant constant for minimum numeric sensor PDR length
+5. tests: oem: meta: Fix fileio use of msgbuf
 
 ## [0.7.0] - 2023-08-29
 

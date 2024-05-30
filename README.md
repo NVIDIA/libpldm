@@ -48,8 +48,13 @@ meson setup builddir && meson test -C builddir
 
 ## Working with `libpldm`
 
-The ABIs (symbols, generally functions) exposed by the library are separated
-into three categories:
+Components of the library ABI[^1] (loosely, functions) are separated into three
+categories:
+
+[^1]: ["library API + compiler ABI = library ABI"][libstdc++-library-abi]
+
+[libstdc++-library-abi]:
+  https://gcc.gnu.org/onlinedocs/libstdc++/manual/abi.html
 
 1. Stable
 2. Testing
@@ -183,7 +188,7 @@ Following directory structure has to be used:
 ```text
  libpldm
     |---- include/libpldm
-    |        |---- oem/<oem_name>/libpldm
+    |        |---- oem/<oem_name>
     |                    |----<oem based .h files>
     |---- src
     |        |---- oem/<oem_name>
@@ -210,14 +215,3 @@ For consistency would recommend using "oem-<oem_name>".
 The `meson.build` and the corresponding source file(s) will need to incorporate
 the logic of adding its mapped compiler flag to allow conditional compilation of
 the code.
-
-## Requester APIs
-
-The pldm requester API's are present in `src/requester` folder and they are
-intended to provide API's to interact with the desired underlying transport
-layer to send/receive pldm messages.
-
-**NOTE** : In the current state, the requester API's in the repository only
-works with [specific transport mechanism](https://github.com/openbmc/libmctp) &
-these are going to change in future & probably aren't appropriate to be writing
-code against.
