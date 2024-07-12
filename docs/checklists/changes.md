@@ -21,12 +21,28 @@
 [poettering-library-red-flags]:
   https://mastodon.social/@pid_eins/112517953375791453
 
+- [Not sure if this is a gcc bug or some weird corner of UB or what... - Andrew
+  Zonenberg][azonenberg-packed-struct]
+
+[azonenberg-packed-struct]: https://ioc.exchange/@azonenberg/112535511250395148
+
+- [The Good, the Bad, and the Weird - Trail of Bits
+  Blog][trail-of-bits-weird-machines]
+
+[trail-of-bits-weird-machines]:
+  https://blog.trailofbits.com/2018/10/26/the-good-the-bad-and-the-weird/
+
 ## References
 
 - [C17 draft standard][c17-draft-standard]
 
 [c17-draft-standard]:
   https://web.archive.org/web/20181230041359if_/http://www.open-std.org/jtc1/sc22/wg14/www/abq/c17_updated_proposed_fdis.pdf
+
+- [SEI CERT C Coding Standard][sei-cert-c-coding-standard]
+
+[sei-cert-c-coding-standard]:
+  https://wiki.sei.cmu.edu/confluence/display/c/SEI+CERT+C+Coding+Standard
 
 ## Definitions
 
@@ -38,6 +54,9 @@
   evaluate false.
 
 - **Public API**: Any definitions and declarations under `include/libpldm`.
+
+- **Wire format**: Any message structure defined in the DMTF PLDM protocol
+  specifications.
 
 ## Elaborations
 
@@ -62,6 +81,25 @@
 
 - [ ] My new public `struct` definitions are _not_ marked
       `__attribute__((packed))`
+
+- [ ] My new public `struct` definitions do _not_ define a flexible array
+      member, unless:
+
+  - [ ] It's contained in an `#ifndef __cplusplus` macro guard, as flexible
+        arrays are not specified by C++, and
+
+  - [ ] I've implemented an accessor function so the array base pointer can be
+        accessed from C++, and
+
+  - [ ] It is defined as per the C17 specification by omitting the length[^1]
+
+    - Note: Any array defined with length 1 is _not_ a flexible array, and any
+      access beyond the first element invokes undefined behaviour in both C and
+      C++.
+
+[^1]:
+    [C17 draft specification][c17-draft-standard], 6.7.2.1 Structure and union
+    specifiers, paragraph 18.
 
 - [ ] If my work interacts with the PLDM wire format, then I have done so using
       the `msgbuf` APIs found in `src/msgbuf.h` (and under `src/msgbuf/`) to
@@ -149,6 +187,28 @@ Each of the following must succeed:
   - [ ] There has been at least one tagged release of `libpldm` subsequent to
         the API being marked deprecated
 
+## Renaming an API
+
+A change to an API is a pure rename only if there are no additional behavioural
+changes. Renaming an API with no other behavioural changes is really two
+actions:
+
+1. Introducing the new API name
+2. Deprecating the old API name
+
+- [ ] Only the name of the function has changed. None of its behaviour has
+      changed.
+
+- [ ] Both the new and the old functions are declared in the public headers
+
+- [ ] I've aliased the old function name to the new function name via the
+      `libpldm_deprecated_aliases` list in `meson.build`
+
+- [ ] I've added a [semantic patch][coccinelle] to migrate users from the old
+      name to the new name
+
+[coccinelle]: https://coccinelle.gitlabpages.inria.fr/website/
+
 ## Testing my changes
 
 Each of the following must succeed when executed in order. Note that to avoid
@@ -166,3 +226,5 @@ Each of the following must succeed when executed in order. Note that to avoid
 - [ ] `meson configure --buildtype=debug build`
 - [ ] `meson configure -Dabi=deprecated,stable build`
 - [ ] `meson compile -C build && meson test -C build`
+
+This process is captured in `scripts/pre-submit` for automation.

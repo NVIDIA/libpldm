@@ -80,6 +80,21 @@ struct pldm_msgbuf {
 	enum pldm_msgbuf_error_mode mode;
 };
 
+/**
+ * @brief Either negate an errno value or return a value mapped to a PLDM
+ * completion code.
+ *
+ * Note that `pldm_msgbuf_status()` is purely internal to the msgbuf API
+ * for ergonomics. It's preferred that we don't try to unify this with
+ * `pldm_xlate_errno()` from src/api.h despite the similarities.
+ *
+ * @param[in] ctx - The msgbuf context providing the personality info
+ * @param[in] err - The positive errno value to translate
+ *
+ * @return Either the negated value of @p err if the context's error mode is
+ *         `PLDM_MSGBUF_C_ERRNO`, or the equivalent PLDM completion code if the
+ *         error mode is `PLDM_MSGBUF_PLDM_CC`.
+ */
 __attribute__((always_inline)) static inline int
 pldm_msgbuf_status(struct pldm_msgbuf *ctx, unsigned int err)
 {
@@ -361,7 +376,7 @@ pldm_msgbuf_destroy_consumed(struct pldm_msgbuf *ctx)
  * C++ could be less of a headache than the C as we can leverage template
  * functions. An advantage of template functions is that while their definition
  * is driven by instantion, the definition does not appear at the source
- * location of the instantation, which gives it a great leg-up over the problems
+ * location of the instantiation, which gives it a great leg-up over the problems
  * we have in the C path. However, the use of the msgbuf APIs in the test suite
  * still makes things somewhat tricky, as the call-sites in the test suite are
  * wrapped up in EXPECT_*() gtest macros. Ideally we'd implement functions that
@@ -400,7 +415,7 @@ pldm_msgbuf_destroy_consumed(struct pldm_msgbuf *ctx)
 /**
  * @brief pldm_msgbuf extractor for a uint8_t
  *
- * @param[inout] ctx - pldm_msgbuf context for extractor
+ * @param[in,out] ctx - pldm_msgbuf context for extractor
  * @param[out] dst - destination of extracted value
  *
  * @return PLDM_SUCCESS if buffer accesses were in-bounds,
@@ -1032,8 +1047,8 @@ pldm_msgbuf_span_remaining(struct pldm_msgbuf *ctx, void **cursor, size_t *len)
 /**
  * @brief pldm_msgbuf copy data between two msg buffers
  *
- * @param[inout] src - pldm_msgbuf for source from where value should be copied
- * @param[inout] dst - destination of copy from source
+ * @param[in,out] src - pldm_msgbuf for source from where value should be copied
+ * @param[in,out] dst - destination of copy from source
  * @param[in] size - size of data to be copied
  * @param[in] description - description of data copied
  *

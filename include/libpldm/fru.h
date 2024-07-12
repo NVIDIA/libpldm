@@ -304,7 +304,7 @@ int decode_get_fru_record_by_option_req(
  *  @param[in] transfer_flag - The transfer flag that indicates what part of the
  *             transfer this response represents
  *  @param[in] fru_structure_data - FRU Structure Data
- *  @param[in] data_size - Size of FRU Structrue Data
+ *  @param[in] data_size - Size of FRU Structure Data
  *  @param[in,out] msg - Message will be written to this
  *  @return pldm_completion_codes
  *  @note  Caller is responsible for memory alloc and dealloc of param 'msg',
@@ -465,9 +465,13 @@ int decode_get_fru_record_by_option_resp(
  *  @return PLDM_SUCCESS if no error occurs. PLDM_ERROR_INVALID_LENGTH if record_size lacks capacity
  *  	    to encode the relevant records.
  */
+int get_fru_record_by_option(const uint8_t *table, size_t table_size,
+			     uint8_t *record_table, size_t *record_size,
+			     uint16_t rsi, uint8_t rt, uint8_t ft);
 int get_fru_record_by_option_check(const uint8_t *table, size_t table_size,
 				   uint8_t *record_table, size_t *record_size,
 				   uint16_t rsi, uint8_t rt, uint8_t ft);
+
 /* SetFruRecordTable */
 
 /** @brief Decode SetFruRecordTable request data

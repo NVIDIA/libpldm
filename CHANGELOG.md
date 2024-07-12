@@ -17,6 +17,41 @@ Change categories:
 
 ## [Unreleased]
 
+### Added
+
+1. base: Define macros for reserved TIDs
+2. pdr: Add pldm_entity_association_pdr_add_contained_entity_to_remote_pdr()
+3. pdr: Add pldm_entity_association_pdr_create_new()
+4. platform: Define macros for the responded transferflags
+
+### Deprecated
+
+1. fru: Deprecate `get_fru_record_by_option_check()`
+
+   Users should switch to `get_fru_record_by_option()`. Migration can be
+   performed using the [Coccinelle semantic patch][coccinelle]
+   `get_fru_record_by_option_check.cocci`:
+
+   ```
+   $ spatch \
+      --sp-file=${LIBPLDM_DIR}/evolutions/current/get_fru_record_by_option_check.cocci \
+      --in-place \
+      $(git ls-files | grep -E '\.[ch](pp)?')
+   ```
+
+[coccinelle]: https://coccinelle.gitlabpages.inria.fr/website/
+
+### Removed
+
+1. IBM OEM header compatibility symlinks.
+
+   Anyone left using the deprecated paths can migrate using the coccinelle patch
+   at `evolutions/current/oem-ibm-header-compat.cocci`.
+
+### Fixed
+
+1. requester: instance-id: Release read lock on conflict
+
 ## [0.8.0] - 2024-05-23
 
 ### Added

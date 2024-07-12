@@ -1,0 +1,3 @@
+tests += [
+  'oem/meta/fileio',
+]

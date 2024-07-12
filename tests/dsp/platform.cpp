@@ -5,6 +5,7 @@
 #include <libpldm/pldm_types.h>
 
 #include <array>
+#include <cerrno>
 #include <cstdint>
 #include <cstring>
 #include <vector>
@@ -2133,7 +2134,7 @@ TEST(PlatformEventMessage, testGoodPldmMsgPollEventDataDecodeRequest)
         eventData{
             0x1,                   // version
             0x88, 0x77,            // Event Id
-            0x44, 0x33, 0x22, 0x11 // Tranfer Handle
+            0x44, 0x33, 0x22, 0x11 // Transfer Handle
         };
 
     uint8_t formatVersion = 0x01;
@@ -2165,7 +2166,7 @@ TEST(PlatformEventMessage, testBadPldmMsgPollEventDataDecodeRequest)
         eventData{
             0x1,                   // version
             0x88, 0x77,            // Event Id
-            0x44, 0x33, 0x22, 0x11 // Tranfer Handle
+            0x44, 0x33, 0x22, 0x11 // Transfer Handle
         };
 
     uint8_t retFormatVersion;
@@ -4870,7 +4871,6 @@ TEST(decodeNumericEffecterPdrData, Real32Test)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
 TEST(GetStateEffecterStates, testEncodeAndDecodeRequest)
 {
     std::array<uint8_t, hdrSize + PLDM_GET_STATE_EFFECTER_STATES_REQ_BYTES>
@@ -4904,11 +4904,9 @@ TEST(GetStateEffecterStates, testEncodeAndDecodeRequest)
     rc = decode_get_state_effecter_states_req(
         request, requestMsg.size() - hdrSize - 1, &ret_effecter_id);
 
-    EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
+    EXPECT_EQ(rc, -EOVERFLOW);
 }
-#endif
 
-#ifdef LIBPLDM_API_TESTING
 TEST(GetStateEffecterStates, testBadEncodeRequest)
 {
     std::vector<uint8_t> requestMsg(hdrSize +
@@ -4916,11 +4914,9 @@ TEST(GetStateEffecterStates, testBadEncodeRequest)
 
     auto rc = encode_get_state_effecter_states_req(
         0, 0, nullptr, PLDM_GET_STATE_EFFECTER_STATES_REQ_BYTES);
-    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(rc, -EINVAL);
 }
-#endif
 
-#ifdef LIBPLDM_API_TESTING
 TEST(GetStateEffecterStates, testBadDecodeRequest)
 {
     std::array<uint8_t, hdrSize + PLDM_GET_NUMERIC_EFFECTER_VALUE_REQ_BYTES>
@@ -4929,11 +4925,9 @@ TEST(GetStateEffecterStates, testBadDecodeRequest)
     auto rc = decode_get_state_effecter_states_req(
         nullptr, requestMsg.size() - hdrSize, nullptr);
 
-    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(rc, -EINVAL);
 }
-#endif
 
-#ifdef LIBPLDM_API_TESTING
 TEST(GetStateEffecterStates, testEncodeAndDecodeResponse)
 {
     constexpr uint8_t comp_effecterCnt = 0x2;
@@ -4996,11 +4990,9 @@ TEST(GetStateEffecterStates, testEncodeAndDecodeResponse)
         responseMsg.size() - hdrSize + PLDM_GET_EFFECTER_STATE_FIELD_SIZE,
         &ret_resp_fields);
 
-    EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
+    EXPECT_EQ(rc, -EBADMSG);
 }
-#endif
 
-#ifdef LIBPLDM_API_TESTING
 TEST(GetStateEffecterStates, testBadEncodeResponse)
 {
     struct pldm_get_state_effecter_states_resp resp
@@ -5011,11 +5003,9 @@ TEST(GetStateEffecterStates, testBadEncodeResponse)
     };
     auto rc = decode_get_state_effecter_states_resp(nullptr, 0, &resp);
 
-    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(rc, -EINVAL);
 }
-#endif
 
-#ifdef LIBPLDM_API_TESTING
 TEST(GetStateEffecterStates, testBadDecodeResponse)
 {
     std::array<uint8_t, hdrSize +
@@ -5028,6 +5018,5 @@ TEST(GetStateEffecterStates, testBadDecodeResponse)
     auto rc = decode_get_state_effecter_states_resp(
         response, responseMsg.size() - hdrSize, nullptr);
 
-    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(rc, -EINVAL);
 }
-#endif

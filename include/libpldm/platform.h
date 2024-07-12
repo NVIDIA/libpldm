@@ -13,6 +13,17 @@ extern "C" {
 #include <libpldm/pdr.h>
 #include <libpldm/pldm_types.h>
 
+/**
+ * @brief PLDM response transfer flag for the Platform and control commands
+ *        (GetPDRs, PollForPlatformEventMessage)
+ */
+enum pldm_platform_transfer_flag {
+	PLDM_PLATFORM_TRANSFER_START = 0x00,
+	PLDM_PLATFORM_TRANSFER_MIDDLE = 0x01,
+	PLDM_PLATFORM_TRANSFER_END = 0x04,
+	PLDM_PLATFORM_TRANSFER_START_AND_END = 0x05,
+};
+
 /* Maximum size for request */
 #define PLDM_GET_STATE_EFFECTER_STATES_REQ_BYTES       2
 #define PLDM_SET_STATE_EFFECTER_STATES_REQ_BYTES       19
@@ -66,10 +77,10 @@ extern "C" {
 #define PLDM_PLATFORM_EVENT_MESSAGE_EVENT_ID			 2
 #define PLDM_PLATFORM_EVENT_MESSAGE_TRANFER_HANDLE		 4
 
-/* Minumum length of senson event data */
+/* Minimum length of sensor event data */
 #define PLDM_MSG_POLL_EVENT_LENGTH 7
 
-/* Minumum length of senson event data */
+/* Minimum length of sensor event data */
 #define PLDM_SENSOR_EVENT_DATA_MIN_LENGTH			 5
 #define PLDM_SENSOR_EVENT_SENSOR_OP_STATE_DATA_LENGTH		 2
 #define PLDM_SENSOR_EVENT_STATE_SENSOR_STATE_DATA_LENGTH	 3
@@ -120,10 +131,7 @@ extern "C" {
 #define PLDM_STR_UTF_8_MAX_LEN	256
 #define PLDM_STR_UTF_16_MAX_LEN 256
 #define PLDM_EID_NULL		0x0
-
-/* DSP0248 Table1 PLDM monitoring and control data types */
-#define PLDM_STR_UTF_8_MAX_LEN	256
-#define PLDM_STR_UTF_16_MAX_LEN 256
+#define PLDM_INVALID_EFFECTER_ID 0xffff
 
 /* Maxium and Minium composite effecter count for state effecter */
 #define PLDM_COMPOSITE_EFFECTER_MAX_COUNT 8
@@ -502,14 +510,14 @@ enum pldm_occurrence_rate {
 	PLDM_RATE_UNIT_PER_YEAR
 };
 
-/** @brief PLDM respository state */
+/** @brief PLDM repository state */
 enum pldm_repository_state {
 	PLDM_AVAILABLE,
 	PLDM_UPDATE_IN_PROGRESS,
 	PLDM_FAILED
 };
 
-/** @brief PLDM respository data transfer handler timeout */
+/** @brief PLDM repository data transfer handler timeout */
 enum pldm_repository_data_transfer_handler_timeout {
 	PLDM_NO_TIMEOUT,
 	PLDM_DEFALUT_MINIMUM_TIMEOUT
@@ -2044,7 +2052,7 @@ int encode_platform_event_message_req(
 /** @brief Encode PollForPlatformEventMessage request data
  *  @param[in] instance_id - Message's instance id
  *  @param[in] format_version - Version of the event format
- *  @param[in] transfer_operation_flag - Tranfer operation
+ *  @param[in] transfer_operation_flag - Transfer operation
  *  @param[in] data_transfer_handle - The data transfer handle
  *  @param[in] event_id_to_acknowledge - the event data to acknowleadge
  *  @param[out] msg - Request message
@@ -2373,7 +2381,7 @@ int encode_pldm_message_poll_event_data(uint8_t format_version,
  *      contain numbers_of_change_entries[i] elements.
  *  @param[in] event_data - The eventData will be encoded into this. This entire
  *      structure must be max_change_records_size long. It must be large enough
- *      to accomodate the data to be encoded. The caller is responsible for
+ *      to accommodate the data to be encoded. The caller is responsible for
  *      allocating and deallocating it, including the variable-size
  *      'event_data.change_records' field. If this parameter is NULL,
  *      PLDM_SUCCESS will be returned and actual_change_records_size will be set

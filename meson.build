@@ -1,4 +1,4 @@
-project('libpldm', ['c','cpp'],
+project('libpldm', 'c',
     default_options: [
       'debug=true',
       'optimization=g',
@@ -13,6 +13,10 @@ project('libpldm', ['c','cpp'],
     meson_version: '>=1.1.0',
 )
 
+if get_option('tests').allowed()
+  add_languages('cpp')
+endif
+
 add_project_arguments('-D_DEFAULT_SOURCE', language: ['c'])
 
 compiler = meson.get_compiler('c')
@@ -23,9 +27,13 @@ endif
 
 # ABI control
 visible =  '__attribute__((visibility("default")))'
+libpldm_deprecated_aliases = []
 if get_option('abi').contains('deprecated')
   conf.set('LIBPLDM_ABI_DEPRECATED', visible)
   add_project_arguments('-DLIBPLDM_API_DEPRECATED', language: ['c', 'cpp'])
+  libpldm_deprecated_aliases += [
+    ['get_fru_record_by_option_check', 'get_fru_record_by_option'],
+  ]
 else
   conf.set('LIBPLDM_ABI_DEPRECATED', '')
 endif
