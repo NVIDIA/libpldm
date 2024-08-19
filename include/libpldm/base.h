@@ -95,6 +95,8 @@ typedef enum {
 #define PLDM_MAX_TYPES	       64
 #define PLDM_MAX_CMDS_PER_TYPE 256
 #define PLDM_MAX_TIDS	       256
+#define PLDM_TID_UNASSIGNED    0x00
+#define PLDM_TID_RESERVED      0xff
 
 /* Message payload lengths */
 #define PLDM_GET_COMMANDS_REQ_BYTES 5
@@ -113,6 +115,21 @@ typedef enum {
 #define PLDM_CURRENT_VERSION PLDM_VERSION_0
 
 #define PLDM_TIMESTAMP104_SIZE 13
+
+/** @brief Minimum length of response for a optional PLDM command
+ *
+ *  For a optional PLDM command, the command handler might not be
+ *  implemented in a device's firmware, a response contains only CC
+ *  might come in, such as ERROR_UNSUPPORTED_PLDM_CMD.
+ *
+ *  The description can be found in DSP0240:
+ *  > For an unsupported PLDM command, the ERROR_UNSUPPORTED_PLDM_CMD
+ *  > completion code shall be returned unless the responder is in a
+ *  > transient state (not ready), in which it cannot process the PLDM
+ *  > command. If the responder is in a transient state, it may return
+ *  > the ERROR_NOT_READY completion code.
+ */
+#define PLDM_OPTIONAL_COMMAND_RESP_MIN_LEN 1
 
 /** @struct pldm_msg_hdr
  *
@@ -358,7 +375,7 @@ int encode_get_commands_req(uint8_t instance_id, uint8_t type, ver32_t version,
  * protocol layer error and all the out-parameters are invalid.
  *
  *  @param[in] msg - Response message
- *  @param[in] payload_length - Length of reponse message payload
+ *  @param[in] payload_length - Length of response message payload
  *  @param[out] completion_code - Pointer to response msg's PLDM completion code
  *  @param[in] commands - pointer to array bitfield8_t[32] containing supported
  *             commands (PLDM_MAX_CMDS_PER_TYPE/8) = 32), as per DSP0240
@@ -396,7 +413,7 @@ int encode_get_version_req(uint8_t instance_id, uint32_t transfer_handle,
  * protocol layer error and all the out-parameters are invalid.
  *
  *  @param[in] msg - Response message
- *  @param[in] payload_length - Length of reponse message payload
+ *  @param[in] payload_length - Length of response message payload
  *  @param[out] completion_code - Pointer to response msg's PLDM completion code
  *  @param[out] next_transfer_handle - the next handle for the next part of data
  *  @param[out] transfer_flag - flag to indicate the part of data

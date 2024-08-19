@@ -164,7 +164,7 @@ bool pldm_pdr_record_is_remote(const pldm_pdr_record *record);
  */
 void pldm_pdr_remove_remote_pdrs(pldm_pdr *repo);
 
-/** @brief Remove all remote PDR's that beling to a specific terminus
+/** @brief Remove all remote PDR's that belong to a specific terminus
  *         handle
  *  @param[in] repo - opaque pointer acting as a PDR repo handle
  *  @param[in] terminus_handle - Terminus Handle of the remove PLDM terminus
@@ -391,7 +391,7 @@ pldm_entity_node_get_remote_container_id(const pldm_entity_node *entity);
  */
 void pldm_entity_association_tree_destroy(pldm_entity_association_tree *tree);
 
-/** @brief Check if input enity node is a parent
+/** @brief Check if input entity node is a parent
  *
  *  @pre node must point to a valid object
  *
@@ -452,6 +452,42 @@ int pldm_entity_association_pdr_add_check(pldm_entity_association_tree *tree,
 					  pldm_pdr *repo, bool is_remote,
 					  uint16_t terminus_handle);
 
+/** @brief Add a contained entity as a remote PDR to an existing entity association PDR.
+ *
+ *  Remote PDRs are PDRs added as a child to an entity in the entity association tree and
+ *  not to the tree directly. This means remote PDRs have a parent PDR in the entity
+ *  association tree to which they are linked.
+ *
+ *  @param[in] repo - opaque pointer to pldm PDR repo
+ *  @param[in] entity - the contained entity to be added
+ *  @param[in] pdr_record_handle - record handle of the container entity to which the remote
+ *  PDR is to be added as a child
+ *
+ *  @return 0 on success, -EINVAL if the arguments are invalid, -ENOMEM if an internal memory
+ *  allocation fails, or -EOVERFLOW if a record handle could not be allocated
+ */
+int pldm_entity_association_pdr_add_contained_entity_to_remote_pdr(
+	pldm_pdr *repo, pldm_entity *entity, uint32_t pdr_record_handle);
+
+/** @brief Creates a new entity association PDR with contained entity & its parent.
+ *
+ *  @param[in] repo - opaque pointer to pldm PDR repo
+ *  @param[in] pdr_record_handle - record handle of the PDR after which the new container
+ *  entity has to be added
+ *  @param[in] parent - the container entity
+ *  @param[in] entity - the contained entity to be added
+ *  @param[in-out] entity_record_handle - record handle of a container entity added to the
+ *  entity association PDR
+ *
+ *  @return 0 on success, -EINVAL if the arguments are invalid, -ENOMEM if an internal memory
+ *  allocation fails, or -EOVERFLOW if a record handle could not be allocated
+ */
+int pldm_entity_association_pdr_create_new(pldm_pdr *repo,
+					   uint32_t pdr_record_handle,
+					   pldm_entity *parent,
+					   pldm_entity *entity,
+					   uint32_t *entity_record_handle);
+
 /** @brief Add entity association pdr from node, or return an error
  *
  *  @param[in] node - opaque pointer acting as a handle to an entity node
@@ -476,7 +512,7 @@ int pldm_entity_association_pdr_add_from_node_check(
  *  @param[in] terminus_handle - terminus handle of the terminus
  *  @param[in] record_handle - record handle of the PDR
  *
- *  @return 0 on succes, -EINVAL if the provided arguments are invalid.
+ *  @return 0 on success, -EINVAL if the provided arguments are invalid.
  */
 int pldm_entity_association_pdr_add_from_node_with_record_handle(
 	pldm_entity_node *node, pldm_pdr *repo, pldm_entity **entities,

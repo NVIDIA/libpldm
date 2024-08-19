@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
+#include "msgbuf.h"
 #include <libpldm/firmware_update.h>
 #include <libpldm/utils.h>
 
@@ -71,6 +72,29 @@ static uint16_t get_descriptor_type_length(uint16_t descriptor_type)
 		return PLDM_FWUP_UBM_CONTROLLER_DEVICE_CODE_LENGTH;
 	default:
 		return 0;
+	}
+}
+
+static bool is_downstream_device_update_support_valid(uint8_t resp)
+{
+	switch (resp) {
+	case PLDM_FWUP_DOWNSTREAM_DEVICE_UPDATE_NOT_SUPPORTED:
+	case PLDM_FWUP_DOWNSTREAM_DEVICE_UPDATE_SUPPORTED:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static bool
+is_transfer_operation_flag_valid(enum transfer_op_flag transfer_op_flag)
+{
+	switch (transfer_op_flag) {
+	case PLDM_GET_NEXTPART:
+	case PLDM_GET_FIRSTPART:
+		return true;
+	default:
+		return false;
 	}
 }
 
@@ -509,7 +533,7 @@ int decode_vendor_defined_descriptor_value(
 		return PLDM_ERROR_INVALID_DATA;
 	}
 
-	// Assuming atleast 1 byte of VendorDefinedDescriptorData
+	// Assuming at least 1 byte of VendorDefinedDescriptorData
 	if (length < (sizeof(struct pldm_vendor_defined_descriptor_title_data) +
 		      entry->vendor_defined_descriptor_title_str_len)) {
 		return PLDM_ERROR_INVALID_LENGTH;
@@ -852,6 +876,163 @@ int decode_get_firmware_parameters_resp_comp_entry(
 		pending_comp_ver_str->length = 0;
 	}
 	return PLDM_SUCCESS;
+}
+
+LIBPLDM_ABI_TESTING
+int encode_query_downstream_devices_req(uint8_t instance_id,
+					struct pldm_msg *msg)
+{
+	if (msg == NULL) {
+		return PLDM_ERROR_INVALID_DATA;
+	}
+
+	return encode_pldm_header_only(PLDM_REQUEST, instance_id, PLDM_FWUP,
+				       PLDM_QUERY_DOWNSTREAM_DEVICES, msg);
+}
+
+LIBPLDM_ABI_TESTING
+int decode_query_downstream_devices_resp(
+	const struct pldm_msg *msg, size_t payload_length,
+	struct pldm_query_downstream_devices_resp *resp_data)
+{
+	struct pldm_msgbuf _buf;
+	struct pldm_msgbuf *buf = &_buf;
+	int rc;
+
+	if (msg == NULL || resp_data == NULL || !payload_length) {
+		return PLDM_ERROR_INVALID_DATA;
+	}
+
+	rc = pldm_msgbuf_init_cc(buf, PLDM_OPTIONAL_COMMAND_RESP_MIN_LEN,
+				 msg->payload, payload_length);
+	if (rc) {
+		return rc;
+	}
+
+	rc = pldm_msgbuf_extract(buf, resp_data->completion_code);
+	if (rc) {
+		return rc;
+	}
+	if (PLDM_SUCCESS != resp_data->completion_code) {
+		// Return the CC directly without decoding the rest of the payload
+		return PLDM_SUCCESS;
+	}
+
+	if (payload_length < PLDM_QUERY_DOWNSTREAM_DEVICES_RESP_BYTES) {
+		return PLDM_ERROR_INVALID_LENGTH;
+	}
+
+	rc = pldm_msgbuf_extract(buf,
+				 resp_data->downstream_device_update_supported);
+	if (rc) {
+		return rc;
+	}
+
+	if (!is_downstream_device_update_support_valid(
+		    resp_data->downstream_device_update_supported)) {
+		return PLDM_ERROR_INVALID_DATA;
+	}
+
+	pldm_msgbuf_extract(buf, resp_data->number_of_downstream_devices);
+	pldm_msgbuf_extract(buf, resp_data->max_number_of_downstream_devices);
+	pldm_msgbuf_extract(buf, resp_data->capabilities.value);
+
+	return pldm_msgbuf_destroy_consumed(buf);
+}
+
+LIBPLDM_ABI_TESTING
+int encode_query_downstream_identifiers_req(
+	uint8_t instance_id, uint32_t data_transfer_handle,
+	enum transfer_op_flag transfer_operation_flag, struct pldm_msg *msg,
+	size_t payload_length)
+{
+	struct pldm_msgbuf _buf;
+	struct pldm_msgbuf *buf = &_buf;
+	int rc;
+
+	if (msg == NULL) {
+		return PLDM_ERROR_INVALID_DATA;
+	}
+
+	if (!is_transfer_operation_flag_valid(transfer_operation_flag)) {
+		return PLDM_INVALID_TRANSFER_OPERATION_FLAG;
+	}
+
+	struct pldm_header_info header = { 0 };
+	header.instance = instance_id;
+	header.msg_type = PLDM_REQUEST;
+	header.pldm_type = PLDM_FWUP;
+	header.command = PLDM_QUERY_DOWNSTREAM_IDENTIFIERS;
+	rc = pack_pldm_header(&header, &(msg->hdr));
+	if (rc) {
+		return rc;
+	}
+
+	rc = pldm_msgbuf_init_cc(buf,
+				 PLDM_QUERY_DOWNSTREAM_IDENTIFIERS_REQ_BYTES,
+				 msg->payload, payload_length);
+	if (rc) {
+		return rc;
+	}
+
+	pldm_msgbuf_insert(buf, data_transfer_handle);
+	// Data correctness has been verified, cast it to 1-byte data directly.
+	pldm_msgbuf_insert(buf, (uint8_t)transfer_operation_flag);
+
+	return pldm_msgbuf_destroy(buf);
+}
+
+LIBPLDM_ABI_TESTING
+int decode_query_downstream_identifiers_resp(
+	const struct pldm_msg *msg, size_t payload_length,
+	struct pldm_query_downstream_identifiers_resp *resp_data,
+	struct variable_field *downstream_devices)
+{
+	struct pldm_msgbuf _buf;
+	struct pldm_msgbuf *buf = &_buf;
+	int rc = PLDM_ERROR;
+
+	if (msg == NULL || resp_data == NULL || downstream_devices == NULL ||
+	    !payload_length) {
+		return PLDM_ERROR_INVALID_DATA;
+	}
+
+	rc = pldm_msgbuf_init_cc(buf, PLDM_OPTIONAL_COMMAND_RESP_MIN_LEN,
+				 msg->payload, payload_length);
+	if (rc) {
+		return rc;
+	}
+
+	rc = pldm_msgbuf_extract(buf, resp_data->completion_code);
+	if (rc) {
+		return rc;
+	}
+	if (PLDM_SUCCESS != resp_data->completion_code) {
+		return PLDM_SUCCESS;
+	}
+
+	if (payload_length < PLDM_QUERY_DOWNSTREAM_IDENTIFIERS_RESP_MIN_LEN) {
+		return PLDM_ERROR_INVALID_LENGTH;
+	}
+
+	pldm_msgbuf_extract(buf, resp_data->next_data_transfer_handle);
+	pldm_msgbuf_extract(buf, resp_data->transfer_flag);
+
+	rc = pldm_msgbuf_extract(buf, resp_data->downstream_devices_length);
+	if (rc) {
+		return rc;
+	}
+
+	pldm_msgbuf_extract(buf, resp_data->number_of_downstream_devices);
+	rc = pldm_msgbuf_span_required(buf,
+				       resp_data->downstream_devices_length,
+				       (void **)&downstream_devices->ptr);
+	if (rc) {
+		return rc;
+	}
+	downstream_devices->length = resp_data->downstream_devices_length;
+
+	return pldm_msgbuf_destroy(buf);
 }
 
 LIBPLDM_ABI_STABLE

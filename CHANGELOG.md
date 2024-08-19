@@ -19,6 +19,43 @@ Change categories:
 
 ### Added
 
+1. base: Define macros for reserved TIDs
+2. pdr: Add pldm_entity_association_pdr_add_contained_entity_to_remote_pdr()
+3. pdr: Add pldm_entity_association_pdr_create_new()
+4. platform: Define macros for the responded transferflags
+
+### Deprecated
+
+1. fru: Deprecate `get_fru_record_by_option_check()`
+
+   Users should switch to `get_fru_record_by_option()`. Migration can be
+   performed using the [Coccinelle semantic patch][coccinelle]
+   `get_fru_record_by_option_check.cocci`:
+
+   ```
+   $ spatch \
+      --sp-file=${LIBPLDM_DIR}/evolutions/current/get_fru_record_by_option_check.cocci \
+      --in-place \
+      $(git ls-files | grep -E '\.[ch](pp)?')
+   ```
+
+[coccinelle]: https://coccinelle.gitlabpages.inria.fr/website/
+
+### Removed
+
+1. IBM OEM header compatibility symlinks.
+
+   Anyone left using the deprecated paths can migrate using the coccinelle patch
+   at `evolutions/current/oem-ibm-header-compat.cocci`.
+
+### Fixed
+
+1. requester: instance-id: Release read lock on conflict
+
+## [0.8.0] - 2024-05-23
+
+### Added
+
 1. base: Provide pldm_msg_hdr_correlate_response()
 2. transport: af-mctp: Add pldm_transport_af_mctp_bind()
 3. oem: ibm: Add chapdata file type support
@@ -39,6 +76,11 @@ Change categories:
 11. state_set: Add CONNECTED and DISCONNECTED enum for Link State set
 12. entity: Add enum for Network Interface Connectors and Network Ports
     Connection Types
+13. pdr: Add decode_numeric_effecter_pdr_data()
+14. oem: ibm: Support for the Real SAI entity id
+15. fw_update: Add encode req & decode resp for query_downstream_devices
+16. fw_update: Add encode req & decode resp for query_downstream_identifiers
+17. platform: Add support for GetStateEffecterStates command
 
 ### Changed
 
@@ -62,6 +104,7 @@ Change categories:
 2. pdr: Assign record_handle in entity_association_pdr_add_children()
 3. msgbuf: Require sensor data enum in pldm_msgbuf_extract_sensor_value()
 4. pdr: Remove redundant constant for minimum numeric sensor PDR length
+5. tests: oem: meta: Fix fileio use of msgbuf
 
 ## [0.7.0] - 2023-08-29
 
