@@ -6,10 +6,10 @@
 
 #include <libpldm/base.h>
 
-int pack_pldm_header_errno(const struct pldm_header_info *hdr,
-			   struct pldm_msg_hdr *msg);
+int pack_pldm_header_errno(const struct pldm_header_info* hdr,
+                           struct pldm_msg_hdr* msg);
 
-int unpack_pldm_header_errno(const struct pldm_msg_hdr *msg,
-			     struct pldm_header_info *hdr);
+int unpack_pldm_header_errno(const struct pldm_msg_hdr* msg,
+                             struct pldm_header_info* hdr);
 
 #endif

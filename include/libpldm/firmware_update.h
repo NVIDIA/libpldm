@@ -3,20 +3,21 @@
 #define FW_UPDATE_H
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
+
+#include "stdbool.h"
 
 #include <libpldm/base.h>
 #include <libpldm/pldm_types.h>
-
-#include "stdbool.h"
 #include <stddef.h>
 #include <stdint.h>
 struct variable_field;
 
-#define PLDM_FWUP_COMPONENT_BITMAP_MULTIPLE		 8
+#define PLDM_FWUP_COMPONENT_BITMAP_MULTIPLE 8
 #define PLDM_FWUP_INVALID_COMPONENT_COMPARISON_TIMESTAMP 0xffffffff
-#define PLDM_QUERY_DEVICE_IDENTIFIERS_REQ_BYTES		 0
+#define PLDM_QUERY_DEVICE_IDENTIFIERS_REQ_BYTES 0
 
 /** @brief Length of QueryDownstreamDevices response defined in DSP0267_1.1.0
  *  Table 15 - QueryDownstreamDevices command format.
@@ -34,11 +35,11 @@ struct variable_field;
  *
  *  4 bytes for data transfer handle
  *  1 byte for transfer operation flag
-*/
+ */
 #define PLDM_QUERY_DOWNSTREAM_IDENTIFIERS_REQ_BYTES 5
 
-/** @brief Minimum length of QueryDownstreamIdentifiers response from DSP0267_1.1.0
- *  if the complement code is success.
+/** @brief Minimum length of QueryDownstreamIdentifiers response from
+ * DSP0267_1.1.0 if the complement code is success.
  *
  *  1 byte for completion code
  *  4 bytes for next data transfer handle
@@ -51,15 +52,15 @@ struct variable_field;
 /** @brief Minimum length of device descriptor, 2 bytes for descriptor type,
  *         2 bytes for descriptor length and at least 1 byte of descriptor data
  */
-#define PLDM_FWUP_DEVICE_DESCRIPTOR_MIN_LEN    5
+#define PLDM_FWUP_DEVICE_DESCRIPTOR_MIN_LEN 5
 #define PLDM_GET_FIRMWARE_PARAMETERS_REQ_BYTES 0
-#define PLDM_FWUP_BASELINE_TRANSFER_SIZE       32
-#define PLDM_FWUP_MIN_OUTSTANDING_REQ	       1
-#define PLDM_GET_STATUS_REQ_BYTES	       0
+#define PLDM_FWUP_BASELINE_TRANSFER_SIZE 32
+#define PLDM_FWUP_MIN_OUTSTANDING_REQ 1
+#define PLDM_GET_STATUS_REQ_BYTES 0
 /* Maximum progress percentage value*/
-#define PLDM_FWUP_MAX_PROGRESS_PERCENT	       0x65
+#define PLDM_FWUP_MAX_PROGRESS_PERCENT 0x65
 #define PLDM_CANCEL_UPDATE_COMPONENT_REQ_BYTES 0
-#define PLDM_CANCEL_UPDATE_REQ_BYTES	       0
+#define PLDM_CANCEL_UPDATE_REQ_BYTES 0
 
 /* Firmware update command timeout error code for TransferComplete,
  * VerifyComplete, ActivateComplete. */
@@ -73,353 +74,379 @@ const uint8_t VERSION_MISMATCH = 0x2;
 
 /** @brief PLDM Firmware update commands
  */
-enum pldm_firmware_update_commands {
-	PLDM_QUERY_DEVICE_IDENTIFIERS = 0x01,
-	PLDM_GET_FIRMWARE_PARAMETERS = 0x02,
-	PLDM_QUERY_DOWNSTREAM_DEVICES = 0x03,
-	PLDM_QUERY_DOWNSTREAM_IDENTIFIERS = 0x04,
-	PLDM_REQUEST_UPDATE = 0x10,
-	PLDM_PASS_COMPONENT_TABLE = 0x13,
-	PLDM_UPDATE_COMPONENT = 0x14,
-	PLDM_REQUEST_FIRMWARE_DATA = 0x15,
-	PLDM_TRANSFER_COMPLETE = 0x16,
-	PLDM_VERIFY_COMPLETE = 0x17,
-	PLDM_APPLY_COMPLETE = 0x18,
-	PLDM_ACTIVATE_FIRMWARE = 0x1a,
-	PLDM_GET_STATUS = 0x1b,
-	PLDM_CANCEL_UPDATE_COMPONENT = 0x1c,
-	PLDM_CANCEL_UPDATE = 0x1d
+enum pldm_firmware_update_commands
+{
+    PLDM_QUERY_DEVICE_IDENTIFIERS = 0x01,
+    PLDM_GET_FIRMWARE_PARAMETERS = 0x02,
+    PLDM_QUERY_DOWNSTREAM_DEVICES = 0x03,
+    PLDM_QUERY_DOWNSTREAM_IDENTIFIERS = 0x04,
+    PLDM_REQUEST_UPDATE = 0x10,
+    PLDM_PASS_COMPONENT_TABLE = 0x13,
+    PLDM_UPDATE_COMPONENT = 0x14,
+    PLDM_REQUEST_FIRMWARE_DATA = 0x15,
+    PLDM_TRANSFER_COMPLETE = 0x16,
+    PLDM_VERIFY_COMPLETE = 0x17,
+    PLDM_APPLY_COMPLETE = 0x18,
+    PLDM_ACTIVATE_FIRMWARE = 0x1a,
+    PLDM_GET_STATUS = 0x1b,
+    PLDM_CANCEL_UPDATE_COMPONENT = 0x1c,
+    PLDM_CANCEL_UPDATE = 0x1d
 };
 
 /** @brief PLDM Firmware update completion codes
  */
-enum pldm_firmware_update_completion_codes {
-	PLDM_FWUP_NOT_IN_UPDATE_MODE = 0x80,
-	PLDM_FWUP_ALREADY_IN_UPDATE_MODE = 0x81,
-	PLDM_FWUP_DATA_OUT_OF_RANGE = 0x82,
-	PLDM_FWUP_INVALID_TRANSFER_LENGTH = 0x83,
-	PLDM_FWUP_INVALID_STATE_FOR_COMMAND = 0x84,
-	PLDM_FWUP_INCOMPLETE_UPDATE = 0x85,
-	PLDM_FWUP_BUSY_IN_BACKGROUND = 0x86,
-	PLDM_FWUP_CANCEL_PENDING = 0x87,
-	PLDM_FWUP_COMMAND_NOT_EXPECTED = 0x88,
-	PLDM_FWUP_RETRY_REQUEST_FW_DATA = 0x89,
-	PLDM_FWUP_UNABLE_TO_INITIATE_UPDATE = 0x8a,
-	PLDM_FWUP_ACTIVATION_NOT_REQUIRED = 0x8b,
-	PLDM_FWUP_SELF_CONTAINED_ACTIVATION_NOT_PERMITTED = 0x8c,
-	PLDM_FWUP_NO_DEVICE_METADATA = 0x8d,
-	PLDM_FWUP_RETRY_REQUEST_UPDATE = 0x8e,
-	PLDM_FWUP_NO_PACKAGE_DATA = 0x8f,
-	PLDM_FWUP_INVALID_TRANSFER_HANDLE = 0x90,
-	PLDM_FWUP_INVALID_TRANSFER_OPERATION_FLAG = 0x91,
-	PLDM_FWUP_ACTIVATE_PENDING_IMAGE_NOT_PERMITTED = 0x92,
-	PLDM_FWUP_PACKAGE_DATA_ERROR = 0x93
+enum pldm_firmware_update_completion_codes
+{
+    PLDM_FWUP_NOT_IN_UPDATE_MODE = 0x80,
+    PLDM_FWUP_ALREADY_IN_UPDATE_MODE = 0x81,
+    PLDM_FWUP_DATA_OUT_OF_RANGE = 0x82,
+    PLDM_FWUP_INVALID_TRANSFER_LENGTH = 0x83,
+    PLDM_FWUP_INVALID_STATE_FOR_COMMAND = 0x84,
+    PLDM_FWUP_INCOMPLETE_UPDATE = 0x85,
+    PLDM_FWUP_BUSY_IN_BACKGROUND = 0x86,
+    PLDM_FWUP_CANCEL_PENDING = 0x87,
+    PLDM_FWUP_COMMAND_NOT_EXPECTED = 0x88,
+    PLDM_FWUP_RETRY_REQUEST_FW_DATA = 0x89,
+    PLDM_FWUP_UNABLE_TO_INITIATE_UPDATE = 0x8a,
+    PLDM_FWUP_ACTIVATION_NOT_REQUIRED = 0x8b,
+    PLDM_FWUP_SELF_CONTAINED_ACTIVATION_NOT_PERMITTED = 0x8c,
+    PLDM_FWUP_NO_DEVICE_METADATA = 0x8d,
+    PLDM_FWUP_RETRY_REQUEST_UPDATE = 0x8e,
+    PLDM_FWUP_NO_PACKAGE_DATA = 0x8f,
+    PLDM_FWUP_INVALID_TRANSFER_HANDLE = 0x90,
+    PLDM_FWUP_INVALID_TRANSFER_OPERATION_FLAG = 0x91,
+    PLDM_FWUP_ACTIVATE_PENDING_IMAGE_NOT_PERMITTED = 0x92,
+    PLDM_FWUP_PACKAGE_DATA_ERROR = 0x93
 };
 
 /** @brief String type values defined in the PLDM firmware update specification
  */
-enum pldm_firmware_update_string_type {
-	PLDM_STR_TYPE_UNKNOWN = 0,
-	PLDM_STR_TYPE_ASCII = 1,
-	PLDM_STR_TYPE_UTF_8 = 2,
-	PLDM_STR_TYPE_UTF_16 = 3,
-	PLDM_STR_TYPE_UTF_16LE = 4,
-	PLDM_STR_TYPE_UTF_16BE = 5
+enum pldm_firmware_update_string_type
+{
+    PLDM_STR_TYPE_UNKNOWN = 0,
+    PLDM_STR_TYPE_ASCII = 1,
+    PLDM_STR_TYPE_UTF_8 = 2,
+    PLDM_STR_TYPE_UTF_16 = 3,
+    PLDM_STR_TYPE_UTF_16LE = 4,
+    PLDM_STR_TYPE_UTF_16BE = 5
 };
 
 /** @brief Descriptor types defined in PLDM firmware update specification
  */
-enum pldm_firmware_update_descriptor_types {
-	PLDM_FWUP_PCI_VENDOR_ID = 0x0000,
-	PLDM_FWUP_IANA_ENTERPRISE_ID = 0x0001,
-	PLDM_FWUP_UUID = 0x0002,
-	PLDM_FWUP_PNP_VENDOR_ID = 0x0003,
-	PLDM_FWUP_ACPI_VENDOR_ID = 0x0004,
-	PLDM_FWUP_IEEE_ASSIGNED_COMPANY_ID = 0x0005,
-	PLDM_FWUP_SCSI_VENDOR_ID = 0x0006,
-	PLDM_FWUP_PCI_DEVICE_ID = 0x0100,
-	PLDM_FWUP_PCI_SUBSYSTEM_VENDOR_ID = 0x0101,
-	PLDM_FWUP_PCI_SUBSYSTEM_ID = 0x0102,
-	PLDM_FWUP_PCI_REVISION_ID = 0x0103,
-	PLDM_FWUP_PNP_PRODUCT_IDENTIFIER = 0x0104,
-	PLDM_FWUP_ACPI_PRODUCT_IDENTIFIER = 0x0105,
-	PLDM_FWUP_ASCII_MODEL_NUMBER_LONG_STRING = 0x0106,
-	PLDM_FWUP_ASCII_MODEL_NUMBER_SHORT_STRING = 0x0107,
-	PLDM_FWUP_SCSI_PRODUCT_ID = 0x0108,
-	PLDM_FWUP_UBM_CONTROLLER_DEVICE_CODE = 0x0109,
-	PLDM_FWUP_VENDOR_DEFINED = 0xffff
+enum pldm_firmware_update_descriptor_types
+{
+    PLDM_FWUP_PCI_VENDOR_ID = 0x0000,
+    PLDM_FWUP_IANA_ENTERPRISE_ID = 0x0001,
+    PLDM_FWUP_UUID = 0x0002,
+    PLDM_FWUP_PNP_VENDOR_ID = 0x0003,
+    PLDM_FWUP_ACPI_VENDOR_ID = 0x0004,
+    PLDM_FWUP_IEEE_ASSIGNED_COMPANY_ID = 0x0005,
+    PLDM_FWUP_SCSI_VENDOR_ID = 0x0006,
+    PLDM_FWUP_PCI_DEVICE_ID = 0x0100,
+    PLDM_FWUP_PCI_SUBSYSTEM_VENDOR_ID = 0x0101,
+    PLDM_FWUP_PCI_SUBSYSTEM_ID = 0x0102,
+    PLDM_FWUP_PCI_REVISION_ID = 0x0103,
+    PLDM_FWUP_PNP_PRODUCT_IDENTIFIER = 0x0104,
+    PLDM_FWUP_ACPI_PRODUCT_IDENTIFIER = 0x0105,
+    PLDM_FWUP_ASCII_MODEL_NUMBER_LONG_STRING = 0x0106,
+    PLDM_FWUP_ASCII_MODEL_NUMBER_SHORT_STRING = 0x0107,
+    PLDM_FWUP_SCSI_PRODUCT_ID = 0x0108,
+    PLDM_FWUP_UBM_CONTROLLER_DEVICE_CODE = 0x0109,
+    PLDM_FWUP_VENDOR_DEFINED = 0xffff
 };
 
 /** @brief Descriptor types length defined in PLDM firmware update specification
  */
-enum pldm_firmware_update_descriptor_types_length {
-	PLDM_FWUP_PCI_VENDOR_ID_LENGTH = 2,
-	PLDM_FWUP_IANA_ENTERPRISE_ID_LENGTH = 4,
-	PLDM_FWUP_UUID_LENGTH = 16,
-	PLDM_FWUP_PNP_VENDOR_ID_LENGTH = 3,
-	PLDM_FWUP_ACPI_VENDOR_ID_LENGTH = 4,
-	PLDM_FWUP_IEEE_ASSIGNED_COMPANY_ID_LENGTH = 3,
-	PLDM_FWUP_SCSI_VENDOR_ID_LENGTH = 8,
-	PLDM_FWUP_PCI_DEVICE_ID_LENGTH = 2,
-	PLDM_FWUP_PCI_SUBSYSTEM_VENDOR_ID_LENGTH = 2,
-	PLDM_FWUP_PCI_SUBSYSTEM_ID_LENGTH = 2,
-	PLDM_FWUP_PCI_REVISION_ID_LENGTH = 1,
-	PLDM_FWUP_PNP_PRODUCT_IDENTIFIER_LENGTH = 4,
-	PLDM_FWUP_ACPI_PRODUCT_IDENTIFIER_LENGTH = 4,
-	PLDM_FWUP_ASCII_MODEL_NUMBER_LONG_STRING_LENGTH = 40,
-	PLDM_FWUP_ASCII_MODEL_NUMBER_SHORT_STRING_LENGTH = 10,
-	PLDM_FWUP_SCSI_PRODUCT_ID_LENGTH = 16,
-	PLDM_FWUP_UBM_CONTROLLER_DEVICE_CODE_LENGTH = 4
+enum pldm_firmware_update_descriptor_types_length
+{
+    PLDM_FWUP_PCI_VENDOR_ID_LENGTH = 2,
+    PLDM_FWUP_IANA_ENTERPRISE_ID_LENGTH = 4,
+    PLDM_FWUP_UUID_LENGTH = 16,
+    PLDM_FWUP_PNP_VENDOR_ID_LENGTH = 3,
+    PLDM_FWUP_ACPI_VENDOR_ID_LENGTH = 4,
+    PLDM_FWUP_IEEE_ASSIGNED_COMPANY_ID_LENGTH = 3,
+    PLDM_FWUP_SCSI_VENDOR_ID_LENGTH = 8,
+    PLDM_FWUP_PCI_DEVICE_ID_LENGTH = 2,
+    PLDM_FWUP_PCI_SUBSYSTEM_VENDOR_ID_LENGTH = 2,
+    PLDM_FWUP_PCI_SUBSYSTEM_ID_LENGTH = 2,
+    PLDM_FWUP_PCI_REVISION_ID_LENGTH = 1,
+    PLDM_FWUP_PNP_PRODUCT_IDENTIFIER_LENGTH = 4,
+    PLDM_FWUP_ACPI_PRODUCT_IDENTIFIER_LENGTH = 4,
+    PLDM_FWUP_ASCII_MODEL_NUMBER_LONG_STRING_LENGTH = 40,
+    PLDM_FWUP_ASCII_MODEL_NUMBER_SHORT_STRING_LENGTH = 10,
+    PLDM_FWUP_SCSI_PRODUCT_ID_LENGTH = 16,
+    PLDM_FWUP_UBM_CONTROLLER_DEVICE_CODE_LENGTH = 4
 };
 
 /** @brief ComponentClassification values defined in firmware update
  *         specification
  */
-enum pldm_component_classification_values {
-	PLDM_COMP_UNKNOWN = 0x0000,
-	PLDM_COMP_OTHER = 0x0001,
-	PLDM_COMP_DRIVER = 0x0002,
-	PLDM_COMP_CONFIGURATION_SOFTWARE = 0x0003,
-	PLDM_COMP_APPLICATION_SOFTWARE = 0x0004,
-	PLDM_COMP_INSTRUMENTATION = 0x0005,
-	PLDM_COMP_FIRMWARE_OR_BIOS = 0x0006,
-	PLDM_COMP_DIAGNOSTIC_SOFTWARE = 0x0007,
-	PLDM_COMP_OPERATING_SYSTEM = 0x0008,
-	PLDM_COMP_MIDDLEWARE = 0x0009,
-	PLDM_COMP_FIRMWARE = 0x000a,
-	PLDM_COMP_BIOS_OR_FCODE = 0x000b,
-	PLDM_COMP_SUPPORT_OR_SERVICEPACK = 0x000c,
-	PLDM_COMP_SOFTWARE_BUNDLE = 0x000d,
-	PLDM_COMP_DOWNSTREAM_DEVICE = 0xffff
+enum pldm_component_classification_values
+{
+    PLDM_COMP_UNKNOWN = 0x0000,
+    PLDM_COMP_OTHER = 0x0001,
+    PLDM_COMP_DRIVER = 0x0002,
+    PLDM_COMP_CONFIGURATION_SOFTWARE = 0x0003,
+    PLDM_COMP_APPLICATION_SOFTWARE = 0x0004,
+    PLDM_COMP_INSTRUMENTATION = 0x0005,
+    PLDM_COMP_FIRMWARE_OR_BIOS = 0x0006,
+    PLDM_COMP_DIAGNOSTIC_SOFTWARE = 0x0007,
+    PLDM_COMP_OPERATING_SYSTEM = 0x0008,
+    PLDM_COMP_MIDDLEWARE = 0x0009,
+    PLDM_COMP_FIRMWARE = 0x000a,
+    PLDM_COMP_BIOS_OR_FCODE = 0x000b,
+    PLDM_COMP_SUPPORT_OR_SERVICEPACK = 0x000c,
+    PLDM_COMP_SOFTWARE_BUNDLE = 0x000d,
+    PLDM_COMP_DOWNSTREAM_DEVICE = 0xffff
 };
 
 /** @brief ComponentActivationMethods is the bit position in the bitfield that
  *         provides the capability of the FD for firmware activation. Multiple
  *         activation methods can be supported.
  */
-enum pldm_comp_activation_methods {
-	PLDM_ACTIVATION_AUTOMATIC = 0,
-	PLDM_ACTIVATION_SELF_CONTAINED = 1,
-	PLDM_ACTIVATION_MEDIUM_SPECIFIC_RESET = 2,
-	PLDM_ACTIVATION_SYSTEM_REBOOT = 3,
-	PLDM_ACTIVATION_DC_POWER_CYCLE = 4,
-	PLDM_ACTIVATION_AC_POWER_CYCLE = 5,
-	PLDM_SUPPORTS_ACTIVATE_PENDING_IMAGE = 6,
-	PLDM_SUPPORTS_ACTIVATE_PENDING_IMAGE_SET = 7
+enum pldm_comp_activation_methods
+{
+    PLDM_ACTIVATION_AUTOMATIC = 0,
+    PLDM_ACTIVATION_SELF_CONTAINED = 1,
+    PLDM_ACTIVATION_MEDIUM_SPECIFIC_RESET = 2,
+    PLDM_ACTIVATION_SYSTEM_REBOOT = 3,
+    PLDM_ACTIVATION_DC_POWER_CYCLE = 4,
+    PLDM_ACTIVATION_AC_POWER_CYCLE = 5,
+    PLDM_SUPPORTS_ACTIVATE_PENDING_IMAGE = 6,
+    PLDM_SUPPORTS_ACTIVATE_PENDING_IMAGE_SET = 7
 };
 
 /** @brief ComponentResponse values in the response of PassComponentTable
  */
-enum pldm_component_responses {
-	PLDM_CR_COMP_CAN_BE_UPDATED = 0,
-	PLDM_CR_COMP_MAY_BE_UPDATEABLE = 1
+enum pldm_component_responses
+{
+    PLDM_CR_COMP_CAN_BE_UPDATED = 0,
+    PLDM_CR_COMP_MAY_BE_UPDATEABLE = 1
 };
 
 /** @brief ComponentResponseCode values in the response of PassComponentTable
  */
-enum pldm_component_response_codes {
-	PLDM_CRC_COMP_CAN_BE_UPDATED = 0x00,
-	PLDM_CRC_COMP_COMPARISON_STAMP_IDENTICAL = 0x01,
-	PLDM_CRC_COMP_COMPARISON_STAMP_LOWER = 0x02,
-	PLDM_CRC_INVALID_COMP_COMPARISON_STAMP = 0x03,
-	PLDM_CRC_COMP_CONFLICT = 0x04,
-	PLDM_CRC_COMP_PREREQUISITES_NOT_MET = 0x05,
-	PLDM_CRC_COMP_NOT_SUPPORTED = 0x06,
-	PLDM_CRC_COMP_SECURITY_RESTRICTIONS = 0x07,
-	PLDM_CRC_INCOMPLETE_COMP_IMAGE_SET = 0x08,
-	PLDM_CRC_ACTIVE_IMAGE_NOT_UPDATEABLE_SUBSEQUENTLY = 0x09,
-	PLDM_CRC_COMP_VER_STR_IDENTICAL = 0x0a,
-	PLDM_CRC_COMP_VER_STR_LOWER = 0x0b,
-	PLDM_CRC_VENDOR_COMP_RESP_CODE_RANGE_MIN = 0xd0,
-	PLDM_CRC_VENDOR_COMP_RESP_CODE_RANGE_MAX = 0xef
+enum pldm_component_response_codes
+{
+    PLDM_CRC_COMP_CAN_BE_UPDATED = 0x00,
+    PLDM_CRC_COMP_COMPARISON_STAMP_IDENTICAL = 0x01,
+    PLDM_CRC_COMP_COMPARISON_STAMP_LOWER = 0x02,
+    PLDM_CRC_INVALID_COMP_COMPARISON_STAMP = 0x03,
+    PLDM_CRC_COMP_CONFLICT = 0x04,
+    PLDM_CRC_COMP_PREREQUISITES_NOT_MET = 0x05,
+    PLDM_CRC_COMP_NOT_SUPPORTED = 0x06,
+    PLDM_CRC_COMP_SECURITY_RESTRICTIONS = 0x07,
+    PLDM_CRC_INCOMPLETE_COMP_IMAGE_SET = 0x08,
+    PLDM_CRC_ACTIVE_IMAGE_NOT_UPDATEABLE_SUBSEQUENTLY = 0x09,
+    PLDM_CRC_COMP_VER_STR_IDENTICAL = 0x0a,
+    PLDM_CRC_COMP_VER_STR_LOWER = 0x0b,
+    PLDM_CRC_VENDOR_COMP_RESP_CODE_RANGE_MIN = 0xd0,
+    PLDM_CRC_VENDOR_COMP_RESP_CODE_RANGE_MAX = 0xef
 };
 
 /** @brief ComponentCompatibilityResponse values in the response of
  *         UpdateComponent
  */
-enum pldm_component_compatibility_responses {
-	PLDM_CCR_COMP_CAN_BE_UPDATED = 0,
-	PLDM_CCR_COMP_CANNOT_BE_UPDATED = 1
+enum pldm_component_compatibility_responses
+{
+    PLDM_CCR_COMP_CAN_BE_UPDATED = 0,
+    PLDM_CCR_COMP_CANNOT_BE_UPDATED = 1
 };
 
 /** @brief ComponentCompatibilityResponse Code values in the response of
  *         UpdateComponent
  */
-enum pldm_component_compatibility_response_codes {
-	PLDM_CCRC_NO_RESPONSE_CODE = 0x00,
-	PLDM_CCRC_COMP_COMPARISON_STAMP_IDENTICAL = 0x01,
-	PLDM_CCRC_COMP_COMPARISON_STAMP_LOWER = 0x02,
-	PLDM_CCRC_INVALID_COMP_COMPARISON_STAMP = 0x03,
-	PLDM_CCRC_COMP_CONFLICT = 0x04,
-	PLDM_CCRC_COMP_PREREQUISITES_NOT_MET = 0x05,
-	PLDM_CCRC_COMP_NOT_SUPPORTED = 0x06,
-	PLDM_CCRC_COMP_SECURITY_RESTRICTIONS = 0x07,
-	PLDM_CCRC_INCOMPLETE_COMP_IMAGE_SET = 0x08,
-	PLDM_CCRC_COMP_INFO_NO_MATCH = 0x09,
-	PLDM_CCRC_COMP_VER_STR_IDENTICAL = 0x0a,
-	PLDM_CCRC_COMP_VER_STR_LOWER = 0x0b,
-	PLDM_CCRC_VENDOR_COMP_RESP_CODE_RANGE_MIN = 0xd0,
-	PLDM_CCRC_VENDOR_COMP_RESP_CODE_RANGE_MAX = 0xef
+enum pldm_component_compatibility_response_codes
+{
+    PLDM_CCRC_NO_RESPONSE_CODE = 0x00,
+    PLDM_CCRC_COMP_COMPARISON_STAMP_IDENTICAL = 0x01,
+    PLDM_CCRC_COMP_COMPARISON_STAMP_LOWER = 0x02,
+    PLDM_CCRC_INVALID_COMP_COMPARISON_STAMP = 0x03,
+    PLDM_CCRC_COMP_CONFLICT = 0x04,
+    PLDM_CCRC_COMP_PREREQUISITES_NOT_MET = 0x05,
+    PLDM_CCRC_COMP_NOT_SUPPORTED = 0x06,
+    PLDM_CCRC_COMP_SECURITY_RESTRICTIONS = 0x07,
+    PLDM_CCRC_INCOMPLETE_COMP_IMAGE_SET = 0x08,
+    PLDM_CCRC_COMP_INFO_NO_MATCH = 0x09,
+    PLDM_CCRC_COMP_VER_STR_IDENTICAL = 0x0a,
+    PLDM_CCRC_COMP_VER_STR_LOWER = 0x0b,
+    PLDM_CCRC_VENDOR_COMP_RESP_CODE_RANGE_MIN = 0xd0,
+    PLDM_CCRC_VENDOR_COMP_RESP_CODE_RANGE_MAX = 0xef
 };
 
 /** @brief Common error codes in TransferComplete, VerifyComplete and
  *        ApplyComplete request
  */
-enum pldm_firmware_update_common_error_codes {
-	PLDM_FWUP_TIME_OUT = 0x09,
-	PLDM_FWUP_GENERIC_ERROR = 0x0a
+enum pldm_firmware_update_common_error_codes
+{
+    PLDM_FWUP_TIME_OUT = 0x09,
+    PLDM_FWUP_GENERIC_ERROR = 0x0a
 };
 
 /** @brief TransferResult values in the request of TransferComplete
  */
-enum pldm_firmware_update_transfer_result_values {
-	PLDM_FWUP_TRANSFER_SUCCESS = 0x00,
-	PLDM_FWUP_TRANSFER_ERROR_IMAGE_CORRUPT = 0x02,
-	PLDM_FWUP_TRANSFER_ERROR_VERSION_MISMATCH = 0x02,
-	PLDM_FWUP_FD_ABORTED_TRANSFER = 0x03,
-	PLDM_FWUP_FD_ABORTED_TRANSFER_LOW_POWER_STATE = 0x0b,
-	PLDM_FWUP_FD_ABORTED_TRANSFER_RESET_NEEDED = 0x0c,
-	PLDM_FWUP_FD_ABORTED_TRANSFER_STORAGE_ISSUE = 0x0d,
-	PLDM_FWUP_VENDOR_TRANSFER_RESULT_RANGE_MIN = 0x70,
-	PLDM_FWUP_VENDOR_TRANSFER_RESULT_RANGE_MAX = 0x8f
+enum pldm_firmware_update_transfer_result_values
+{
+    PLDM_FWUP_TRANSFER_SUCCESS = 0x00,
+    PLDM_FWUP_TRANSFER_ERROR_IMAGE_CORRUPT = 0x02,
+    PLDM_FWUP_TRANSFER_ERROR_VERSION_MISMATCH = 0x02,
+    PLDM_FWUP_FD_ABORTED_TRANSFER = 0x03,
+    PLDM_FWUP_FD_ABORTED_TRANSFER_LOW_POWER_STATE = 0x0b,
+    PLDM_FWUP_FD_ABORTED_TRANSFER_RESET_NEEDED = 0x0c,
+    PLDM_FWUP_FD_ABORTED_TRANSFER_STORAGE_ISSUE = 0x0d,
+    PLDM_FWUP_VENDOR_TRANSFER_RESULT_RANGE_MIN = 0x70,
+    PLDM_FWUP_VENDOR_TRANSFER_RESULT_RANGE_MAX = 0x8f
 };
 
 /**@brief VerifyResult values in the request of VerifyComplete
  */
-enum pldm_firmware_update_verify_result_values {
-	PLDM_FWUP_VERIFY_SUCCESS = 0x00,
-	PLDM_FWUP_VERIFY_ERROR_VERIFICATION_FAILURE = 0x01,
-	PLDM_FWUP_VERIFY_ERROR_VERSION_MISMATCH = 0x02,
-	PLDM_FWUP_VERIFY_FAILED_FD_SECURITY_CHECKS = 0x03,
-	PLDM_FWUP_VERIFY_ERROR_IMAGE_INCOMPLETE = 0x04,
-	PLDM_FWUP_VENDOR_VERIFY_RESULT_RANGE_MIN = 0x90,
-	PLDM_FWUP_VENDOR_VERIFY_RESULT_RANGE_MAX = 0xaf
+enum pldm_firmware_update_verify_result_values
+{
+    PLDM_FWUP_VERIFY_SUCCESS = 0x00,
+    PLDM_FWUP_VERIFY_ERROR_VERIFICATION_FAILURE = 0x01,
+    PLDM_FWUP_VERIFY_ERROR_VERSION_MISMATCH = 0x02,
+    PLDM_FWUP_VERIFY_FAILED_FD_SECURITY_CHECKS = 0x03,
+    PLDM_FWUP_VERIFY_ERROR_IMAGE_INCOMPLETE = 0x04,
+    PLDM_FWUP_VENDOR_VERIFY_RESULT_RANGE_MIN = 0x90,
+    PLDM_FWUP_VENDOR_VERIFY_RESULT_RANGE_MAX = 0xaf
 };
 
 /**@brief ApplyResult values in the request of ApplyComplete
  */
-enum pldm_firmware_update_apply_result_values {
-	PLDM_FWUP_APPLY_SUCCESS = 0x00,
-	PLDM_FWUP_APPLY_SUCCESS_WITH_ACTIVATION_METHOD = 0x01,
-	PLDM_FWUP_APPLY_FAILURE_MEMORY_ISSUE = 0x02,
-	PLDM_FWUP_VENDOR_APPLY_RESULT_RANGE_MIN = 0xb0,
-	PLDM_FWUP_VENDOR_APPLY_RESULT_RANGE_MAX = 0xcf
+enum pldm_firmware_update_apply_result_values
+{
+    PLDM_FWUP_APPLY_SUCCESS = 0x00,
+    PLDM_FWUP_APPLY_SUCCESS_WITH_ACTIVATION_METHOD = 0x01,
+    PLDM_FWUP_APPLY_FAILURE_MEMORY_ISSUE = 0x02,
+    PLDM_FWUP_VENDOR_APPLY_RESULT_RANGE_MIN = 0xb0,
+    PLDM_FWUP_VENDOR_APPLY_RESULT_RANGE_MAX = 0xcf
 };
 
 /** @brief SelfContainedActivationRequest in the request of ActivateFirmware
  */
-enum pldm_self_contained_activation_req {
-	PLDM_NOT_ACTIVATE_SELF_CONTAINED_COMPONENTS = false,
-	PLDM_ACTIVATE_SELF_CONTAINED_COMPONENTS = true
+enum pldm_self_contained_activation_req
+{
+    PLDM_NOT_ACTIVATE_SELF_CONTAINED_COMPONENTS = false,
+    PLDM_ACTIVATE_SELF_CONTAINED_COMPONENTS = true
 };
 
 /** @brief Current state/previous state of the FD or FDP returned in GetStatus
  *         response
  */
-enum pldm_firmware_device_states {
-	PLDM_FD_STATE_IDLE = 0,
-	PLDM_FD_STATE_LEARN_COMPONENTS = 1,
-	PLDM_FD_STATE_READY_XFER = 2,
-	PLDM_FD_STATE_DOWNLOAD = 3,
-	PLDM_FD_STATE_VERIFY = 4,
-	PLDM_FD_STATE_APPLY = 5,
-	PLDM_FD_STATE_ACTIVATE = 6
+enum pldm_firmware_device_states
+{
+    PLDM_FD_STATE_IDLE = 0,
+    PLDM_FD_STATE_LEARN_COMPONENTS = 1,
+    PLDM_FD_STATE_READY_XFER = 2,
+    PLDM_FD_STATE_DOWNLOAD = 3,
+    PLDM_FD_STATE_VERIFY = 4,
+    PLDM_FD_STATE_APPLY = 5,
+    PLDM_FD_STATE_ACTIVATE = 6
 };
 
 /** @brief Firmware device aux state in GetStatus response
  */
-enum pldm_get_status_aux_states {
-	PLDM_FD_OPERATION_IN_PROGRESS = 0,
-	PLDM_FD_OPERATION_SUCCESSFUL = 1,
-	PLDM_FD_OPERATION_FAILED = 2,
-	PLDM_FD_IDLE_LEARN_COMPONENTS_READ_XFER = 3
+enum pldm_get_status_aux_states
+{
+    PLDM_FD_OPERATION_IN_PROGRESS = 0,
+    PLDM_FD_OPERATION_SUCCESSFUL = 1,
+    PLDM_FD_OPERATION_FAILED = 2,
+    PLDM_FD_IDLE_LEARN_COMPONENTS_READ_XFER = 3
 };
 
 /** @brief Firmware device aux state status in GetStatus response
  */
-enum pldm_get_status_aux_state_status_values {
-	PLDM_FD_AUX_STATE_IN_PROGRESS_OR_SUCCESS = 0x00,
-	PLDM_FD_TIMEOUT = 0x09,
-	PLDM_FD_GENERIC_ERROR = 0x0a,
-	PLDM_FD_VENDOR_DEFINED_STATUS_CODE_START = 0x70,
-	PLDM_FD_VENDOR_DEFINED_STATUS_CODE_END = 0xef
+enum pldm_get_status_aux_state_status_values
+{
+    PLDM_FD_AUX_STATE_IN_PROGRESS_OR_SUCCESS = 0x00,
+    PLDM_FD_TIMEOUT = 0x09,
+    PLDM_FD_GENERIC_ERROR = 0x0a,
+    PLDM_FD_VENDOR_DEFINED_STATUS_CODE_START = 0x70,
+    PLDM_FD_VENDOR_DEFINED_STATUS_CODE_END = 0xef
 };
 
 /** @brief Firmware device reason code in GetStatus response
  */
-enum pldm_get_status_reason_code_values {
-	PLDM_FD_INITIALIZATION = 0,
-	PLDM_FD_ACTIVATE_FW = 1,
-	PLDM_FD_CANCEL_UPDATE = 2,
-	PLDM_FD_TIMEOUT_LEARN_COMPONENT = 3,
-	PLDM_FD_TIMEOUT_READY_XFER = 4,
-	PLDM_FD_TIMEOUT_DOWNLOAD = 5,
-	PLDM_FD_TIMEOUT_VERIFY = 6,
-	PLDM_FD_TIMEOUT_APPLY = 7,
-	PLDM_FD_STATUS_VENDOR_DEFINED_MIN = 200,
-	PLDM_FD_STATUS_VENDOR_DEFINED_MAX = 255
+enum pldm_get_status_reason_code_values
+{
+    PLDM_FD_INITIALIZATION = 0,
+    PLDM_FD_ACTIVATE_FW = 1,
+    PLDM_FD_CANCEL_UPDATE = 2,
+    PLDM_FD_TIMEOUT_LEARN_COMPONENT = 3,
+    PLDM_FD_TIMEOUT_READY_XFER = 4,
+    PLDM_FD_TIMEOUT_DOWNLOAD = 5,
+    PLDM_FD_TIMEOUT_VERIFY = 6,
+    PLDM_FD_TIMEOUT_APPLY = 7,
+    PLDM_FD_STATUS_VENDOR_DEFINED_MIN = 200,
+    PLDM_FD_STATUS_VENDOR_DEFINED_MAX = 255
 };
 
 /** @brief Components functional indicator in CancelUpdate response
  */
-enum pldm_firmware_update_non_functioning_component_indication {
-	PLDM_FWUP_COMPONENTS_FUNCTIONING = 0,
-	PLDM_FWUP_COMPONENTS_NOT_FUNCTIONING = 1
+enum pldm_firmware_update_non_functioning_component_indication
+{
+    PLDM_FWUP_COMPONENTS_FUNCTIONING = 0,
+    PLDM_FWUP_COMPONENTS_NOT_FUNCTIONING = 1
 };
 
 /** @brief Downstream device update supported in QueryDownstreamDevices response
  *         defined in DSP0267_1.1.0
-*/
-enum pldm_firmware_update_downstream_device_update_supported {
-	PLDM_FWUP_DOWNSTREAM_DEVICE_UPDATE_NOT_SUPPORTED = 0,
-	PLDM_FWUP_DOWNSTREAM_DEVICE_UPDATE_SUPPORTED = 1
+ */
+enum pldm_firmware_update_downstream_device_update_supported
+{
+    PLDM_FWUP_DOWNSTREAM_DEVICE_UPDATE_NOT_SUPPORTED = 0,
+    PLDM_FWUP_DOWNSTREAM_DEVICE_UPDATE_SUPPORTED = 1
 };
 
 /** @struct pldm_package_header_information
  *
  *  Structure representing fixed part of package header information
  */
-struct pldm_package_header_information {
-	uint8_t uuid[PLDM_FWUP_UUID_LENGTH];
-	uint8_t package_header_format_version;
-	uint16_t package_header_size;
-	uint8_t package_release_date_time[PLDM_TIMESTAMP104_SIZE];
-	uint16_t component_bitmap_bit_length;
-	uint8_t package_version_string_type;
-	uint8_t package_version_string_length;
+struct pldm_package_header_information
+{
+    uint8_t uuid[PLDM_FWUP_UUID_LENGTH];
+    uint8_t package_header_format_version;
+    uint16_t package_header_size;
+    uint8_t package_release_date_time[PLDM_TIMESTAMP104_SIZE];
+    uint16_t component_bitmap_bit_length;
+    uint8_t package_version_string_type;
+    uint8_t package_version_string_length;
 } __attribute__((packed));
 
 /** @struct pldm_firmware_device_id_record
  *
  *  Structure representing firmware device ID record
  */
-struct pldm_firmware_device_id_record {
-	uint16_t record_length;
-	uint8_t descriptor_count;
-	bitfield32_t device_update_option_flags;
-	uint8_t comp_image_set_version_string_type;
-	uint8_t comp_image_set_version_string_length;
-	uint16_t fw_device_pkg_data_length;
+struct pldm_firmware_device_id_record
+{
+    uint16_t record_length;
+    uint8_t descriptor_count;
+    bitfield32_t device_update_option_flags;
+    uint8_t comp_image_set_version_string_type;
+    uint8_t comp_image_set_version_string_length;
+    uint16_t fw_device_pkg_data_length;
 } __attribute__((packed));
 
 /** @struct pldm_descriptor_tlv
  *
  *  Structure representing descriptor type, length and value
  */
-struct pldm_descriptor_tlv {
-	uint16_t descriptor_type;
-	uint16_t descriptor_length;
-	uint8_t descriptor_data[1];
+struct pldm_descriptor_tlv
+{
+    uint16_t descriptor_type;
+    uint16_t descriptor_length;
+    uint8_t descriptor_data[1];
 } __attribute__((packed));
 
 /** @struct pldm_vendor_defined_descriptor_title_data
  *
  *  Structure representing vendor defined descriptor title sections
  */
-struct pldm_vendor_defined_descriptor_title_data {
-	uint8_t vendor_defined_descriptor_title_str_type;
-	uint8_t vendor_defined_descriptor_title_str_len;
-	uint8_t vendor_defined_descriptor_title_str[1];
+struct pldm_vendor_defined_descriptor_title_data
+{
+    uint8_t vendor_defined_descriptor_title_str_type;
+    uint8_t vendor_defined_descriptor_title_str_len;
+    uint8_t vendor_defined_descriptor_title_str[1];
 } __attribute__((packed));
 
 /** @struct pldm_component_image_information
@@ -427,40 +454,43 @@ struct pldm_vendor_defined_descriptor_title_data {
  *  Structure representing fixed part of individual component information in
  *  PLDM firmware update package
  */
-struct pldm_component_image_information {
-	uint16_t comp_classification;
-	uint16_t comp_identifier;
-	uint32_t comp_comparison_stamp;
-	bitfield16_t comp_options;
-	bitfield16_t requested_comp_activation_method;
-	uint32_t comp_location_offset;
-	uint32_t comp_size;
-	uint8_t comp_version_string_type;
-	uint8_t comp_version_string_length;
+struct pldm_component_image_information
+{
+    uint16_t comp_classification;
+    uint16_t comp_identifier;
+    uint32_t comp_comparison_stamp;
+    bitfield16_t comp_options;
+    bitfield16_t requested_comp_activation_method;
+    uint32_t comp_location_offset;
+    uint32_t comp_size;
+    uint8_t comp_version_string_type;
+    uint8_t comp_version_string_length;
 } __attribute__((packed));
 
 /** @struct pldm_query_device_identifiers_resp
  *
  *  Structure representing query device identifiers response.
  */
-struct pldm_query_device_identifiers_resp {
-	uint8_t completion_code;
-	uint32_t device_identifiers_len;
-	uint8_t descriptor_count;
+struct pldm_query_device_identifiers_resp
+{
+    uint8_t completion_code;
+    uint32_t device_identifiers_len;
+    uint8_t descriptor_count;
 } __attribute__((packed));
 
 /** @struct pldm_get_firmware_parameters_resp
  *
  *  Structure representing the fixed part of GetFirmwareParameters response
  */
-struct pldm_get_firmware_parameters_resp {
-	uint8_t completion_code;
-	bitfield32_t capabilities_during_update;
-	uint16_t comp_count;
-	uint8_t active_comp_image_set_ver_str_type;
-	uint8_t active_comp_image_set_ver_str_len;
-	uint8_t pending_comp_image_set_ver_str_type;
-	uint8_t pending_comp_image_set_ver_str_len;
+struct pldm_get_firmware_parameters_resp
+{
+    uint8_t completion_code;
+    bitfield32_t capabilities_during_update;
+    uint16_t comp_count;
+    uint8_t active_comp_image_set_ver_str_type;
+    uint8_t active_comp_image_set_ver_str_len;
+    uint8_t pending_comp_image_set_ver_str_type;
+    uint8_t pending_comp_image_set_ver_str_len;
 } __attribute__((packed));
 
 /** @struct pldm_query_downstream_devices_resp
@@ -469,32 +499,34 @@ struct pldm_get_firmware_parameters_resp {
  *  The definition can be found Table 15 - QueryDownstreamDevices command format
  *  in DSP0267_1.1.0
  */
-struct pldm_query_downstream_devices_resp {
-	uint8_t completion_code;
-	uint8_t downstream_device_update_supported;
-	uint16_t number_of_downstream_devices;
-	uint16_t max_number_of_downstream_devices;
-	bitfield32_t capabilities;
+struct pldm_query_downstream_devices_resp
+{
+    uint8_t completion_code;
+    uint8_t downstream_device_update_supported;
+    uint16_t number_of_downstream_devices;
+    uint16_t max_number_of_downstream_devices;
+    bitfield32_t capabilities;
 };
 
 /** @struct pldm_component_parameter_entry
  *
  *  Structure representing component parameter table entry.
  */
-struct pldm_component_parameter_entry {
-	uint16_t comp_classification;
-	uint16_t comp_identifier;
-	uint8_t comp_classification_index;
-	uint32_t active_comp_comparison_stamp;
-	uint8_t active_comp_ver_str_type;
-	uint8_t active_comp_ver_str_len;
-	uint8_t active_comp_release_date[8];
-	uint32_t pending_comp_comparison_stamp;
-	uint8_t pending_comp_ver_str_type;
-	uint8_t pending_comp_ver_str_len;
-	uint8_t pending_comp_release_date[8];
-	bitfield16_t comp_activation_methods;
-	bitfield32_t capabilities_during_update;
+struct pldm_component_parameter_entry
+{
+    uint16_t comp_classification;
+    uint16_t comp_identifier;
+    uint8_t comp_classification_index;
+    uint32_t active_comp_comparison_stamp;
+    uint8_t active_comp_ver_str_type;
+    uint8_t active_comp_ver_str_len;
+    uint8_t active_comp_release_date[8];
+    uint32_t pending_comp_comparison_stamp;
+    uint8_t pending_comp_ver_str_type;
+    uint8_t pending_comp_ver_str_len;
+    uint8_t pending_comp_release_date[8];
+    bitfield16_t comp_activation_methods;
+    bitfield32_t capabilities_during_update;
 } __attribute__((packed));
 
 /** @struct pldm_query_downstream_identifiers_req
@@ -502,9 +534,10 @@ struct pldm_component_parameter_entry {
  *  Structure for QueryDownstreamIdentifiers request defined in Table 16 -
  *  QueryDownstreamIdentifiers command format in DSP0267_1.1.0
  */
-struct pldm_query_downstream_identifiers_req {
-	uint32_t data_transfer_handle;
-	uint8_t transfer_operation_flag;
+struct pldm_query_downstream_identifiers_req
+{
+    uint32_t data_transfer_handle;
+    uint8_t transfer_operation_flag;
 };
 
 /** @struct pldm_query_downstream_identifiers_resp
@@ -516,12 +549,13 @@ struct pldm_query_downstream_identifiers_req {
  *  Squash the two tables into one since the definition of
  *  Table 17 is `Portion of QueryDownstreamIdentifiers response`
  */
-struct pldm_query_downstream_identifiers_resp {
-	uint8_t completion_code;
-	uint32_t next_data_transfer_handle;
-	uint8_t transfer_flag;
-	uint32_t downstream_devices_length;
-	uint16_t number_of_downstream_devices;
+struct pldm_query_downstream_identifiers_resp
+{
+    uint8_t completion_code;
+    uint32_t next_data_transfer_handle;
+    uint8_t transfer_flag;
+    uint32_t downstream_devices_length;
+    uint16_t number_of_downstream_devices;
 };
 
 /** @struct pldm_downstream_device
@@ -529,143 +563,156 @@ struct pldm_query_downstream_identifiers_resp {
  *  Structure representing downstream device information defined in
  *  Table 18 - DownstreamDevice definition in DSP0267_1.1.0
  */
-struct pldm_downstream_device {
-	uint16_t downstream_device_index;
-	uint8_t downstream_descriptor_count;
+struct pldm_downstream_device
+{
+    uint16_t downstream_device_index;
+    uint8_t downstream_descriptor_count;
 };
 
 /** @struct pldm_request_update_req
  *
  *  Structure representing fixed part of Request Update request
  */
-struct pldm_request_update_req {
-	uint32_t max_transfer_size;
-	uint16_t num_of_comp;
-	uint8_t max_outstanding_transfer_req;
-	uint16_t pkg_data_len;
-	uint8_t comp_image_set_ver_str_type;
-	uint8_t comp_image_set_ver_str_len;
+struct pldm_request_update_req
+{
+    uint32_t max_transfer_size;
+    uint16_t num_of_comp;
+    uint8_t max_outstanding_transfer_req;
+    uint16_t pkg_data_len;
+    uint8_t comp_image_set_ver_str_type;
+    uint8_t comp_image_set_ver_str_len;
 } __attribute__((packed));
 
 /** @struct pldm_request_update_resp
  *
  *  Structure representing Request Update response
  */
-struct pldm_request_update_resp {
-	uint8_t completion_code;
-	uint16_t fd_meta_data_len;
-	uint8_t fd_will_send_pkg_data;
+struct pldm_request_update_resp
+{
+    uint8_t completion_code;
+    uint16_t fd_meta_data_len;
+    uint8_t fd_will_send_pkg_data;
 } __attribute__((packed));
 
 /** @struct pldm_pass_component_table_req
  *
  *  Structure representing PassComponentTable request
  */
-struct pldm_pass_component_table_req {
-	uint8_t transfer_flag;
-	uint16_t comp_classification;
-	uint16_t comp_identifier;
-	uint8_t comp_classification_index;
-	uint32_t comp_comparison_stamp;
-	uint8_t comp_ver_str_type;
-	uint8_t comp_ver_str_len;
+struct pldm_pass_component_table_req
+{
+    uint8_t transfer_flag;
+    uint16_t comp_classification;
+    uint16_t comp_identifier;
+    uint8_t comp_classification_index;
+    uint32_t comp_comparison_stamp;
+    uint8_t comp_ver_str_type;
+    uint8_t comp_ver_str_len;
 } __attribute__((packed));
 
 /** @struct pldm_pass_component_table_resp
  *
  *  Structure representing PassComponentTable response
  */
-struct pldm_pass_component_table_resp {
-	uint8_t completion_code;
-	uint8_t comp_resp;
-	uint8_t comp_resp_code;
+struct pldm_pass_component_table_resp
+{
+    uint8_t completion_code;
+    uint8_t comp_resp;
+    uint8_t comp_resp_code;
 } __attribute__((packed));
 
 /** @struct pldm_update_component_req
  *
  *  Structure representing UpdateComponent request
  */
-struct pldm_update_component_req {
-	uint16_t comp_classification;
-	uint16_t comp_identifier;
-	uint8_t comp_classification_index;
-	uint32_t comp_comparison_stamp;
-	uint32_t comp_image_size;
-	bitfield32_t update_option_flags;
-	uint8_t comp_ver_str_type;
-	uint8_t comp_ver_str_len;
+struct pldm_update_component_req
+{
+    uint16_t comp_classification;
+    uint16_t comp_identifier;
+    uint8_t comp_classification_index;
+    uint32_t comp_comparison_stamp;
+    uint32_t comp_image_size;
+    bitfield32_t update_option_flags;
+    uint8_t comp_ver_str_type;
+    uint8_t comp_ver_str_len;
 } __attribute__((packed));
 
 /** @struct pldm_update_component_resp
  *
  *  Structure representing UpdateComponent response
  */
-struct pldm_update_component_resp {
-	uint8_t completion_code;
-	uint8_t comp_compatibility_resp;
-	uint8_t comp_compatibility_resp_code;
-	bitfield32_t update_option_flags_enabled;
-	uint16_t time_before_req_fw_data;
+struct pldm_update_component_resp
+{
+    uint8_t completion_code;
+    uint8_t comp_compatibility_resp;
+    uint8_t comp_compatibility_resp_code;
+    bitfield32_t update_option_flags_enabled;
+    uint16_t time_before_req_fw_data;
 } __attribute__((packed));
 
 /** @struct pldm_request_firmware_data_req
  *
  *  Structure representing RequestFirmwareData request.
  */
-struct pldm_request_firmware_data_req {
-	uint32_t offset;
-	uint32_t length;
+struct pldm_request_firmware_data_req
+{
+    uint32_t offset;
+    uint32_t length;
 } __attribute__((packed));
 
 /** @struct pldm_apply_complete_req
  *
  *  Structure representing ApplyComplete request.
  */
-struct pldm_apply_complete_req {
-	uint8_t apply_result;
-	bitfield16_t comp_activation_methods_modification;
+struct pldm_apply_complete_req
+{
+    uint8_t apply_result;
+    bitfield16_t comp_activation_methods_modification;
 } __attribute__((packed));
 
 /** @struct pldm_activate_firmware_req
  *
  *  Structure representing ActivateFirmware request
  */
-struct pldm_activate_firmware_req {
-	bool8_t self_contained_activation_req;
+struct pldm_activate_firmware_req
+{
+    bool8_t self_contained_activation_req;
 } __attribute__((packed));
 
 /** @struct activate_firmware_resp
  *
  *  Structure representing Activate Firmware response
  */
-struct pldm_activate_firmware_resp {
-	uint8_t completion_code;
-	uint16_t estimated_time_activation;
+struct pldm_activate_firmware_resp
+{
+    uint8_t completion_code;
+    uint16_t estimated_time_activation;
 } __attribute__((packed));
 
 /** @struct pldm_get_status_resp
  *
  *  Structure representing GetStatus response.
  */
-struct pldm_get_status_resp {
-	uint8_t completion_code;
-	uint8_t current_state;
-	uint8_t previous_state;
-	uint8_t aux_state;
-	uint8_t aux_state_status;
-	uint8_t progress_percent;
-	uint8_t reason_code;
-	bitfield32_t update_option_flags_enabled;
+struct pldm_get_status_resp
+{
+    uint8_t completion_code;
+    uint8_t current_state;
+    uint8_t previous_state;
+    uint8_t aux_state;
+    uint8_t aux_state_status;
+    uint8_t progress_percent;
+    uint8_t reason_code;
+    bitfield32_t update_option_flags_enabled;
 } __attribute__((packed));
 
 /** @struct pldm_cancel_update_resp
  *
  *  Structure representing CancelUpdate response.
  */
-struct pldm_cancel_update_resp {
-	uint8_t completion_code;
-	bool8_t non_functioning_component_indication;
-	uint64_t non_functioning_component_bitmap;
+struct pldm_cancel_update_resp
+{
+    uint8_t completion_code;
+    bool8_t non_functioning_component_indication;
+    uint64_t non_functioning_component_bitmap;
 } __attribute__((packed));
 
 /** @brief Decode the PLDM package header information
@@ -679,9 +726,9 @@ struct pldm_cancel_update_resp {
  *  @return pldm_completion_codes
  */
 int decode_pldm_package_header_info(
-	const uint8_t *data, size_t length,
-	struct pldm_package_header_information *package_header_info,
-	struct variable_field *package_version_str);
+    const uint8_t* data, size_t length,
+    struct pldm_package_header_information* package_header_info,
+    struct variable_field* package_version_str);
 
 /** @brief Decode individual firmware device ID record
  *
@@ -700,13 +747,12 @@ int decode_pldm_package_header_info(
  *  @return pldm_completion_codes
  */
 int decode_firmware_device_id_record(
-	const uint8_t *data, size_t length,
-	uint16_t component_bitmap_bit_length,
-	struct pldm_firmware_device_id_record *fw_device_id_record,
-	struct variable_field *applicable_components,
-	struct variable_field *comp_image_set_version_str,
-	struct variable_field *record_descriptors,
-	struct variable_field *fw_device_pkg_data);
+    const uint8_t* data, size_t length, uint16_t component_bitmap_bit_length,
+    struct pldm_firmware_device_id_record* fw_device_id_record,
+    struct variable_field* applicable_components,
+    struct variable_field* comp_image_set_version_str,
+    struct variable_field* record_descriptors,
+    struct variable_field* fw_device_pkg_data);
 
 /** @brief Decode the record descriptor entries in the firmware update package
  *         and the Descriptors in the QueryDeviceIDentifiers command
@@ -718,9 +764,9 @@ int decode_firmware_device_id_record(
  *
  *  @return pldm_completion_codes
  */
-int decode_descriptor_type_length_value(const uint8_t *data, size_t length,
-					uint16_t *descriptor_type,
-					struct variable_field *descriptor_data);
+int decode_descriptor_type_length_value(const uint8_t* data, size_t length,
+                                        uint16_t* descriptor_type,
+                                        struct variable_field* descriptor_data);
 
 /** @brief Decode the vendor defined descriptor value
  *
@@ -735,9 +781,9 @@ int decode_descriptor_type_length_value(const uint8_t *data, size_t length,
  *  @return pldm_completion_codes
  */
 int decode_vendor_defined_descriptor_value(
-	const uint8_t *data, size_t length, uint8_t *descriptor_title_str_type,
-	struct variable_field *descriptor_title_str,
-	struct variable_field *descriptor_data);
+    const uint8_t* data, size_t length, uint8_t* descriptor_title_str_type,
+    struct variable_field* descriptor_title_str,
+    struct variable_field* descriptor_data);
 
 /** @brief Decode individual component image information
  *
@@ -750,9 +796,9 @@ int decode_vendor_defined_descriptor_value(
  *  @return pldm_completion_codes
  */
 int decode_pldm_comp_image_info(
-	const uint8_t *data, size_t length,
-	struct pldm_component_image_information *pldm_comp_image_info,
-	struct variable_field *comp_version_str);
+    const uint8_t* data, size_t length,
+    struct pldm_component_image_information* pldm_comp_image_info,
+    struct variable_field* comp_version_str);
 
 /** @brief Create a PLDM request message for QueryDeviceIdentifiers
  *
@@ -766,8 +812,8 @@ int decode_pldm_comp_image_info(
  *         'msg.payload'
  */
 int encode_query_device_identifiers_req(uint8_t instance_id,
-					size_t payload_length,
-					struct pldm_msg *msg);
+                                        size_t payload_length,
+                                        struct pldm_msg* msg);
 
 /** @brief Decode QueryDeviceIdentifiers response message
  *
@@ -780,12 +826,12 @@ int encode_query_device_identifiers_req(uint8_t instance_id,
  *
  *  @return pldm_completion_codes
  */
-int decode_query_device_identifiers_resp(const struct pldm_msg *msg,
-					 size_t payload_length,
-					 uint8_t *completion_code,
-					 uint32_t *device_identifiers_len,
-					 uint8_t *descriptor_count,
-					 uint8_t **descriptor_data);
+int decode_query_device_identifiers_resp(const struct pldm_msg* msg,
+                                         size_t payload_length,
+                                         uint8_t* completion_code,
+                                         uint32_t* device_identifiers_len,
+                                         uint8_t* descriptor_count,
+                                         uint8_t** descriptor_data);
 
 /** @brief Create a PLDM request message for GetFirmwareParameters
  *
@@ -799,8 +845,8 @@ int decode_query_device_identifiers_resp(const struct pldm_msg *msg,
  *         'msg.payload'
  */
 int encode_get_firmware_parameters_req(uint8_t instance_id,
-				       size_t payload_length,
-				       struct pldm_msg *msg);
+                                       size_t payload_length,
+                                       struct pldm_msg* msg);
 
 /** @brief Decode GetFirmwareParameters response
  *
@@ -816,11 +862,11 @@ int encode_get_firmware_parameters_req(uint8_t instance_id,
  *  @return pldm_completion_codes
  */
 int decode_get_firmware_parameters_resp(
-	const struct pldm_msg *msg, size_t payload_length,
-	struct pldm_get_firmware_parameters_resp *resp_data,
-	struct variable_field *active_comp_image_set_ver_str,
-	struct variable_field *pending_comp_image_set_ver_str,
-	struct variable_field *comp_parameter_table);
+    const struct pldm_msg* msg, size_t payload_length,
+    struct pldm_get_firmware_parameters_resp* resp_data,
+    struct variable_field* active_comp_image_set_ver_str,
+    struct variable_field* pending_comp_image_set_ver_str,
+    struct variable_field* comp_parameter_table);
 
 /** @brief Decode component entries in the component parameter table which is
  *         part of the response of GetFirmwareParameters command
@@ -835,10 +881,10 @@ int decode_get_firmware_parameters_resp(
  *  @return pldm_completion_codes
  */
 int decode_get_firmware_parameters_resp_comp_entry(
-	const uint8_t *data, size_t length,
-	struct pldm_component_parameter_entry *component_data,
-	struct variable_field *active_comp_ver_str,
-	struct variable_field *pending_comp_ver_str);
+    const uint8_t* data, size_t length,
+    struct pldm_component_parameter_entry* component_data,
+    struct variable_field* active_comp_ver_str,
+    struct variable_field* pending_comp_ver_str);
 
 /** @brief Create a PLDM request message for QueryDownstreamDevices
  *
@@ -851,30 +897,33 @@ int decode_get_firmware_parameters_resp_comp_entry(
  *         'msg.payload'
  */
 int encode_query_downstream_devices_req(uint8_t instance_id,
-					struct pldm_msg *msg);
+                                        struct pldm_msg* msg);
 
 /**
  * @brief Decodes the response message for Querying Downstream Devices.
  *
  * @param[in] msg The PLDM message to decode.
  * @param[in] payload_length The length of the message payload.
- * @param[out] resp_data Pointer to the structure to store the decoded response data.
+ * @param[out] resp_data Pointer to the structure to store the decoded response
+ * data.
  * @return pldm_completion_codes
  *
  * @note  Caller is responsible for memory alloc and dealloc of param
  *         'msg.payload'
  */
 int decode_query_downstream_devices_resp(
-	const struct pldm_msg *msg, size_t payload_length,
-	struct pldm_query_downstream_devices_resp *resp_data);
+    const struct pldm_msg* msg, size_t payload_length,
+    struct pldm_query_downstream_devices_resp* resp_data);
 
 /**
  * @brief Encodes a request message for Query Downstream Identifiers.
  *
  * @param[in] instance_id The instance ID of the PLDM entity.
  * @param[in] data_transfer_handle The handle for the data transfer.
- * @param[in] transfer_operation_flag The flag indicating the transfer operation.
- * @param[out] msg Pointer to the PLDM message structure to store the encoded message.
+ * @param[in] transfer_operation_flag The flag indicating the transfer
+ * operation.
+ * @param[out] msg Pointer to the PLDM message structure to store the encoded
+ * message.
  * @param[in] payload_length The length of the payload.
  * @return pldm_completion_codes
  *
@@ -882,9 +931,9 @@ int decode_query_downstream_devices_resp(
  *        'msg.payload'
  */
 int encode_query_downstream_identifiers_req(
-	uint8_t instance_id, uint32_t data_transfer_handle,
-	enum transfer_op_flag transfer_operation_flag, struct pldm_msg *msg,
-	size_t payload_length);
+    uint8_t instance_id, uint32_t data_transfer_handle,
+    enum transfer_op_flag transfer_operation_flag, struct pldm_msg* msg,
+    size_t payload_length);
 
 /**
  * @brief Decodes the response message for Querying Downstream Identifiers.
@@ -897,9 +946,9 @@ int encode_query_downstream_identifiers_req(
  * @note Caller is responsible for memory alloc and dealloc of pointer params
  */
 int decode_query_downstream_identifiers_resp(
-	const struct pldm_msg *msg, size_t payload_length,
-	struct pldm_query_downstream_identifiers_resp *resp_data,
-	struct variable_field *downstream_devices);
+    const struct pldm_msg* msg, size_t payload_length,
+    struct pldm_query_downstream_identifiers_resp* resp_data,
+    struct variable_field* downstream_devices);
 
 /** @brief Create PLDM request message for RequestUpdate
  *
@@ -928,13 +977,13 @@ int decode_query_downstream_identifiers_resp(
  *        'msg.payload'
  */
 int encode_request_update_req(uint8_t instance_id, uint32_t max_transfer_size,
-			      uint16_t num_of_comp,
-			      uint8_t max_outstanding_transfer_req,
-			      uint16_t pkg_data_len,
-			      uint8_t comp_image_set_ver_str_type,
-			      uint8_t comp_image_set_ver_str_len,
-			      const struct variable_field *comp_img_set_ver_str,
-			      struct pldm_msg *msg, size_t payload_length);
+                              uint16_t num_of_comp,
+                              uint8_t max_outstanding_transfer_req,
+                              uint16_t pkg_data_len,
+                              uint8_t comp_image_set_ver_str_type,
+                              uint8_t comp_image_set_ver_str_len,
+                              const struct variable_field* comp_img_set_ver_str,
+                              struct pldm_msg* msg, size_t payload_length);
 
 /** @brief Decode a RequestUpdate response message
  *
@@ -946,10 +995,10 @@ int encode_request_update_req(uint8_t instance_id, uint32_t max_transfer_size,
  *                                      will send GetPackageData command
  *  @return pldm_completion_codes
  */
-int decode_request_update_resp(const struct pldm_msg *msg,
-			       size_t payload_length, uint8_t *completion_code,
-			       uint16_t *fd_meta_data_len,
-			       uint8_t *fd_will_send_pkg_data);
+int decode_request_update_resp(const struct pldm_msg* msg,
+                               size_t payload_length, uint8_t* completion_code,
+                               uint16_t* fd_meta_data_len,
+                               uint8_t* fd_will_send_pkg_data);
 
 /** @brief Create PLDM request message for PassComponentTable
  *
@@ -972,12 +1021,11 @@ int decode_request_update_resp(const struct pldm_msg *msg,
  *         'msg.payload'
  */
 int encode_pass_component_table_req(
-	uint8_t instance_id, uint8_t transfer_flag,
-	uint16_t comp_classification, uint16_t comp_identifier,
-	uint8_t comp_classification_index, uint32_t comp_comparison_stamp,
-	uint8_t comp_ver_str_type, uint8_t comp_ver_str_len,
-	const struct variable_field *comp_ver_str, struct pldm_msg *msg,
-	size_t payload_length);
+    uint8_t instance_id, uint8_t transfer_flag, uint16_t comp_classification,
+    uint16_t comp_identifier, uint8_t comp_classification_index,
+    uint32_t comp_comparison_stamp, uint8_t comp_ver_str_type,
+    uint8_t comp_ver_str_len, const struct variable_field* comp_ver_str,
+    struct pldm_msg* msg, size_t payload_length);
 
 /** @brief Decode PassComponentTable response message
  *
@@ -989,11 +1037,11 @@ int encode_pass_component_table_req(
  *
  *  @return pldm_completion_codes
  */
-int decode_pass_component_table_resp(const struct pldm_msg *msg,
-				     size_t payload_length,
-				     uint8_t *completion_code,
-				     uint8_t *comp_resp,
-				     uint8_t *comp_resp_code);
+int decode_pass_component_table_resp(const struct pldm_msg* msg,
+                                     size_t payload_length,
+                                     uint8_t* completion_code,
+                                     uint8_t* comp_resp,
+                                     uint8_t* comp_resp_code);
 
 /** @brief Create PLDM request message for UpdateComponent
  *
@@ -1017,12 +1065,12 @@ int decode_pass_component_table_resp(const struct pldm_msg *msg,
  *         'msg.payload'
  */
 int encode_update_component_req(
-	uint8_t instance_id, uint16_t comp_classification,
-	uint16_t comp_identifier, uint8_t comp_classification_index,
-	uint32_t comp_comparison_stamp, uint32_t comp_image_size,
-	bitfield32_t update_option_flags, uint8_t comp_ver_str_type,
-	uint8_t comp_ver_str_len, const struct variable_field *comp_ver_str,
-	struct pldm_msg *msg, size_t payload_length);
+    uint8_t instance_id, uint16_t comp_classification, uint16_t comp_identifier,
+    uint8_t comp_classification_index, uint32_t comp_comparison_stamp,
+    uint32_t comp_image_size, bitfield32_t update_option_flags,
+    uint8_t comp_ver_str_type, uint8_t comp_ver_str_len,
+    const struct variable_field* comp_ver_str, struct pldm_msg* msg,
+    size_t payload_length);
 
 /** @brief Decode UpdateComponent response message
  *
@@ -1040,13 +1088,13 @@ int encode_update_component_req(
  *
  *  @return pldm_completion_codes
  */
-int decode_update_component_resp(const struct pldm_msg *msg,
-				 size_t payload_length,
-				 uint8_t *completion_code,
-				 uint8_t *comp_compatibility_resp,
-				 uint8_t *comp_compatibility_resp_code,
-				 bitfield32_t *update_option_flags_enabled,
-				 uint16_t *time_before_req_fw_data);
+int decode_update_component_resp(const struct pldm_msg* msg,
+                                 size_t payload_length,
+                                 uint8_t* completion_code,
+                                 uint8_t* comp_compatibility_resp,
+                                 uint8_t* comp_compatibility_resp_code,
+                                 bitfield32_t* update_option_flags_enabled,
+                                 uint16_t* time_before_req_fw_data);
 
 /** @brief Decode RequestFirmwareData request message
  *
@@ -1058,9 +1106,9 @@ int decode_update_component_resp(const struct pldm_msg *msg,
  *
  *	@return pldm_completion_codes
  */
-int decode_request_firmware_data_req(const struct pldm_msg *msg,
-				     size_t payload_length, uint32_t *offset,
-				     uint32_t *length);
+int decode_request_firmware_data_req(const struct pldm_msg* msg,
+                                     size_t payload_length, uint32_t* offset,
+                                     uint32_t* length);
 
 /** @brief Create PLDM response message for RequestFirmwareData
  *
@@ -1081,9 +1129,9 @@ int decode_request_firmware_data_req(const struct pldm_msg *msg,
  *		   'msg.payload'
  */
 int encode_request_firmware_data_resp(uint8_t instance_id,
-				      uint8_t completion_code,
-				      struct pldm_msg *msg,
-				      size_t payload_length);
+                                      uint8_t completion_code,
+                                      struct pldm_msg* msg,
+                                      size_t payload_length);
 
 /** @brief Decode TransferComplete request message
  *
@@ -1093,9 +1141,9 @@ int encode_request_firmware_data_resp(uint8_t instance_id,
  *
  *  @return pldm_completion_codes
  */
-int decode_transfer_complete_req(const struct pldm_msg *msg,
-				 size_t payload_length,
-				 uint8_t *transfer_result);
+int decode_transfer_complete_req(const struct pldm_msg* msg,
+                                 size_t payload_length,
+                                 uint8_t* transfer_result);
 
 /** @brief Create PLDM response message for TransferComplete
  *
@@ -1110,7 +1158,7 @@ int decode_transfer_complete_req(const struct pldm_msg *msg,
  *         'msg.payload'
  */
 int encode_transfer_complete_resp(uint8_t instance_id, uint8_t completion_code,
-				  struct pldm_msg *msg, size_t payload_length);
+                                  struct pldm_msg* msg, size_t payload_length);
 
 /** @brief Decode VerifyComplete request message
  *
@@ -1120,8 +1168,8 @@ int encode_transfer_complete_resp(uint8_t instance_id, uint8_t completion_code,
  *
  *  @return pldm_completion_codes
  */
-int decode_verify_complete_req(const struct pldm_msg *msg,
-			       size_t payload_length, uint8_t *verify_result);
+int decode_verify_complete_req(const struct pldm_msg* msg,
+                               size_t payload_length, uint8_t* verify_result);
 
 /** @brief Create PLDM response message for VerifyComplete
  *
@@ -1136,7 +1184,7 @@ int decode_verify_complete_req(const struct pldm_msg *msg,
  *         'msg.payload'
  */
 int encode_verify_complete_resp(uint8_t instance_id, uint8_t completion_code,
-				struct pldm_msg *msg, size_t payload_length);
+                                struct pldm_msg* msg, size_t payload_length);
 
 /** @brief Decode ApplyComplete request message
  *
@@ -1149,9 +1197,8 @@ int encode_verify_complete_resp(uint8_t instance_id, uint8_t completion_code,
  *  @return pldm_completion_codes
  */
 int decode_apply_complete_req(
-	const struct pldm_msg *msg, size_t payload_length,
-	uint8_t *apply_result,
-	bitfield16_t *comp_activation_methods_modification);
+    const struct pldm_msg* msg, size_t payload_length, uint8_t* apply_result,
+    bitfield16_t* comp_activation_methods_modification);
 
 /** @brief Create PLDM response message for ApplyComplete
  *
@@ -1166,7 +1213,7 @@ int decode_apply_complete_req(
  *        'msg.payload'
  */
 int encode_apply_complete_resp(uint8_t instance_id, uint8_t completion_code,
-			       struct pldm_msg *msg, size_t payload_length);
+                               struct pldm_msg* msg, size_t payload_length);
 
 /** @brief Create PLDM request message for ActivateFirmware
  *
@@ -1181,8 +1228,8 @@ int encode_apply_complete_resp(uint8_t instance_id, uint8_t completion_code,
  *         'msg.payload'
  */
 int encode_activate_firmware_req(uint8_t instance_id,
-				 bool8_t self_contained_activation_req,
-				 struct pldm_msg *msg, size_t payload_length);
+                                 bool8_t self_contained_activation_req,
+                                 struct pldm_msg* msg, size_t payload_length);
 
 /** @brief Decode ActivateFirmware response message
  *
@@ -1194,10 +1241,10 @@ int encode_activate_firmware_req(uint8_t instance_id,
  *
  *  @return pldm_completion_codes
  */
-int decode_activate_firmware_resp(const struct pldm_msg *msg,
-				  size_t payload_length,
-				  uint8_t *completion_code,
-				  uint16_t *estimated_time_activation);
+int decode_activate_firmware_resp(const struct pldm_msg* msg,
+                                  size_t payload_length,
+                                  uint8_t* completion_code,
+                                  uint16_t* estimated_time_activation);
 
 /** @brief Create PLDM request message for GetStatus
  *
@@ -1210,8 +1257,8 @@ int decode_activate_firmware_resp(const struct pldm_msg *msg,
  *  @note Caller is responsible for memory alloc and dealloc of param
  *        'msg.payload'
  */
-int encode_get_status_req(uint8_t instance_id, struct pldm_msg *msg,
-			  size_t payload_length);
+int encode_get_status_req(uint8_t instance_id, struct pldm_msg* msg,
+                          size_t payload_length);
 
 /** @brief Decode GetStatus response message
  *
@@ -1230,12 +1277,12 @@ int encode_get_status_req(uint8_t instance_id, struct pldm_msg *msg,
  *
  *  @return pldm_completion_codes
  */
-int decode_get_status_resp(const struct pldm_msg *msg, size_t payload_length,
-			   uint8_t *completion_code, uint8_t *current_state,
-			   uint8_t *previous_state, uint8_t *aux_state,
-			   uint8_t *aux_state_status, uint8_t *progress_percent,
-			   uint8_t *reason_code,
-			   bitfield32_t *update_option_flags_enabled);
+int decode_get_status_resp(const struct pldm_msg* msg, size_t payload_length,
+                           uint8_t* completion_code, uint8_t* current_state,
+                           uint8_t* previous_state, uint8_t* aux_state,
+                           uint8_t* aux_state_status, uint8_t* progress_percent,
+                           uint8_t* reason_code,
+                           bitfield32_t* update_option_flags_enabled);
 
 /** @brief Create PLDM request message for CancelUpdateComponent
  *
@@ -1249,8 +1296,8 @@ int decode_get_status_resp(const struct pldm_msg *msg, size_t payload_length,
  *         'msg.payload'
  */
 int encode_cancel_update_component_req(uint8_t instance_id,
-				       struct pldm_msg *msg,
-				       size_t payload_length);
+                                       struct pldm_msg* msg,
+                                       size_t payload_length);
 
 /** @brief Decode CancelUpdateComponent response message
  *
@@ -1260,9 +1307,9 @@ int encode_cancel_update_component_req(uint8_t instance_id,
  *
  *  @return pldm_completion_codes
  */
-int decode_cancel_update_component_resp(const struct pldm_msg *msg,
-					size_t payload_length,
-					uint8_t *completion_code);
+int decode_cancel_update_component_resp(const struct pldm_msg* msg,
+                                        size_t payload_length,
+                                        uint8_t* completion_code);
 
 /** @brief Create PLDM request message for CancelUpdate
  *
@@ -1275,8 +1322,8 @@ int decode_cancel_update_component_resp(const struct pldm_msg *msg,
  *	@note  Caller is responsible for memory alloc and dealloc of param
  *         'msg.payload'
  */
-int encode_cancel_update_req(uint8_t instance_id, struct pldm_msg *msg,
-			     size_t payload_length);
+int encode_cancel_update_req(uint8_t instance_id, struct pldm_msg* msg,
+                             size_t payload_length);
 
 /** @brief Decode CancelUpdate response message
  *
@@ -1284,7 +1331,7 @@ int encode_cancel_update_req(uint8_t instance_id, struct pldm_msg *msg,
  *  @param[in] payload_length - Length of response message payload
  *	@param[out] completion_code - Pointer to completion code
  *	@param[out] non_functioning_component_indication - Pointer to non
-						       functioning
+                               functioning
  *                                                     component indication
  *	@param[out] non_functioning_component_bitmap - Pointer to non
  functioning
@@ -1292,10 +1339,10 @@ int encode_cancel_update_req(uint8_t instance_id, struct pldm_msg *msg,
  *
  *	@return pldm_completion_codes
  */
-int decode_cancel_update_resp(const struct pldm_msg *msg, size_t payload_length,
-			      uint8_t *completion_code,
-			      bool8_t *non_functioning_component_indication,
-			      bitfield64_t *non_functioning_component_bitmap);
+int decode_cancel_update_resp(const struct pldm_msg* msg, size_t payload_length,
+                              uint8_t* completion_code,
+                              bool8_t* non_functioning_component_indication,
+                              bitfield64_t* non_functioning_component_bitmap);
 
 #ifdef __cplusplus
 }

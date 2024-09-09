@@ -3,11 +3,11 @@
 #define INSTANCE_ID_H
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 #include <libpldm/base.h>
-
 #include <stdint.h>
 
 typedef uint8_t pldm_instance_id_t;
@@ -25,7 +25,7 @@ struct pldm_instance_db;
  * 		 is not NULL. Returns -ENOMEM if memory couldn't be allocated.
  *		 Returns the errno if the database couldn't be opened.
  * */
-int pldm_instance_db_init(struct pldm_instance_db **ctx, const char *dbpath);
+int pldm_instance_db_init(struct pldm_instance_db** ctx, const char* dbpath);
 
 /**
  * @brief Instantiates an instance ID database object for the default database
@@ -38,7 +38,7 @@ int pldm_instance_db_init(struct pldm_instance_db **ctx, const char *dbpath);
  * 		 is not NULL. Returns -ENOMEM if memory couldn't be allocated.
  * 		 Returns the errno if the database couldn't be opened.
  * */
-int pldm_instance_db_init_default(struct pldm_instance_db **ctx);
+int pldm_instance_db_init_default(struct pldm_instance_db** ctx);
 
 /**
  * @brief Destroys an instance ID database object
@@ -48,7 +48,7 @@ int pldm_instance_db_init_default(struct pldm_instance_db **ctx);
  * @return int - Returns 0 on success or if *ctx is NULL. No specific errors are
  *		 specified.
  * */
-int pldm_instance_db_destroy(struct pldm_instance_db *ctx);
+int pldm_instance_db_destroy(struct pldm_instance_db* ctx);
 
 /**
  * @brief Allocates an instance ID for a destination TID from the instance ID
@@ -65,8 +65,8 @@ int pldm_instance_db_destroy(struct pldm_instance_db *ctx);
  *		 if a successive call may succeed. Returns -EPROTO if the
  *		 operation has entered an undefined state.
  */
-int pldm_instance_id_alloc(struct pldm_instance_db *ctx, pldm_tid_t tid,
-			   pldm_instance_id_t *iid);
+int pldm_instance_id_alloc(struct pldm_instance_db* ctx, pldm_tid_t tid,
+                           pldm_instance_id_t* iid);
 
 /**
  * @brief Frees an instance ID previously allocated by pldm_instance_id_alloc
@@ -82,8 +82,8 @@ int pldm_instance_id_alloc(struct pldm_instance_db *ctx, pldm_tid_t tid,
  * 		 succeed. Returns -EPROTO if the operation has entered an
  *		 undefined state.
  */
-int pldm_instance_id_free(struct pldm_instance_db *ctx, pldm_tid_t tid,
-			  pldm_instance_id_t iid);
+int pldm_instance_id_free(struct pldm_instance_db* ctx, pldm_tid_t tid,
+                          pldm_instance_id_t iid);
 
 #endif /* __STDC_HOSTED__*/
 
