@@ -3,11 +3,11 @@
 #define LIBPLDM_UTILS_H
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 #include <libpldm/pldm_types.h>
-
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -17,9 +17,10 @@ extern "C" {
  *
  *  Structure representing variable field in the pldm message
  */
-struct variable_field {
-	const uint8_t *ptr;
-	size_t length;
+struct variable_field
+{
+    const uint8_t* ptr;
+    size_t length;
 };
 
 /** @brief Compute Crc8(same as the one used by SMBUS)
@@ -28,7 +29,7 @@ struct variable_field {
  *  @param[in] size - Size of the data
  *  @return The checksum
  */
-uint8_t crc8(const void *data, size_t size);
+uint8_t crc8(const void* data, size_t size);
 
 /** @brief Compute Crc32(same as the one used by IEEE802.3)
  *
@@ -36,7 +37,7 @@ uint8_t crc8(const void *data, size_t size);
  *  @param[in] size - Size of the data
  *  @return The checksum
  */
-uint32_t crc32(const void *data, size_t size);
+uint32_t crc32(const void* data, size_t size);
 
 /** @brief Convert ver32_t to string
  *  @param[in] version - Pointer to ver32_t
@@ -48,7 +49,7 @@ uint32_t crc32(const void *data, size_t size);
  * (NULL values for required pointers or the buffer size is beyond a
  *  representable range).
  */
-ssize_t ver2str(const ver32_t *version, char *buffer, size_t buffer_size);
+ssize_t ver2str(const ver32_t* version, char* buffer, size_t buffer_size);
 
 /** @brief Convert bcd number(uint8_t) to decimal
  *  @param[in] bcd - bcd number
@@ -97,7 +98,7 @@ uint32_t dec2bcd32(uint32_t dec);
  *  @return true if time is legal,false if time is illegal
  */
 bool is_time_legal(uint8_t seconds, uint8_t minutes, uint8_t hours, uint8_t day,
-		   uint8_t month, uint16_t year);
+                   uint8_t month, uint16_t year);
 
 /** @brief Check whether transfer flag is valid
  *

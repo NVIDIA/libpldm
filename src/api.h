@@ -2,10 +2,9 @@
 #ifndef LIBPLDM_SRC_API_H
 #define LIBPLDM_SRC_API_H
 
-#include <libpldm/base.h>
-
 #include <assert.h>
 #include <errno.h>
+#include <libpldm/base.h>
 
 /**
  * @brief Translate a negative errno value to a PLDM completion code
@@ -22,24 +21,25 @@
  */
 static inline enum pldm_completion_codes pldm_xlate_errno(int err)
 {
-	enum pldm_completion_codes rc;
+    enum pldm_completion_codes rc;
 
-	assert(err < 0);
-	switch (err) {
-	case -EINVAL:
-		rc = PLDM_ERROR_INVALID_DATA;
-		break;
-	case -ENOMSG:
-		rc = PLDM_ERROR_INVALID_PLDM_TYPE;
-		break;
-	default:
-		assert(false);
-		rc = PLDM_ERROR;
-		break;
-	}
+    assert(err < 0);
+    switch (err)
+    {
+        case -EINVAL:
+            rc = PLDM_ERROR_INVALID_DATA;
+            break;
+        case -ENOMSG:
+            rc = PLDM_ERROR_INVALID_PLDM_TYPE;
+            break;
+        default:
+            assert(false);
+            rc = PLDM_ERROR;
+            break;
+    }
 
-	assert(rc > 0);
-	return rc;
+    assert(rc > 0);
+    return rc;
 }
 
 #endif

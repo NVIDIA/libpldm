@@ -3,16 +3,17 @@
 #define PLATFORM_OEM_IBM_H
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 #include <libpldm/base.h>
-
 #include <stddef.h>
 #include <stdint.h>
 
-enum pldm_event_types_ibm_oem {
-	PLDM_EVENT_TYPE_OEM_EVENT_BIOS_ATTRIBUTE_UPDATE = 0xf0,
+enum pldm_event_types_ibm_oem
+{
+    PLDM_EVENT_TYPE_OEM_EVENT_BIOS_ATTRIBUTE_UPDATE = 0xf0,
 };
 
 /** @struct pldm_bios_attribute_update_event_req
@@ -20,12 +21,13 @@ enum pldm_event_types_ibm_oem {
  * 	Structure representing PlatformEventMessage command request data for OEM
  *  event type BIOS attribute update.
  */
-struct pldm_bios_attribute_update_event_req {
-	uint8_t format_version;
-	uint8_t tid;
-	uint8_t event_class;
-	uint8_t num_handles;
-	uint8_t bios_attribute_handles[1];
+struct pldm_bios_attribute_update_event_req
+{
+    uint8_t format_version;
+    uint8_t tid;
+    uint8_t event_class;
+    uint8_t num_handles;
+    uint8_t bios_attribute_handles[1];
 } __attribute__((packed));
 
 /** @brief Encode PlatformEventMessage request data for BIOS attribute update
@@ -45,11 +47,11 @@ struct pldm_bios_attribute_update_event_req {
  *         'msg.payload'
  */
 int encode_bios_attribute_update_event_req(uint8_t instance_id,
-					   uint8_t format_version, uint8_t tid,
-					   uint8_t num_handles,
-					   const uint8_t *list_of_handles,
-					   size_t payload_length,
-					   struct pldm_msg *msg);
+                                           uint8_t format_version, uint8_t tid,
+                                           uint8_t num_handles,
+                                           const uint8_t* list_of_handles,
+                                           size_t payload_length,
+                                           struct pldm_msg* msg);
 
 #ifdef __cplusplus
 }

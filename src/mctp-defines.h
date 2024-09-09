@@ -3,11 +3,12 @@
 #define MCTP_DEFINES_H
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 #define MCTP_MSG_TYPE_PLDM 1
-#define MCTP_MAX_NUM_EID   256
+#define MCTP_MAX_NUM_EID 256
 
 #ifdef __cplusplus
 }

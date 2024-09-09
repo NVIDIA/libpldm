@@ -3,163 +3,178 @@
 #define FRU_H
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
+#include <asm/byteorder.h>
 #include <libpldm/base.h>
 #include <libpldm/utils.h>
-
-#include <asm/byteorder.h>
 #include <stddef.h>
 #include <stdint.h>
 
-#define PLDM_GET_FRU_RECORD_TABLE_METADATA_REQ_BYTES  0
+#define PLDM_GET_FRU_RECORD_TABLE_METADATA_REQ_BYTES 0
 #define PLDM_GET_FRU_RECORD_TABLE_METADATA_RESP_BYTES 19
-#define PLDM_GET_FRU_RECORD_TABLE_REQ_BYTES	      5
-#define PLDM_GET_FRU_RECORD_TABLE_MIN_RESP_BYTES      6
-#define PLDM_GET_FRU_RECORD_BY_OPTION_MIN_RESP_BYTES  6
-#define PLDM_SET_FRU_RECORD_TABLE_MIN_REQ_BYTES	      5
-#define PLDM_SET_FRU_RECORD_TABLE_RESP_BYTES	      5
+#define PLDM_GET_FRU_RECORD_TABLE_REQ_BYTES 5
+#define PLDM_GET_FRU_RECORD_TABLE_MIN_RESP_BYTES 6
+#define PLDM_GET_FRU_RECORD_BY_OPTION_MIN_RESP_BYTES 6
+#define PLDM_SET_FRU_RECORD_TABLE_MIN_REQ_BYTES 5
+#define PLDM_SET_FRU_RECORD_TABLE_RESP_BYTES 5
 
 #define FRU_TABLE_CHECKSUM_SIZE 4
 
-enum pldm_fru_completion_codes {
-	PLDM_FRU_INVALID_DATA_TRANSFER_HANDLE = 0x80,
-	PLDM_FRU_INVALID_TRANSFER_FLAG = 0x82,
-	PLDM_FRU_DATA_INVALID_DATA_INTEGRITY_CHECK = 0x84,
-	PLDM_FRU_DATA_STRUCTURE_TABLE_UNAVAILABLE = 0x85,
+enum pldm_fru_completion_codes
+{
+    PLDM_FRU_INVALID_DATA_TRANSFER_HANDLE = 0x80,
+    PLDM_FRU_INVALID_TRANSFER_FLAG = 0x82,
+    PLDM_FRU_DATA_INVALID_DATA_INTEGRITY_CHECK = 0x84,
+    PLDM_FRU_DATA_STRUCTURE_TABLE_UNAVAILABLE = 0x85,
 };
 
 /** @brief PLDM FRU commands
  */
-enum pldm_fru_commands {
-	PLDM_GET_FRU_RECORD_TABLE_METADATA = 0x01,
-	PLDM_GET_FRU_RECORD_TABLE = 0x02,
-	PLDM_SET_FRU_RECORD_TABLE = 0x03,
-	PLDM_GET_FRU_RECORD_BY_OPTION = 0x04
+enum pldm_fru_commands
+{
+    PLDM_GET_FRU_RECORD_TABLE_METADATA = 0x01,
+    PLDM_GET_FRU_RECORD_TABLE = 0x02,
+    PLDM_SET_FRU_RECORD_TABLE = 0x03,
+    PLDM_GET_FRU_RECORD_BY_OPTION = 0x04
 };
 
 /** @brief FRU record types
  */
-enum pldm_fru_record_type {
-	PLDM_FRU_RECORD_TYPE_GENERAL = 0x01,
-	PLDM_FRU_RECORD_TYPE_OEM = 0xfe,
+enum pldm_fru_record_type
+{
+    PLDM_FRU_RECORD_TYPE_GENERAL = 0x01,
+    PLDM_FRU_RECORD_TYPE_OEM = 0xfe,
 };
 
 /** @brief Encoding type for FRU fields
  */
-enum pldm_fru_field_encoding {
-	PLDM_FRU_ENCODING_UNSPECIFIED = 0x00,
-	PLDM_FRU_ENCODING_ASCII = 0x01,
-	PLDM_FRU_ENCODING_UTF8 = 0x02,
-	PLDM_FRU_ENCODING_UTF16 = 0x03,
-	PLDM_FRU_ENCODING_UTF16LE = 0x04,
-	PLDM_FRU_ENCODING_UTF16BE = 0x05,
+enum pldm_fru_field_encoding
+{
+    PLDM_FRU_ENCODING_UNSPECIFIED = 0x00,
+    PLDM_FRU_ENCODING_ASCII = 0x01,
+    PLDM_FRU_ENCODING_UTF8 = 0x02,
+    PLDM_FRU_ENCODING_UTF16 = 0x03,
+    PLDM_FRU_ENCODING_UTF16LE = 0x04,
+    PLDM_FRU_ENCODING_UTF16BE = 0x05,
 };
 
 /** @brief FRU field types
  */
-enum pldm_fru_field_type {
-	PLDM_FRU_FIELD_TYPE_CHASSIS = 0x01,
-	PLDM_FRU_FIELD_TYPE_MODEL = 0x02,
-	PLDM_FRU_FIELD_TYPE_PN = 0x03,
-	PLDM_FRU_FIELD_TYPE_SN = 0x04,
-	PLDM_FRU_FIELD_TYPE_MANUFAC = 0x05,
-	PLDM_FRU_FIELD_TYPE_MANUFAC_DATE = 0x06,
-	PLDM_FRU_FIELD_TYPE_VENDOR = 0x07,
-	PLDM_FRU_FIELD_TYPE_NAME = 0x08,
-	PLDM_FRU_FIELD_TYPE_SKU = 0x09,
-	PLDM_FRU_FIELD_TYPE_VERSION = 0x0a,
-	PLDM_FRU_FIELD_TYPE_ASSET_TAG = 0x0b,
-	PLDM_FRU_FIELD_TYPE_DESC = 0x0c,
-	PLDM_FRU_FIELD_TYPE_EC_LVL = 0x0d,
-	PLDM_FRU_FIELD_TYPE_OTHER = 0x0e,
-	PLDM_FRU_FIELD_TYPE_IANA = 0x0f,
+enum pldm_fru_field_type
+{
+    PLDM_FRU_FIELD_TYPE_CHASSIS = 0x01,
+    PLDM_FRU_FIELD_TYPE_MODEL = 0x02,
+    PLDM_FRU_FIELD_TYPE_PN = 0x03,
+    PLDM_FRU_FIELD_TYPE_SN = 0x04,
+    PLDM_FRU_FIELD_TYPE_MANUFAC = 0x05,
+    PLDM_FRU_FIELD_TYPE_MANUFAC_DATE = 0x06,
+    PLDM_FRU_FIELD_TYPE_VENDOR = 0x07,
+    PLDM_FRU_FIELD_TYPE_NAME = 0x08,
+    PLDM_FRU_FIELD_TYPE_SKU = 0x09,
+    PLDM_FRU_FIELD_TYPE_VERSION = 0x0a,
+    PLDM_FRU_FIELD_TYPE_ASSET_TAG = 0x0b,
+    PLDM_FRU_FIELD_TYPE_DESC = 0x0c,
+    PLDM_FRU_FIELD_TYPE_EC_LVL = 0x0d,
+    PLDM_FRU_FIELD_TYPE_OTHER = 0x0e,
+    PLDM_FRU_FIELD_TYPE_IANA = 0x0f,
 };
 
 /** @struct pldm_get_fru_record_table_metadata_resp
  *
  *  Structure representing PLDM get FRU table metadata response.
  */
-struct pldm_get_fru_record_table_metadata_resp {
-	uint8_t completion_code;	//!< completion code
-	uint8_t fru_data_major_version; //!< The major version of the FRU Record
-	uint8_t fru_data_minor_version; //!< The minor version of the FRU Record
-	uint32_t fru_table_maximum_size; //!< The size of the largest FRU Record data
-	uint32_t fru_table_length; //!< The total length of the FRU Record Table
-	uint16_t total_record_set_identifiers; //!< The total number of FRU
-					       //!< Record Data structures
-	uint16_t total_table_records; //!< The total number of records in the table
-	uint32_t checksum; //!< The integrity checksum on the FRU Record Table data
+struct pldm_get_fru_record_table_metadata_resp
+{
+    uint8_t completion_code;        //!< completion code
+    uint8_t fru_data_major_version; //!< The major version of the FRU Record
+    uint8_t fru_data_minor_version; //!< The minor version of the FRU Record
+    uint32_t
+        fru_table_maximum_size;     //!< The size of the largest FRU Record data
+    uint32_t fru_table_length; //!< The total length of the FRU Record Table
+    uint16_t total_record_set_identifiers; //!< The total number of FRU
+                                           //!< Record Data structures
+    uint16_t total_table_records; //!< The total number of records in the table
+    uint32_t checksum; //!< The integrity checksum on the FRU Record Table data
 } __attribute__((packed));
 
 /** @struct pldm_get_fru_record_table_req
  *
  *  Structure representing PLDM get FRU record table request.
  */
-struct pldm_get_fru_record_table_req {
-	uint32_t data_transfer_handle;
-	uint8_t transfer_operation_flag;
+struct pldm_get_fru_record_table_req
+{
+    uint32_t data_transfer_handle;
+    uint8_t transfer_operation_flag;
 } __attribute__((packed));
 
 /** @struct pldm_get_fru_record_table_resp
  *
  *  Structure representing PLDM get FRU record table response.
  */
-struct pldm_get_fru_record_table_resp {
-	uint8_t completion_code;
-	uint32_t next_data_transfer_handle;
-	uint8_t transfer_flag;
-	uint8_t fru_record_table_data[1];
+struct pldm_get_fru_record_table_resp
+{
+    uint8_t completion_code;
+    uint32_t next_data_transfer_handle;
+    uint8_t transfer_flag;
+    uint8_t fru_record_table_data[1];
 } __attribute__((packed));
 
-struct pldm_get_fru_record_by_option_req {
-	uint32_t data_transfer_handle;
-	uint16_t fru_table_handle;
-	uint16_t record_set_identifier;
-	uint8_t record_type;
-	uint8_t field_type;
-	uint8_t transfer_op_flag;
+struct pldm_get_fru_record_by_option_req
+{
+    uint32_t data_transfer_handle;
+    uint16_t fru_table_handle;
+    uint16_t record_set_identifier;
+    uint8_t record_type;
+    uint8_t field_type;
+    uint8_t transfer_op_flag;
 } __attribute__((packed));
 
-struct pldm_get_fru_record_by_option_resp {
-	uint8_t completion_code;
-	uint32_t next_data_transfer_handle;
-	uint8_t transfer_flag;
-	uint8_t fru_structure_data[1];
+struct pldm_get_fru_record_by_option_resp
+{
+    uint8_t completion_code;
+    uint32_t next_data_transfer_handle;
+    uint8_t transfer_flag;
+    uint8_t fru_structure_data[1];
 } __attribute__((packed));
 
-struct pldm_set_fru_record_table_req {
-	uint32_t data_transfer_handle;
-	uint8_t transfer_flag;
-	uint8_t fru_record_table_data[1];
+struct pldm_set_fru_record_table_req
+{
+    uint32_t data_transfer_handle;
+    uint8_t transfer_flag;
+    uint8_t fru_record_table_data[1];
 } __attribute__((packed));
 
-struct pldm_set_fru_record_table_resp {
-	uint8_t completion_code;
-	uint32_t next_data_transfer_handle;
+struct pldm_set_fru_record_table_resp
+{
+    uint8_t completion_code;
+    uint32_t next_data_transfer_handle;
 } __attribute__((packed));
 
 /** @struct pldm_fru_record_tlv
  *
  *  Structure representing each FRU field entry (type, length, value)
  */
-struct pldm_fru_record_tlv {
-	uint8_t type;
-	uint8_t length;
-	uint8_t value[1];
+struct pldm_fru_record_tlv
+{
+    uint8_t type;
+    uint8_t length;
+    uint8_t value[1];
 } __attribute__((packed));
 
 /** @struct pldm_fru_record_data_format
  *
  *  Structure representing the FRU record data format
  */
-struct pldm_fru_record_data_format {
-	uint16_t record_set_id;
-	uint8_t record_type;
-	uint8_t num_fru_fields;
-	uint8_t encoding_type;
-	struct pldm_fru_record_tlv tlvs[1];
+struct pldm_fru_record_data_format
+{
+    uint16_t record_set_id;
+    uint8_t record_type;
+    uint8_t num_fru_fields;
+    uint8_t encoding_type;
+    struct pldm_fru_record_tlv tlvs[1];
 } __attribute__((packed));
 
 /* Requester */
@@ -176,8 +191,8 @@ struct pldm_fru_record_data_format {
  *         'msg.payload'
  */
 int encode_get_fru_record_table_metadata_req(uint8_t instance_id,
-					     struct pldm_msg *msg,
-					     size_t payload_length);
+                                             struct pldm_msg* msg,
+                                             size_t payload_length);
 
 /** @brief Decode GetFruRecordTable response data
  *
@@ -201,11 +216,11 @@ int encode_get_fru_record_table_metadata_req(uint8_t instance_id,
  *  @return pldm_completion_codes
  */
 int decode_get_fru_record_table_metadata_resp(
-	const struct pldm_msg *msg, size_t payload_length,
-	uint8_t *completion_code, uint8_t *fru_data_major_version,
-	uint8_t *fru_data_minor_version, uint32_t *fru_table_maximum_size,
-	uint32_t *fru_table_length, uint16_t *total_record_set_identifiers,
-	uint16_t *total_table_records, uint32_t *checksum);
+    const struct pldm_msg* msg, size_t payload_length, uint8_t* completion_code,
+    uint8_t* fru_data_major_version, uint8_t* fru_data_minor_version,
+    uint32_t* fru_table_maximum_size, uint32_t* fru_table_length,
+    uint16_t* total_record_set_identifiers, uint16_t* total_table_records,
+    uint32_t* checksum);
 
 /* Responder */
 
@@ -230,11 +245,11 @@ int decode_get_fru_record_table_metadata_resp(
  */
 
 int encode_get_fru_record_table_metadata_resp(
-	uint8_t instance_id, uint8_t completion_code,
-	uint8_t fru_data_major_version, uint8_t fru_data_minor_version,
-	uint32_t fru_table_maximum_size, uint32_t fru_table_length,
-	uint16_t total_record_set_identifiers, uint16_t total_table_records,
-	uint32_t checksum, struct pldm_msg *msg);
+    uint8_t instance_id, uint8_t completion_code,
+    uint8_t fru_data_major_version, uint8_t fru_data_minor_version,
+    uint32_t fru_table_maximum_size, uint32_t fru_table_length,
+    uint16_t total_record_set_identifiers, uint16_t total_table_records,
+    uint32_t checksum, struct pldm_msg* msg);
 
 /* GetFruRecordTable */
 
@@ -248,10 +263,10 @@ int encode_get_fru_record_table_metadata_resp(
  *  the start of the transfer
  *  @return pldm_completion_codes
  */
-int decode_get_fru_record_table_req(const struct pldm_msg *msg,
-				    size_t payload_length,
-				    uint32_t *data_transfer_handle,
-				    uint8_t *transfer_operation_flag);
+int decode_get_fru_record_table_req(const struct pldm_msg* msg,
+                                    size_t payload_length,
+                                    uint32_t* data_transfer_handle,
+                                    uint8_t* transfer_operation_flag);
 
 /** @brief Create a PLDM response message for GetFruRecordTable
  *
@@ -267,10 +282,10 @@ int decode_get_fru_record_table_req(const struct pldm_msg *msg,
  *         and for appending the FRU table to the msg.
  */
 int encode_get_fru_record_table_resp(uint8_t instance_id,
-				     uint8_t completion_code,
-				     uint32_t next_data_transfer_handle,
-				     uint8_t transfer_flag,
-				     struct pldm_msg *msg);
+                                     uint8_t completion_code,
+                                     uint32_t next_data_transfer_handle,
+                                     uint8_t transfer_flag,
+                                     struct pldm_msg* msg);
 
 /* GetFRURecordByOption */
 
@@ -290,10 +305,10 @@ int encode_get_fru_record_table_resp(uint8_t instance_id,
  *  @return pldm_completion_codes
  */
 int decode_get_fru_record_by_option_req(
-	const struct pldm_msg *msg, size_t payload_length,
-	uint32_t *data_transfer_handle, uint16_t *fru_table_handle,
-	uint16_t *record_set_identifier, uint8_t *record_type,
-	uint8_t *field_type, uint8_t *transfer_op_flag);
+    const struct pldm_msg* msg, size_t payload_length,
+    uint32_t* data_transfer_handle, uint16_t* fru_table_handle,
+    uint16_t* record_set_identifier, uint8_t* record_type, uint8_t* field_type,
+    uint8_t* transfer_op_flag);
 
 /** @brief Encode GetFRURecordByOption response data
  *
@@ -311,12 +326,12 @@ int decode_get_fru_record_by_option_req(
  *         and for appending the FRU table to the msg.
  */
 int encode_get_fru_record_by_option_resp(uint8_t instance_id,
-					 uint8_t completion_code,
-					 uint32_t next_data_transfer_handle,
-					 uint8_t transfer_flag,
-					 const void *fru_structure_data,
-					 size_t data_size, struct pldm_msg *msg,
-					 size_t payload_length);
+                                         uint8_t completion_code,
+                                         uint32_t next_data_transfer_handle,
+                                         uint8_t transfer_flag,
+                                         const void* fru_structure_data,
+                                         size_t data_size, struct pldm_msg* msg,
+                                         size_t payload_length);
 
 /* Requester */
 
@@ -337,10 +352,10 @@ int encode_get_fru_record_by_option_resp(uint8_t instance_id,
  */
 
 int encode_get_fru_record_table_req(uint8_t instance_id,
-				    uint32_t data_transfer_handle,
-				    uint8_t transfer_operation_flag,
-				    struct pldm_msg *msg,
-				    size_t payload_length);
+                                    uint32_t data_transfer_handle,
+                                    uint8_t transfer_operation_flag,
+                                    struct pldm_msg* msg,
+                                    size_t payload_length);
 
 /** @brief Decode GetFruRecordTable response data
  *
@@ -357,13 +372,10 @@ int encode_get_fru_record_table_req(uint8_t instance_id,
  *  @return pldm_completion_codes
  */
 
-int decode_get_fru_record_table_resp(const struct pldm_msg *msg,
-				     size_t payload_length,
-				     uint8_t *completion_code,
-				     uint32_t *next_data_transfer_handle,
-				     uint8_t *transfer_flag,
-				     uint8_t *fru_record_table_data,
-				     size_t *fru_record_table_length);
+int decode_get_fru_record_table_resp(
+    const struct pldm_msg* msg, size_t payload_length, uint8_t* completion_code,
+    uint32_t* next_data_transfer_handle, uint8_t* transfer_flag,
+    uint8_t* fru_record_table_data, size_t* fru_record_table_length);
 
 /** @brief Decode GetFruRecordTable response data, ensuring that the fru
  *         record table section is small enough to fit in the provided buffer.
@@ -385,10 +397,10 @@ int decode_get_fru_record_table_resp(const struct pldm_msg *msg,
  */
 
 int decode_get_fru_record_table_resp_safe(
-	const struct pldm_msg *msg, size_t payload_length,
-	uint8_t *completion_code, uint32_t *next_data_transfer_handle,
-	uint8_t *transfer_flag, uint8_t *fru_record_table_data,
-	size_t *fru_record_table_length, size_t max_fru_record_table_length);
+    const struct pldm_msg* msg, size_t payload_length, uint8_t* completion_code,
+    uint32_t* next_data_transfer_handle, uint8_t* transfer_flag,
+    uint8_t* fru_record_table_data, size_t* fru_record_table_length,
+    size_t max_fru_record_table_length);
 
 /** @brief Encode the FRU record in the FRU table
  *
@@ -406,10 +418,10 @@ int decode_get_fru_record_table_resp_safe(
  *
  *  @return pldm_completion_codes
  */
-int encode_fru_record(uint8_t *fru_table, size_t total_size, size_t *curr_size,
-		      uint16_t record_set_id, uint8_t record_type,
-		      uint8_t num_frus, uint8_t encoding, uint8_t *tlvs,
-		      size_t tlvs_size);
+int encode_fru_record(uint8_t* fru_table, size_t total_size, size_t* curr_size,
+                      uint16_t record_set_id, uint8_t record_type,
+                      uint8_t num_frus, uint8_t encoding, uint8_t* tlvs,
+                      size_t tlvs_size);
 
 /* GetFRURecordByOption */
 
@@ -431,10 +443,10 @@ int encode_fru_record(uint8_t *fru_table, size_t total_size, size_t *curr_size,
  *         'msg.payload'
  */
 int encode_get_fru_record_by_option_req(
-	uint8_t instance_id, uint32_t data_transfer_handle,
-	uint16_t fru_table_handle, uint16_t record_set_identifier,
-	uint8_t record_type, uint8_t field_type, uint8_t transfer_op_flag,
-	struct pldm_msg *msg, size_t payload_length);
+    uint8_t instance_id, uint32_t data_transfer_handle,
+    uint16_t fru_table_handle, uint16_t record_set_identifier,
+    uint8_t record_type, uint8_t field_type, uint8_t transfer_op_flag,
+    struct pldm_msg* msg, size_t payload_length);
 
 /** @brief Decode GetFRURecordByOption response data
  *
@@ -449,9 +461,9 @@ int encode_get_fru_record_by_option_req(
  *  @return pldm_completion_codes
  */
 int decode_get_fru_record_by_option_resp(
-	const struct pldm_msg *msg, size_t payload_length,
-	uint8_t *completion_code, uint32_t *next_transfer_handle,
-	uint8_t *transfer_flag, struct variable_field *fru_structure_data);
+    const struct pldm_msg* msg, size_t payload_length, uint8_t* completion_code,
+    uint32_t* next_transfer_handle, uint8_t* transfer_flag,
+    struct variable_field* fru_structure_data);
 
 /** @brief Get FRU Record Table By Option or return an error
  *  @param[in] table - The source fru record table
@@ -462,15 +474,15 @@ int decode_get_fru_record_by_option_resp(
  *  @param[in] rt - FRU record type
  *  @param[in] ft - FRU field type
  *
- *  @return PLDM_SUCCESS if no error occurs. PLDM_ERROR_INVALID_LENGTH if record_size lacks capacity
- *  	    to encode the relevant records.
+ *  @return PLDM_SUCCESS if no error occurs. PLDM_ERROR_INVALID_LENGTH if
+ * record_size lacks capacity to encode the relevant records.
  */
-int get_fru_record_by_option(const uint8_t *table, size_t table_size,
-			     uint8_t *record_table, size_t *record_size,
-			     uint16_t rsi, uint8_t rt, uint8_t ft);
-int get_fru_record_by_option_check(const uint8_t *table, size_t table_size,
-				   uint8_t *record_table, size_t *record_size,
-				   uint16_t rsi, uint8_t rt, uint8_t ft);
+int get_fru_record_by_option(const uint8_t* table, size_t table_size,
+                             uint8_t* record_table, size_t* record_size,
+                             uint16_t rsi, uint8_t rt, uint8_t ft);
+int get_fru_record_by_option_check(const uint8_t* table, size_t table_size,
+                                   uint8_t* record_table, size_t* record_size,
+                                   uint16_t rsi, uint8_t rt, uint8_t ft);
 
 /* SetFruRecordTable */
 
@@ -487,11 +499,11 @@ int get_fru_record_by_option_check(const uint8_t *table, size_t table_size,
  *                               data
  *  @return pldm_completion_codes
  */
-int decode_set_fru_record_table_req(const struct pldm_msg *msg,
-				    size_t payload_length,
-				    uint32_t *data_transfer_handle,
-				    uint8_t *transfer_flag,
-				    struct variable_field *fru_table_data);
+int decode_set_fru_record_table_req(const struct pldm_msg* msg,
+                                    size_t payload_length,
+                                    uint32_t* data_transfer_handle,
+                                    uint8_t* transfer_flag,
+                                    struct variable_field* fru_table_data);
 
 /** @brief Create a PLDM response message for SetFruRecordTable
  *
@@ -503,10 +515,10 @@ int decode_set_fru_record_table_req(const struct pldm_msg *msg,
  *  @param[out] msg - Argument to capture the Message
  */
 int encode_set_fru_record_table_resp(uint8_t instance_id,
-				     uint8_t completion_code,
-				     uint32_t next_data_transfer_handle,
-				     size_t payload_length,
-				     struct pldm_msg *msg);
+                                     uint8_t completion_code,
+                                     uint32_t next_data_transfer_handle,
+                                     size_t payload_length,
+                                     struct pldm_msg* msg);
 
 #ifdef __cplusplus
 }

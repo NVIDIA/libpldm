@@ -3,12 +3,12 @@
 #define TRANSPORT_PLDM_H
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 #include <libpldm/base.h>
 #include <libpldm/pldm.h>
-
 #include <stddef.h>
 
 struct pldm_transport;
@@ -25,10 +25,11 @@ struct pldm_transport;
  *            Specifying a timeout value of zero yields an immediate return.
  *            Specifying a negative value means an indefinite timeout.
  *
- * @return 0 if a timeout occurs, 1 if the transport becomes ready, PLDM_REQUESTER_INVALID_SETUP if
- * 	   transport is NULL, or PLDM_REQUESTER_POLL_FAIL on failure.
+ * @return 0 if a timeout occurs, 1 if the transport becomes ready,
+ * PLDM_REQUESTER_INVALID_SETUP if transport is NULL, or
+ * PLDM_REQUESTER_POLL_FAIL on failure.
  */
-int pldm_transport_poll(struct pldm_transport *transport, int timeout);
+int pldm_transport_poll(struct pldm_transport* transport, int timeout);
 
 /**
  * @brief Asynchronously send a PLDM message. Control is immediately returned to
@@ -50,14 +51,14 @@ int pldm_transport_poll(struct pldm_transport *transport, int timeout);
  *
  * @return pldm_requester_rc_t (errno may be set)
  */
-pldm_requester_rc_t pldm_transport_send_msg(struct pldm_transport *transport,
-					    pldm_tid_t tid,
-					    const void *pldm_msg,
-					    size_t msg_len);
+pldm_requester_rc_t pldm_transport_send_msg(struct pldm_transport* transport,
+                                            pldm_tid_t tid,
+                                            const void* pldm_msg,
+                                            size_t msg_len);
 
 /**
- * @brief Asynchronously get a PLDM message. Control is immediately returned to the
- * 	  caller.
+ * @brief Asynchronously get a PLDM message. Control is immediately returned to
+ * the caller.
  *
  * @pre The pldm transport instance must be initialised; otherwise,
  * 	PLDM_REQUESTER_INVALID_SETUP is returned. If the transport requires a
@@ -78,18 +79,19 @@ pldm_requester_rc_t pldm_transport_send_msg(struct pldm_transport *transport,
  * 	   PLDM messages are available.
  *
  */
-pldm_requester_rc_t pldm_transport_recv_msg(struct pldm_transport *transport,
-					    pldm_tid_t *tid, void **pldm_msg,
-					    size_t *msg_len);
+pldm_requester_rc_t pldm_transport_recv_msg(struct pldm_transport* transport,
+                                            pldm_tid_t* tid, void** pldm_msg,
+                                            size_t* msg_len);
 
 /**
  * @brief Synchronously send a PLDM request and receive the response. Control is
  * 	  returned to the caller once the response is received.
  *
- * pldm_transport_send_recv() will discard messages received on the underlying transport instance
- * that are not a response that matches the request. Do not use this function if you're attempting
- * to use the transport instance asynchronously, as this discard behaviour will affect other
- * responses that you may care about.
+ * pldm_transport_send_recv() will discard messages received on the underlying
+ * transport instance that are not a response that matches the request. Do not
+ * use this function if you're attempting to use the transport instance
+ * asynchronously, as this discard behaviour will affect other responses that
+ * you may care about.
  *
  * @pre The pldm transport instance must be initialised; otherwise,
  * 	PLDM_REQUESTER_INVALID_SETUP is returned. If the transport requires a
@@ -114,10 +116,9 @@ pldm_requester_rc_t pldm_transport_recv_msg(struct pldm_transport *transport,
  *
  * @return pldm_requester_rc_t (errno may be set)
  */
-pldm_requester_rc_t
-pldm_transport_send_recv_msg(struct pldm_transport *transport, pldm_tid_t tid,
-			     const void *pldm_req_msg, size_t req_msg_len,
-			     void **pldm_resp_msg, size_t *resp_msg_len);
+pldm_requester_rc_t pldm_transport_send_recv_msg(
+    struct pldm_transport* transport, pldm_tid_t tid, const void* pldm_req_msg,
+    size_t req_msg_len, void** pldm_resp_msg, size_t* resp_msg_len);
 
 #ifdef __cplusplus
 }

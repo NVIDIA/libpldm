@@ -6,36 +6,37 @@
 #include <libpldm/pldm.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 struct pldm_transport_af_mctp;
 struct sockaddr_mctp;
 
 /* Init the transport backend */
-int pldm_transport_af_mctp_init(struct pldm_transport_af_mctp **ctx);
+int pldm_transport_af_mctp_init(struct pldm_transport_af_mctp** ctx);
 
 /* Destroy the transport backend */
-void pldm_transport_af_mctp_destroy(struct pldm_transport_af_mctp *ctx);
+void pldm_transport_af_mctp_destroy(struct pldm_transport_af_mctp* ctx);
 
 /* Get the core pldm transport struct */
-struct pldm_transport *
-pldm_transport_af_mctp_core(struct pldm_transport_af_mctp *ctx);
+struct pldm_transport*
+    pldm_transport_af_mctp_core(struct pldm_transport_af_mctp* ctx);
 
 #ifdef PLDM_HAS_POLL
 struct pollfd;
 /* Init pollfd for async calls */
-int pldm_transport_af_mctp_init_pollfd(struct pldm_transport *t,
-				       struct pollfd *pollfd);
+int pldm_transport_af_mctp_init_pollfd(struct pldm_transport* t,
+                                       struct pollfd* pollfd);
 #endif
 
 /* Inserts a TID-to-EID mapping into the transport's device map */
-int pldm_transport_af_mctp_map_tid(struct pldm_transport_af_mctp *ctx,
-				   pldm_tid_t tid, mctp_eid_t eid);
+int pldm_transport_af_mctp_map_tid(struct pldm_transport_af_mctp* ctx,
+                                   pldm_tid_t tid, mctp_eid_t eid);
 
 /* Removes a TID-to-EID mapping from the transport's device map */
-int pldm_transport_af_mctp_unmap_tid(struct pldm_transport_af_mctp *ctx,
-				     pldm_tid_t tid, mctp_eid_t eid);
+int pldm_transport_af_mctp_unmap_tid(struct pldm_transport_af_mctp* ctx,
+                                     pldm_tid_t tid, mctp_eid_t eid);
 
 /**
  * @brief Allow the transport to receive requests from remote endpoints
@@ -51,8 +52,8 @@ int pldm_transport_af_mctp_unmap_tid(struct pldm_transport_af_mctp *ctx,
  * @return PLDM_REQUESTER_SUCCESS on success, or a negative error code on
  * failure.
  */
-int pldm_transport_af_mctp_bind(struct pldm_transport_af_mctp *transport,
-				const struct sockaddr_mctp *smctp, size_t len);
+int pldm_transport_af_mctp_bind(struct pldm_transport_af_mctp* transport,
+                                const struct sockaddr_mctp* smctp, size_t len);
 
 #ifdef __cplusplus
 }

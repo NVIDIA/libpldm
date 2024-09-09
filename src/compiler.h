@@ -36,8 +36,8 @@
  * @return The expression either yields 1, or compilation is terminated
  */
 #define pldm_require_obj_type(obj, type)                                       \
-	((void)(sizeof(                                                        \
-		struct { char buf[_Generic((obj), type: 1, default: -1)]; })))
+    ((void)(sizeof(                                                            \
+        struct { char buf[_Generic((obj), type: 1, default: -1)]; })))
 // NOLINTEND(bugprone-macro-parentheses)
 
 #endif
