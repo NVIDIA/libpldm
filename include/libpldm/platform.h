@@ -1086,7 +1086,7 @@ typedef struct state_field_for_get_state_sensor_readings
                              //! from. This must be different from the
                              //! present state
     uint8_t event_state;     //!< Return a state value from a PLDM State Set
-                         //! that is associated with the sensor
+                             //! that is associated with the sensor
 } __attribute__((packed)) get_sensor_state_field;
 
 /** @struct PLDM_SetStateEffecterStates_Request
