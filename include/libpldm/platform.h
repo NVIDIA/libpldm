@@ -145,6 +145,9 @@ enum pldm_platform_transfer_flag
 #define PLDM_GET_EFFECTER_STATE_FIELD_COUNT_MIN 1
 #define PLDM_GET_EFFECTER_STATE_FIELD_COUNT_MAX 8
 
+/* Minumum length of pldm smbios event data */
+#define PLDM_SMBIOS_EVENT_DATA_MIN_LENGTH 4
+
 enum pldm_effecter_data_size
 {
     PLDM_EFFECTER_DATA_SIZE_UINT8,
@@ -323,6 +326,8 @@ enum pldm_event_types
     PLDM_OEM_EVENT_CLASS_0xFA = 0xFA,
     PLDM_OEM_EVENT_CLASS_0xFB =
         0xFB, // OEM platform event for FW version change
+    PLDM_OEM_EVENT_CLASS_0xFC =
+        0xFC, // OEM platform event for UEFI telemetry (SMBIOS Type 4)
 };
 
 /** @brief PLDM cperEventClass formatType
@@ -1306,6 +1311,17 @@ struct pldm_cper_event_data
 {
     uint8_t format_version;
     uint8_t format_type;
+    uint16_t event_data_length;
+    uint8_t event_data[1];
+} __attribute__((packed));
+
+/** @struct pldm_smbios_event
+ *
+ *  structure representing SMBIOSEvent
+ */
+struct pldm_smbios_event_data
+{
+    uint8_t format_version;
     uint16_t event_data_length;
     uint8_t event_data[1];
 } __attribute__((packed));
@@ -2666,6 +2682,24 @@ int encode_set_event_receiver_resp(uint8_t instance_id, uint8_t completion_code,
 int decode_numeric_effecter_pdr_data(
     const void* pdr_data, size_t pdr_data_length,
     struct pldm_numeric_effecter_value_pdr* pdr_value);
+
+/** @brief Decode smbiosEvent response data
+ *
+ *  @param[in] event_data - event data from the response message
+ *  @param[in] event_data_length - length of the event data
+ *  @param[out] format_version - version of the event format
+ *  @param[out] smbios_event_data_length - length in bytes of smbios_event_data
+ *  @param[out] smbios_event_data - the pointer to where smbios data is in
+ * event_data array
+ *  @return pldm_completion_codes
+ *  @note  Caller is responsible for memory alloc and dealloc of param
+ *         'event_data'
+ */
+int decode_pldm_smbios_event_data(const uint8_t* event_data,
+                                  size_t event_data_length,
+                                  uint8_t* format_version,
+                                  uint16_t* smbios_event_data_length,
+                                  uint8_t** smbios_event_data);
 
 #ifdef __cplusplus
 }
