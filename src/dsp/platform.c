@@ -1518,6 +1518,7 @@ int decode_sensor_event_data(const uint8_t* event_data,
     return pldm_msgbuf_destroy(buf);
 }
 
+LIBPLDM_ABI_STABLE
 int decode_pldm_cper_event_data(const uint8_t* event_data,
                                 size_t event_data_length,
                                 uint8_t* format_version, uint8_t* format_type,

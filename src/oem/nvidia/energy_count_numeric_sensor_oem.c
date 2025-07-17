@@ -2,6 +2,7 @@
 #include <libpldm/oem/nvidia/energy_count_numeric_sensor_oem.h>
 #include <string.h>
 
+LIBPLDM_ABI_STABLE
 int encode_get_oem_energy_count_sensor_reading_req(uint8_t instance_id,
                                                    uint16_t sensor_id,
                                                    struct pldm_msg *msg)
@@ -31,6 +32,7 @@ int encode_get_oem_energy_count_sensor_reading_req(uint8_t instance_id,
     return PLDM_SUCCESS;
 }
 
+LIBPLDM_ABI_STABLE
 int decode_get_oem_energy_count_sensor_reading_resp(
     const struct pldm_msg* msg, size_t payload_length, uint8_t* completion_code,
     uint8_t* sensor_data_size, uint8_t* sensor_operational_state,
