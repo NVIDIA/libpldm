@@ -116,9 +116,9 @@ struct pldm_get_oem_energycount_sensor_reading_resp
  *  @note	Caller is responsible for memory alloc and dealloc of param
  * 		'msg.payload'
  */
-int encode_get_oem_enegy_count_sensor_reading_req(uint8_t instance_id,
-                                                  uint16_t sensor_id,
-                                                  struct pldm_msg* msg);
+int encode_get_oem_energy_count_sensor_reading_req(uint8_t instance_id,
+                                                   uint16_t sensor_id,
+                                                   struct pldm_msg* msg);
 
 /** @brief Decode GetOEMEnergyCountSensorReading response data
  *
