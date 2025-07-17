@@ -3044,3 +3044,45 @@ int decode_pldm_smbios_event_data(const uint8_t *event_data,
 
 	return PLDM_SUCCESS;
 }
+
+LIBPLDM_ABI_STABLE
+int encode_get_terminus_uid_req(uint8_t instance_id, struct pldm_msg *msg)
+{
+	if (msg == NULL) {
+		return PLDM_ERROR_INVALID_DATA;
+	}
+
+	struct pldm_header_info header = {0};
+	header.instance = instance_id;
+	header.msg_type = PLDM_REQUEST;
+	header.pldm_type = PLDM_PLATFORM;
+	header.command = PLDM_GET_TERMINUS_UID;
+
+	return pack_pldm_header(&header, &(msg->hdr));
+}
+
+LIBPLDM_ABI_STABLE
+int decode_get_terminus_UID_resp(const struct pldm_msg *msg,
+				 size_t payload_length,
+				 uint8_t *completion_code, uint8_t *uuid)
+{
+	if (msg == NULL || completion_code == NULL || uuid == NULL) {
+		return PLDM_ERROR_INVALID_DATA;
+	}
+
+	*completion_code = msg->payload[0];
+	if (PLDM_SUCCESS != *completion_code) {
+		return PLDM_SUCCESS;
+	}
+
+	struct pldm_get_terminus_uid_resp *response =
+	    (struct pldm_get_terminus_uid_resp *)msg->payload;
+
+	if (payload_length > PLDM_GET_TERMINUS_UID_RESP_BYTES) {
+		return PLDM_ERROR_INVALID_LENGTH;
+	}
+
+	memcpy(uuid, response->uuidValue, 16);
+
+	return PLDM_SUCCESS;
+}
