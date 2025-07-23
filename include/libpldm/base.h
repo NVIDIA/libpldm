@@ -139,6 +139,7 @@ typedef enum
  *  > the ERROR_NOT_READY completion code.
  */
 #define PLDM_OPTIONAL_COMMAND_RESP_MIN_LEN 1
+#define PLDM_CC_ONLY_RESP_BYTES 1
 
 /** @struct pldm_msg_hdr
  *
