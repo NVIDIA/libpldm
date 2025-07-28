@@ -109,6 +109,7 @@ typedef enum
 /* Message payload lengths */
 #define PLDM_GET_COMMANDS_REQ_BYTES 5
 #define PLDM_GET_VERSION_REQ_BYTES 6
+#define PLDM_GET_TYPES_REQ_BYTES 0
 
 /* Response lengths are inclusive of completion code */
 #define PLDM_GET_TYPES_RESP_BYTES 9
@@ -138,6 +139,7 @@ typedef enum
  *  > the ERROR_NOT_READY completion code.
  */
 #define PLDM_OPTIONAL_COMMAND_RESP_MIN_LEN 1
+#define PLDM_CC_ONLY_RESP_BYTES 1
 
 /** @struct pldm_msg_hdr
  *
