@@ -285,7 +285,7 @@ enum pldm_effecter_init
     PLDM_NO_INIT,
     PLDM_USE_INIT_PDR,
     PLDM_ENABLE_EFFECTER,
-    PLDM_DISABLE_EFECTER
+    PLDM_DISABLE_EFFECTER
 };
 
 /** @brief PLDM Platform M&C completion codes
