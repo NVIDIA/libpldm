@@ -5,7 +5,7 @@
 LIBPLDM_ABI_STABLE
 int encode_get_oem_energy_count_sensor_reading_req(uint8_t instance_id,
                                                    uint16_t sensor_id,
-                                                   struct pldm_msg *msg)
+                                                   struct pldm_msg* msg)
 {
     if (msg == NULL)
     {

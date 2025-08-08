@@ -748,13 +748,13 @@ __attribute__((always_inline)) static inline int
  */
 #define pldm_msgbuf_extract_p(ctx, dst)                                        \
     _Generic((dst),                                                            \
-        uint8_t *: pldm__msgbuf_extract_uint8,                                 \
-        int8_t *: pldm__msgbuf_extract_int8,                                   \
-        uint16_t *: pldm__msgbuf_extract_uint16,                               \
-        int16_t *: pldm__msgbuf_extract_int16,                                 \
-        uint32_t *: pldm__msgbuf_extract_uint32,                               \
-        int32_t *: pldm__msgbuf_extract_int32,                                 \
-        real32_t *: pldm__msgbuf_extract_real32)(ctx, dst)
+        uint8_t*: pldm__msgbuf_extract_uint8,                                  \
+        int8_t*: pldm__msgbuf_extract_int8,                                    \
+        uint16_t*: pldm__msgbuf_extract_uint16,                                \
+        int16_t*: pldm__msgbuf_extract_int16,                                  \
+        uint32_t*: pldm__msgbuf_extract_uint32,                                \
+        int32_t*: pldm__msgbuf_extract_int32,                                  \
+        real32_t*: pldm__msgbuf_extract_real32)(ctx, dst)
 
 __attribute__((always_inline)) static inline int
     pldm_msgbuf_extract_array_uint8(struct pldm_msgbuf* ctx, uint8_t* dst,

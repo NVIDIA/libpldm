@@ -2711,15 +2711,16 @@ int decode_pldm_smbios_event_data(const uint8_t* event_data,
  * @param[out] msg - Argument to capture the Message.
  * @return pldm_completion_codes
  */
-int encode_get_terminus_uid_req(uint8_t instance_id, struct pldm_msg *msg);
+int encode_get_terminus_uid_req(uint8_t instance_id, struct pldm_msg* msg);
 
 /** @struct pldm_get_terminus_uid_resp
  *
  *  Structure representing GetTerminusUID response packet
  */
-struct pldm_get_terminus_uid_resp {
-	uint8_t completion_code;
-	uint8_t uuidValue[16];
+struct pldm_get_terminus_uid_resp
+{
+    uint8_t completion_code;
+    uint8_t uuidValue[16];
 } __attribute__((packed));
 
 /** @brief Decode the getTerminusUID response message
@@ -2730,9 +2731,9 @@ struct pldm_get_terminus_uid_resp {
  *  @param[out] UUID - The pointer of array for 16 bytes Terminus UID
  *  @return pldm_completion_codes.
  */
-int decode_get_terminus_UID_resp(const struct pldm_msg *msg,
-				 size_t payload_length,
-				 uint8_t *completion_code, uint8_t *uuid);
+int decode_get_terminus_UID_resp(const struct pldm_msg* msg,
+                                 size_t payload_length,
+                                 uint8_t* completion_code, uint8_t* uuid);
 
 #ifdef __cplusplus
 }
