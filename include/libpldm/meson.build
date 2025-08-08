@@ -1,6 +1,4 @@
 libpldm_headers = files(
-    'transport/af-mctp.h',
-    'transport/mctp-demux.h',
     'base.h',
     'bios.h',
     'bios_table.h',
@@ -15,6 +13,8 @@ libpldm_headers = files(
     'state_set.h',
     'states.h',
     'transport.h',
+    'transport/af-mctp.h',
+    'transport/mctp-demux.h',
     'utils.h',
 )
 
@@ -30,9 +30,7 @@ if get_option('oem-ibm').allowed()
 endif
 
 if get_option('oem-meta').allowed()
-    libpldm_headers += files(
-        'oem/meta/file_io.h',
-    )
+    libpldm_headers += files('oem/meta/file_io.h')
 endif
 
 if get_option('oem-nvidia').allowed()

@@ -14,12 +14,7 @@ endif
 
 test_include_dirs = [libpldm_include_dir, include_directories('../src')]
 
-tests = [
-    'instance-id',
-    'msgbuf',
-    'responder',
-    'utils',
-]
+tests = ['instance-id', 'msgbuf', 'responder', 'utils']
 
 subdir('dsp')
 

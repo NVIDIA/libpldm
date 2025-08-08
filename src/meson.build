@@ -32,7 +32,10 @@ libpldm = library(
     install: true,
 )
 
-libpldm_dep = declare_dependency(include_directories: libpldm_include_dir, link_with: libpldm)
+libpldm_dep = declare_dependency(
+    include_directories: libpldm_include_dir,
+    link_with: libpldm,
+)
 
 import('pkgconfig').generate(
     name: 'libpldm',
@@ -47,7 +50,9 @@ if get_option('tests').allowed()
 
     if get_option('abi-compliance-check').allowed() and c_suite == cpp_suite and c_suite == 'gcc'
         host = host_machine.cpu_family()
-        baseline_dump = meson.project_source_root() / 'abi' / host / '@0@.dump'.format(c_suite)
+        baseline_dump = meson.project_source_root() / 'abi' / host / '@0@.dump'.format(
+            c_suite,
+        )
 
         abi_dumper = find_program(
             'abi-dumper',
@@ -60,7 +65,11 @@ if get_option('tests').allowed()
             required: get_option('abi-compliance-check'),
         )
 
-        test_abi_compliance = abi_dumper.found() and abi_compliance_checker.found() and import('fs').is_file(baseline_dump)
+        test_abi_compliance = abi_dumper.found() and abi_compliance_checker.found() and import(
+            'fs',
+        ).is_file(
+            baseline_dump,
+        )
 
         if test_abi_compliance
             current_dump = custom_target(
@@ -70,11 +79,16 @@ if get_option('tests').allowed()
                 command: [
                     abi_dumper,
                     '-mixed-headers',
-                    '-include-paths', meson.project_source_root() / 'src',
-                    '-public-headers', meson.project_source_root() / 'include',
-                    '-sort', '@INPUT@',
-                    '-o', '@OUTPUT@',
-                    '-lver', meson.project_version(),
+                    '-include-paths',
+                    meson.project_source_root() / 'src',
+                    '-public-headers',
+                    meson.project_source_root() / 'include',
+                    '-sort',
+                    '@INPUT@',
+                    '-o',
+                    '@OUTPUT@',
+                    '-lver',
+                    meson.project_version(),
                 ],
             )
             abi_compliance = custom_target(
@@ -83,9 +97,12 @@ if get_option('tests').allowed()
                 output: 'abi-compliance',
                 command: [
                     abi_compliance_checker,
-                    '-l', meson.project_name(),
-                    '-old', '@INPUT0@',
-                    '-new', '@INPUT1@',
+                    '-l',
+                    meson.project_name(),
+                    '-old',
+                    '@INPUT0@',
+                    '-new',
+                    '@INPUT1@',
                 ],
                 build_by_default: true,
             )
