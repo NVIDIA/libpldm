@@ -3,8 +3,7 @@
 #define PDR_H
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include <stdbool.h>
@@ -34,13 +33,13 @@ typedef struct pldm_pdr_record pldm_pdr_record;
  *  for PDRs received by other entities) and can associate the returned handle
  *  to a PLDM terminus id.
  */
-pldm_pdr* pldm_pdr_init(void);
+pldm_pdr *pldm_pdr_init(void);
 
 /** @brief Destroy a PDR repository (and free up associated resources)
  *
  *  @param[in/out] repo - pointer to opaque pointer acting as a PDR repo handle
  */
-void pldm_pdr_destroy(pldm_pdr* repo);
+void pldm_pdr_destroy(pldm_pdr *repo);
 
 /** @brief Get number of records in a PDR repository
  *
@@ -50,7 +49,7 @@ void pldm_pdr_destroy(pldm_pdr* repo);
  *
  *  @return uint32_t - number of records
  */
-uint32_t pldm_pdr_get_record_count(const pldm_pdr* repo);
+uint32_t pldm_pdr_get_record_count(const pldm_pdr *repo);
 
 /** @brief Get size of a PDR repository, in bytes
  *
@@ -60,7 +59,7 @@ uint32_t pldm_pdr_get_record_count(const pldm_pdr* repo);
  *
  *  @return uint32_t - size in bytes
  */
-uint32_t pldm_pdr_get_repo_size(const pldm_pdr* repo);
+uint32_t pldm_pdr_get_repo_size(const pldm_pdr *repo);
 
 /** @brief Add a PDR record to a PDR repository, or return an error
  *
@@ -78,9 +77,9 @@ uint32_t pldm_pdr_get_repo_size(const pldm_pdr* repo);
  * internal memory allocation fails, or -EOVERFLOW if a record handle could not
  * be allocated
  */
-int pldm_pdr_add_check(pldm_pdr* repo, const uint8_t* data, uint32_t size,
-                       bool is_remote, uint16_t terminus_handle,
-                       uint32_t* record_handle);
+int pldm_pdr_add_check(pldm_pdr *repo, const uint8_t *data, uint32_t size,
+		       bool is_remote, uint16_t terminus_handle,
+		       uint32_t *record_handle);
 
 /** @brief Get record handle of a PDR record
  *
@@ -93,8 +92,8 @@ int pldm_pdr_add_check(pldm_pdr* repo, const uint8_t* data, uint32_t size,
  *  @return uint32_t - record handle assigned to PDR record; 0 if record is not
  *  found
  */
-uint32_t pldm_pdr_get_record_handle(const pldm_pdr* repo,
-                                    const pldm_pdr_record* record);
+uint32_t pldm_pdr_get_record_handle(const pldm_pdr *repo,
+				    const pldm_pdr_record *record);
 
 /** @brief Find PDR record by record handle
  *
@@ -109,10 +108,10 @@ uint32_t pldm_pdr_get_record_handle(const pldm_pdr* repo,
  *  @return opaque pointer acting as PDR record handle, will be NULL if record
  *  was not found
  */
-const pldm_pdr_record* pldm_pdr_find_record(const pldm_pdr* repo,
-                                            uint32_t record_handle,
-                                            uint8_t** data, uint32_t* size,
-                                            uint32_t* next_record_handle);
+const pldm_pdr_record *pldm_pdr_find_record(const pldm_pdr *repo,
+					    uint32_t record_handle,
+					    uint8_t **data, uint32_t *size,
+					    uint32_t *next_record_handle);
 
 /** @brief Get PDR record next to input PDR record
  *
@@ -127,10 +126,10 @@ const pldm_pdr_record* pldm_pdr_find_record(const pldm_pdr* repo,
  *  @return opaque pointer acting as PDR record handle, will be NULL if record
  *  was not found
  */
-const pldm_pdr_record*
-    pldm_pdr_get_next_record(const pldm_pdr* repo,
-                             const pldm_pdr_record* curr_record, uint8_t** data,
-                             uint32_t* size, uint32_t* next_record_handle);
+const pldm_pdr_record *
+pldm_pdr_get_next_record(const pldm_pdr *repo,
+			 const pldm_pdr_record *curr_record, uint8_t **data,
+			 uint32_t *size, uint32_t *next_record_handle);
 
 /** @brief Find (first) PDR record by PDR type
  *
@@ -145,10 +144,10 @@ const pldm_pdr_record*
  *  @return opaque pointer acting as PDR record handle, will be NULL if record
  *  was not found
  */
-const pldm_pdr_record*
-    pldm_pdr_find_record_by_type(const pldm_pdr* repo, uint8_t pdr_type,
-                                 const pldm_pdr_record* curr_record,
-                                 uint8_t** data, uint32_t* size);
+const pldm_pdr_record *
+pldm_pdr_find_record_by_type(const pldm_pdr *repo, uint8_t pdr_type,
+			     const pldm_pdr_record *curr_record, uint8_t **data,
+			     uint32_t *size);
 
 /** @brief Determine if a record is a remote record
  *
@@ -156,7 +155,7 @@ const pldm_pdr_record*
  *
  *  @return true if the record is a remote record, false otherwise.
  */
-bool pldm_pdr_record_is_remote(const pldm_pdr_record* record);
+bool pldm_pdr_record_is_remote(const pldm_pdr_record *record);
 
 /** @brief Remove all PDR records that belong to a remote terminus
  *
@@ -164,7 +163,7 @@ bool pldm_pdr_record_is_remote(const pldm_pdr_record* record);
  *
  *  If repo is NULL then there are no PDRs that can be removed.
  */
-void pldm_pdr_remove_remote_pdrs(pldm_pdr* repo);
+void pldm_pdr_remove_remote_pdrs(pldm_pdr *repo);
 
 /** @brief Remove all remote PDR's that belong to a specific terminus
  *         handle
@@ -173,8 +172,8 @@ void pldm_pdr_remove_remote_pdrs(pldm_pdr* repo);
  *
  *  If repo is NULL there are no PDRs that can be removed.
  */
-void pldm_pdr_remove_pdrs_by_terminus_handle(pldm_pdr* repo,
-                                             uint16_t terminus_handle);
+void pldm_pdr_remove_pdrs_by_terminus_handle(pldm_pdr *repo,
+					     uint16_t terminus_handle);
 
 /** @brief Update the validity of TL PDR - the validity is decided based on
  * whether the valid bit is set or not as per the spec DSP0248
@@ -186,8 +185,8 @@ void pldm_pdr_remove_pdrs_by_terminus_handle(pldm_pdr* repo,
  * @param[in] valid - validity bit of TLPDR
  */
 /* NOLINTNEXTLINE(readability-identifier-naming) */
-void pldm_pdr_update_TL_pdr(const pldm_pdr* repo, uint16_t terminus_handle,
-                            uint8_t tid, uint8_t tl_eid, bool valid);
+void pldm_pdr_update_TL_pdr(const pldm_pdr *repo, uint16_t terminus_handle,
+			    uint8_t tid, uint8_t tl_eid, bool valid);
 
 /** @brief Find the last record within the particular range
  * of record handles
@@ -199,8 +198,8 @@ void pldm_pdr_update_TL_pdr(const pldm_pdr* repo, uint16_t terminus_handle,
  *  @return pointer to the PDR record,will be NULL if record was not
  *  found
  */
-pldm_pdr_record* pldm_pdr_find_last_in_range(const pldm_pdr* repo,
-                                             uint32_t first, uint32_t last);
+pldm_pdr_record *pldm_pdr_find_last_in_range(const pldm_pdr *repo,
+					     uint32_t first, uint32_t last);
 
 /** @brief find the container ID of the contained entity which is not in the
  *  particular range of record handles given
@@ -220,9 +219,9 @@ pldm_pdr_record* pldm_pdr_find_last_in_range(const pldm_pdr* repo,
  * NULL or -ENOKEY if the container id is not found.
  */
 int pldm_pdr_find_child_container_id_index_range_exclude(
-    const pldm_pdr* repo, uint16_t entity_type, uint16_t entity_instance,
-    uint8_t child_index, uint32_t range_exclude_start_handle,
-    uint32_t range_exclude_end_handle, uint16_t* container_id);
+	const pldm_pdr *repo, uint16_t entity_type, uint16_t entity_instance,
+	uint8_t child_index, uint32_t range_exclude_start_handle,
+	uint32_t range_exclude_end_handle, uint16_t *container_id);
 
 /* ======================= */
 /* FRU Record Set PDR APIs */
@@ -246,11 +245,11 @@ int pldm_pdr_find_child_container_id_index_range_exclude(
  *  @return 0 on success, -EINVAL if the arguments are invalid, or -ENOMEM if an
  * internal allocation fails.
  */
-int pldm_pdr_add_fru_record_set_check(pldm_pdr* repo, uint16_t terminus_handle,
-                                      uint16_t fru_rsi, uint16_t entity_type,
-                                      uint16_t entity_instance_num,
-                                      uint16_t container_id,
-                                      uint32_t* bmc_record_handle);
+int pldm_pdr_add_fru_record_set_check(pldm_pdr *repo, uint16_t terminus_handle,
+				      uint16_t fru_rsi, uint16_t entity_type,
+				      uint16_t entity_instance_num,
+				      uint16_t container_id,
+				      uint32_t *bmc_record_handle);
 
 /** @brief Find a FRU record set PDR by FRU record set identifier
  *
@@ -267,26 +266,24 @@ int pldm_pdr_add_fru_record_set_check(pldm_pdr* repo, uint16_t terminus_handle,
  *
  *  @return An opaque pointer to the PDR record on success, or NULL on failure
  */
-const pldm_pdr_record* pldm_pdr_fru_record_set_find_by_rsi(
-    const pldm_pdr* repo, uint16_t fru_rsi, uint16_t* terminus_handle,
-    uint16_t* entity_type, uint16_t* entity_instance_num,
-    uint16_t* container_id);
+const pldm_pdr_record *pldm_pdr_fru_record_set_find_by_rsi(
+	const pldm_pdr *repo, uint16_t fru_rsi, uint16_t *terminus_handle,
+	uint16_t *entity_type, uint16_t *entity_instance_num,
+	uint16_t *container_id);
 
 /* =========================== */
 /* Entity Association PDR APIs */
 /* =========================== */
 
-typedef struct pldm_entity
-{
-    uint16_t entity_type;
-    uint16_t entity_instance_num;
-    uint16_t entity_container_id;
+typedef struct pldm_entity {
+	uint16_t entity_type;
+	uint16_t entity_instance_num;
+	uint16_t entity_container_id;
 } __attribute__((packed)) pldm_entity;
 
-enum entity_association_containment_type
-{
-    PLDM_ENTITY_ASSOCIAION_PHYSICAL = 0x0,
-    PLDM_ENTITY_ASSOCIAION_LOGICAL = 0x1,
+enum entity_association_containment_type {
+	PLDM_ENTITY_ASSOCIAION_PHYSICAL = 0x0,
+	PLDM_ENTITY_ASSOCIAION_LOGICAL = 0x1,
 };
 
 /** @struct pldm_entity_association_tree
@@ -304,7 +301,7 @@ typedef struct pldm_entity_node pldm_entity_node;
  *  @return opaque pointer that acts as a handle to the tree; NULL if no
  *  tree could be created
  */
-pldm_entity_association_tree* pldm_entity_association_tree_init(void);
+pldm_entity_association_tree *pldm_entity_association_tree_init(void);
 
 /** @brief Add a local entity into the entity association tree
  *
@@ -321,10 +318,10 @@ pldm_entity_association_tree* pldm_entity_association_tree_init(void);
  *
  *  @return pldm_entity_node* - opaque pointer to added entity
  */
-pldm_entity_node* pldm_entity_association_tree_add(
-    pldm_entity_association_tree* tree, pldm_entity* entity,
-    uint16_t entity_instance_number, pldm_entity_node* parent,
-    uint8_t association_type);
+pldm_entity_node *pldm_entity_association_tree_add(
+	pldm_entity_association_tree *tree, pldm_entity *entity,
+	uint16_t entity_instance_number, pldm_entity_node *parent,
+	uint8_t association_type);
 
 /** @brief Add an entity into the entity association tree based on remote field
  *  set or unset.
@@ -349,11 +346,11 @@ pldm_entity_node* pldm_entity_association_tree_add(
  *
  *  @return pldm_entity_node* - opaque pointer to added entity
  */
-pldm_entity_node* pldm_entity_association_tree_add_entity(
-    pldm_entity_association_tree* tree, pldm_entity* entity,
-    uint16_t entity_instance_number, pldm_entity_node* parent,
-    uint8_t association_type, bool is_remote, bool is_update_container_id,
-    uint16_t container_id);
+pldm_entity_node *pldm_entity_association_tree_add_entity(
+	pldm_entity_association_tree *tree, pldm_entity *entity,
+	uint16_t entity_instance_number, pldm_entity_node *parent,
+	uint8_t association_type, bool is_remote, bool is_update_container_id,
+	uint16_t container_id);
 
 /** @brief Visit and note each entity in the entity association tree
  *
@@ -368,8 +365,8 @@ pldm_entity_node* pldm_entity_association_tree_add_entity(
  *                         the caller
  *  @param[out] size - number of pldm_entity's
  */
-void pldm_entity_association_tree_visit(pldm_entity_association_tree* tree,
-                                        pldm_entity** entities, size_t* size);
+void pldm_entity_association_tree_visit(pldm_entity_association_tree *tree,
+					pldm_entity **entities, size_t *size);
 
 /** @brief Extract pldm entity by the pldm_entity_node
  *
@@ -379,7 +376,7 @@ void pldm_entity_association_tree_visit(pldm_entity_association_tree* tree,
  *
  *  @return pldm_entity - pldm entity
  */
-pldm_entity pldm_entity_extract(pldm_entity_node* node);
+pldm_entity pldm_entity_extract(pldm_entity_node *node);
 
 /** @brief Extract remote container id from the pldm_entity_node
  *
@@ -390,13 +387,13 @@ pldm_entity pldm_entity_extract(pldm_entity_node* node);
  *  @return The remote container id
  */
 uint16_t
-    pldm_entity_node_get_remote_container_id(const pldm_entity_node* entity);
+pldm_entity_node_get_remote_container_id(const pldm_entity_node *entity);
 
 /** @brief Destroy entity association tree
  *
  *  @param[in] tree - opaque pointer acting as a handle to the tree
  */
-void pldm_entity_association_tree_destroy(pldm_entity_association_tree* tree);
+void pldm_entity_association_tree_destroy(pldm_entity_association_tree *tree);
 
 /** @brief Check if input entity node is a parent
  *
@@ -406,7 +403,7 @@ void pldm_entity_association_tree_destroy(pldm_entity_association_tree* tree);
  *
  *  @return bool true if node is a parent, false otherwise
  */
-bool pldm_entity_is_node_parent(pldm_entity_node* node);
+bool pldm_entity_is_node_parent(pldm_entity_node *node);
 
 /** @brief Get parent of entity
  *
@@ -416,7 +413,7 @@ bool pldm_entity_is_node_parent(pldm_entity_node* node);
  *
  *  @return pldm_entity - pldm entity
  */
-pldm_entity pldm_entity_get_parent(pldm_entity_node* node);
+pldm_entity pldm_entity_get_parent(pldm_entity_node *node);
 
 /** @brief Check the current pldm entity is exist parent
  *
@@ -426,7 +423,7 @@ pldm_entity pldm_entity_get_parent(pldm_entity_node* node);
  *
  *  @return bool true if exist parent, false otherwise
  */
-bool pldm_entity_is_exist_parent(pldm_entity_node* node);
+bool pldm_entity_is_exist_parent(pldm_entity_node *node);
 
 /** @brief Convert entity association tree to PDR
  *
@@ -437,9 +434,9 @@ bool pldm_entity_is_exist_parent(pldm_entity_node* node);
  *  @param[in] is_remote - if true, then the PDR is not from this terminus
  *  @param[in] terminus_handle - terminus handle of the terminus
  */
-void pldm_entity_association_pdr_add(pldm_entity_association_tree* tree,
-                                     pldm_pdr* repo, bool is_remote,
-                                     uint16_t terminus_handle);
+void pldm_entity_association_pdr_add(pldm_entity_association_tree *tree,
+				     pldm_pdr *repo, bool is_remote,
+				     uint16_t terminus_handle);
 
 /** @brief Convert entity association tree to PDR, or return an error
  *
@@ -457,9 +454,9 @@ void pldm_entity_association_pdr_add(pldm_entity_association_tree* tree,
  * internal memory allocation fails, or -EOVERFLOW if a record handle could not
  * be allocated
  */
-int pldm_entity_association_pdr_add_check(pldm_entity_association_tree* tree,
-                                          pldm_pdr* repo, bool is_remote,
-                                          uint16_t terminus_handle);
+int pldm_entity_association_pdr_add_check(pldm_entity_association_tree *tree,
+					  pldm_pdr *repo, bool is_remote,
+					  uint16_t terminus_handle);
 
 /** @brief Add a contained entity as a remote PDR to an existing entity
  * association PDR.
@@ -478,7 +475,7 @@ int pldm_entity_association_pdr_add_check(pldm_entity_association_tree* tree,
  * be allocated
  */
 int pldm_entity_association_pdr_add_contained_entity_to_remote_pdr(
-    pldm_pdr* repo, pldm_entity* entity, uint32_t pdr_record_handle);
+	pldm_pdr *repo, pldm_entity *entity, uint32_t pdr_record_handle);
 
 /** @brief Creates a new entity association PDR with contained entity & its
  * parent.
@@ -495,11 +492,11 @@ int pldm_entity_association_pdr_add_contained_entity_to_remote_pdr(
  * internal memory allocation fails, or -EOVERFLOW if a record handle could not
  * be allocated
  */
-int pldm_entity_association_pdr_create_new(pldm_pdr* repo,
-                                           uint32_t pdr_record_handle,
-                                           pldm_entity* parent,
-                                           pldm_entity* entity,
-                                           uint32_t* entity_record_handle);
+int pldm_entity_association_pdr_create_new(pldm_pdr *repo,
+					   uint32_t pdr_record_handle,
+					   pldm_entity *parent,
+					   pldm_entity *entity,
+					   uint32_t *entity_record_handle);
 
 /** @brief Add entity association pdr from node, or return an error
  *
@@ -511,8 +508,8 @@ int pldm_entity_association_pdr_create_new(pldm_pdr* repo,
  *  @return 0 on success, -EINVAL if the provided arguments are invalid.
  */
 int pldm_entity_association_pdr_add_from_node_check(
-    pldm_entity_node* node, pldm_pdr* repo, pldm_entity** entities,
-    size_t num_entities, bool is_remote, uint16_t terminus_handle);
+	pldm_entity_node *node, pldm_pdr *repo, pldm_entity **entities,
+	size_t num_entities, bool is_remote, uint16_t terminus_handle);
 
 /** @brief Add entity association pdr record based on record handle
  *  earlier the records where added in a sequential way alone, with
@@ -528,9 +525,9 @@ int pldm_entity_association_pdr_add_from_node_check(
  *  @return 0 on success, -EINVAL if the provided arguments are invalid.
  */
 int pldm_entity_association_pdr_add_from_node_with_record_handle(
-    pldm_entity_node* node, pldm_pdr* repo, pldm_entity** entities,
-    size_t num_entities, bool is_remote, uint16_t terminus_handle,
-    uint32_t record_handle);
+	pldm_entity_node *node, pldm_pdr *repo, pldm_entity **entities,
+	size_t num_entities, bool is_remote, uint16_t terminus_handle,
+	uint32_t record_handle);
 
 /** @brief Find entity reference in tree
  *
@@ -538,8 +535,8 @@ int pldm_entity_association_pdr_add_from_node_with_record_handle(
  *  @param[in] entity - PLDM entity
  *  @param[in] node - node to the entity
  */
-void pldm_find_entity_ref_in_tree(pldm_entity_association_tree* tree,
-                                  pldm_entity entity, pldm_entity_node** node);
+void pldm_find_entity_ref_in_tree(pldm_entity_association_tree *tree,
+				  pldm_entity entity, pldm_entity_node **node);
 
 /** @brief Get number of children of entity
  *
@@ -550,8 +547,8 @@ void pldm_find_entity_ref_in_tree(pldm_entity_association_tree* tree,
  * NULL or association_type is not one of PLDM_ENTITY_ASSOCIAION_PHYSICAL or
  *  	    PLDM_ENTITY_ASSOCIAION_LOGICAL.
  */
-uint8_t pldm_entity_get_num_children(pldm_entity_node* node,
-                                     uint8_t association_type);
+uint8_t pldm_entity_get_num_children(pldm_entity_node *node,
+				     uint8_t association_type);
 
 /** @brief Verify that the current node is a child of the current parent
  *
@@ -564,7 +561,7 @@ uint8_t pldm_entity_get_num_children(pldm_entity_node* node,
  *  @return True if the node is a child of parent, false otherwise, including if
  * one or both of parent or node are NULL.
  */
-bool pldm_is_current_parent_child(pldm_entity_node* parent, pldm_entity* node);
+bool pldm_is_current_parent_child(pldm_entity_node *parent, pldm_entity *node);
 
 /** @brief Find an entity in the entity association tree
  *
@@ -576,9 +573,9 @@ bool pldm_is_current_parent_child(pldm_entity_node* parent, pldm_entity* node);
  *  There are no entity nodes to search if tree is NULL, nor are there entity
  * nodes to find if the search criteria are unspecified when entity is NULL.
  */
-pldm_entity_node*
-    pldm_entity_association_tree_find(pldm_entity_association_tree* tree,
-                                      pldm_entity* entity);
+pldm_entity_node *
+pldm_entity_association_tree_find(pldm_entity_association_tree *tree,
+				  pldm_entity *entity);
 
 /** @brief Find an entity in the entity association tree with locality
  * specified, ie - remote entity or local entity
@@ -591,8 +588,9 @@ pldm_entity_node*
  *
  *  @return pldm_entity_node* pointer to entity if found, NULL otherwise
  */
-pldm_entity_node* pldm_entity_association_tree_find_with_locality(
-    pldm_entity_association_tree* tree, pldm_entity* entity, bool is_remote);
+pldm_entity_node *pldm_entity_association_tree_find_with_locality(
+	pldm_entity_association_tree *tree, pldm_entity *entity,
+	bool is_remote);
 
 /** @brief Create a copy of an existing entity association tree
  *
@@ -603,8 +601,8 @@ pldm_entity_node* pldm_entity_association_tree_find_with_locality(
  *  @param[in/out] new_tree - pointer to destination tree
  */
 void pldm_entity_association_tree_copy_root(
-    pldm_entity_association_tree* org_tree,
-    pldm_entity_association_tree* new_tree);
+	pldm_entity_association_tree *org_tree,
+	pldm_entity_association_tree *new_tree);
 
 /** @brief Destroy all the nodes of the entity association tree
  *
@@ -613,7 +611,7 @@ void pldm_entity_association_tree_copy_root(
  *  There is no tree to destroy if tree is NULL.
  */
 void pldm_entity_association_tree_destroy_root(
-    pldm_entity_association_tree* tree);
+	pldm_entity_association_tree *tree);
 
 /** @brief Check whether the entity association tree is empty
  *
@@ -622,7 +620,7 @@ void pldm_entity_association_tree_destroy_root(
  *  @param[in] tree - pointer to entity association tree
  *  @return bool, true if tree is empty
  */
-bool pldm_is_empty_entity_assoc_tree(pldm_entity_association_tree* tree);
+bool pldm_is_empty_entity_assoc_tree(pldm_entity_association_tree *tree);
 
 /** @brief Extract entities from entity association PDR
  *
@@ -635,9 +633,9 @@ bool pldm_is_empty_entity_assoc_tree(pldm_entity_association_tree* tree);
  *  @param[out] entities - extracted entities, container is *entities[0]. Caller
  *              must free *entities
  */
-void pldm_entity_association_pdr_extract(const uint8_t* pdr, uint16_t pdr_len,
-                                         size_t* num_entities,
-                                         pldm_entity** entities);
+void pldm_entity_association_pdr_extract(const uint8_t *pdr, uint16_t pdr_len,
+					 size_t *num_entities,
+					 pldm_entity **entities);
 
 #ifdef __cplusplus
 }
