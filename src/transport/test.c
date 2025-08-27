@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
 /* NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp) */
-#define _GNU_SOURCE
-#include "test.h"
-
 #include "array.h"
 #include "container-of.h"
 #include "transport.h"
+#include "test.h"
 
 #include <errno.h>
 #include <poll.h>
@@ -61,8 +59,7 @@ int pldm_transport_test_init_pollfd(struct pldm_transport *ctx,
 			return PLDM_REQUESTER_POLL_FAIL;
 		}
 
-		/* This was an explicit latency element, so now move beyond it for recv
-         */
+		/* This was an explicit latency element, so now move beyond it for recv */
 		test->cursor++;
 	} else if (desc->type == PLDM_TRANSPORT_TEST_ELEMENT_MSG_RECV) {
 		/* Expire the timer immediately so it appears ready */
@@ -88,8 +85,7 @@ int pldm_transport_test_init_pollfd(struct pldm_transport *ctx,
 			return PLDM_REQUESTER_POLL_FAIL;
 		}
 
-		/* Don't increment test->cursor as recv needs to consume the current
-         * test element */
+		/* Don't increment test->cursor as recv needs to consume the current test element */
 	} else {
 		return PLDM_REQUESTER_POLL_FAIL;
 	}

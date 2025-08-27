@@ -4,10 +4,29 @@ set -eu
 BUILD="$(mktemp --directory --tmpdir=.)"
 trap 'rm -rf "$BUILD"' EXIT
 
+meson format --recursive --inplace || true
+if ! git diff --exit-code
+then
+  echo Your changes must meet the upstream meson style guide
+  echo
+  echo https://mesonbuild.com/Style-guide.html
+  echo https://mesonbuild.com/Commands.html#format
+  exit 1
+fi
+
+# Make sure if the change touches the public headers, it also updates the
+# changelog.
+if ! git show --format="" --name-only HEAD -- CHANGELOG.md include/libpldm |
+  awk -f scripts/changelog.awk
+then
+  echo You must document your changes under include/libpldm in CHANGELOG.md
+  exit 1
+fi
+
 # Ensure the test suite passes in the default configuration. Note
 # that we don't specify -Dabi=... - the default is equivalent to
 # -Dabi=deprecated,stable,testing.
-meson setup -Dabi-compliance-check=disabled "$BUILD"
+CC=gcc CXX=g++ CFLAGS=-fanalyzer meson setup -Dabi-compliance-check=false "$BUILD"
 meson compile -C "$BUILD"
 meson test -C "$BUILD"
 
@@ -18,10 +37,15 @@ meson test -C "$BUILD"
 # and incorrect test case implementations.
 meson configure --buildtype=release "$BUILD"
 meson compile -C "$BUILD"
-meson test -C "$BUILD"
+meson test -C "$BUILD" --timeout-multiplier 10 --wrapper 'valgrind --error-exitcode=1'
 
 # Ensure the test suite links when testing symbols are removed from the ABI
 meson configure --buildtype=debug "$BUILD"
 meson configure -Dabi=deprecated,stable "$BUILD"
 meson compile -C "$BUILD"
 meson test -C "$BUILD"
+
+# Ensure the build completes for maintenance purposes. Note that tests are
+# disabled as we don't yet guard them appropriately.
+meson configure -Dabi=stable,testing -Dtests=false "$BUILD"
+meson compile -C "$BUILD"

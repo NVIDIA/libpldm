@@ -6,6 +6,8 @@
 #include <cstring>
 #include <vector>
 
+#include "msgbuf.h"
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -200,6 +202,7 @@ TEST(GetPLDMCommands, testEncodeRequest)
     ver32_t version{0xff, 0xff, 0xff, 0xff};
     std::array<uint8_t, sizeof(pldm_msg_hdr) + PLDM_GET_COMMANDS_REQ_BYTES>
         requestMsg{};
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto request = reinterpret_cast<pldm_msg*>(requestMsg.data());
 
     auto rc = encode_get_commands_req(0, pldmType, version, request);
@@ -221,6 +224,7 @@ TEST(GetPLDMCommands, testDecodeRequest)
     memcpy(requestMsg.data() + sizeof(pldmType) + hdrSize, &version,
            sizeof(version));
 
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto request = reinterpret_cast<pldm_msg*>(requestMsg.data());
     auto rc = decode_get_commands_req(request, requestMsg.size() - hdrSize,
                                       &pldmTypeOut, &versionOut);
@@ -235,6 +239,7 @@ TEST(GetPLDMCommands, testEncodeResponse)
     uint8_t completionCode = 0;
     std::array<uint8_t, sizeof(pldm_msg_hdr) + PLDM_GET_COMMANDS_RESP_BYTES>
         responseMsg{};
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
     std::array<bitfield8_t, PLDM_MAX_CMDS_PER_TYPE / 8> commands{};
     commands[0].byte = 1;
@@ -258,6 +263,7 @@ TEST(GetPLDMTypes, testEncodeResponse)
     uint8_t completionCode = 0;
     std::array<uint8_t, sizeof(pldm_msg_hdr) + PLDM_GET_TYPES_RESP_BYTES>
         responseMsg{};
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
     std::array<bitfield8_t, PLDM_MAX_TYPES / 8> types{};
     types[0].byte = 1;
@@ -285,6 +291,7 @@ TEST(GetPLDMTypes, testGoodDecodeResponse)
     uint8_t completion_code;
     responseMsg[hdrSize] = PLDM_SUCCESS;
 
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
 
     auto rc = decode_get_types_resp(response, responseMsg.size() - hdrSize,
@@ -308,6 +315,7 @@ TEST(GetPLDMTypes, testBadDecodeResponse)
     uint8_t retcompletion_code = 0;
     responseMsg[hdrSize] = PLDM_SUCCESS;
 
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
 
     auto rc = decode_get_types_resp(response, responseMsg.size() - hdrSize - 1,
@@ -327,6 +335,7 @@ TEST(GetPLDMCommands, testGoodDecodeResponse)
     uint8_t completion_code;
     responseMsg[hdrSize] = PLDM_SUCCESS;
 
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
 
     auto rc = decode_get_commands_resp(response, responseMsg.size() - hdrSize,
@@ -350,6 +359,7 @@ TEST(GetPLDMCommands, testBadDecodeResponse)
     uint8_t retcompletion_code = 0;
     responseMsg[hdrSize] = PLDM_SUCCESS;
 
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
 
     auto rc =
@@ -363,6 +373,7 @@ TEST(GetPLDMVersion, testGoodEncodeRequest)
 {
     std::array<uint8_t, sizeof(pldm_msg_hdr) + PLDM_GET_VERSION_REQ_BYTES>
         requestMsg{};
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto request = reinterpret_cast<pldm_msg*>(requestMsg.data());
     uint8_t pldmType = 0x03;
     uint32_t transferHandle = 0x0;
@@ -399,6 +410,7 @@ TEST(GetPLDMVersion, testEncodeResponse)
     uint8_t flag = PLDM_START_AND_END;
     std::array<uint8_t, sizeof(pldm_msg_hdr) + PLDM_GET_VERSION_RESP_BYTES>
         responseMsg{};
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
     ver32_t version = {0xff, 0xff, 0xff, 0xff};
 
@@ -434,6 +446,7 @@ TEST(GetPLDMVersion, testDecodeRequest)
     memcpy(requestMsg.data() + sizeof(transferHandle) + sizeof(flag) + hdrSize,
            &pldmType, sizeof(pldmType));
 
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto request = reinterpret_cast<pldm_msg*>(requestMsg.data());
 
     auto rc = decode_get_version_req(request, requestMsg.size() - hdrSize,
@@ -467,6 +480,7 @@ TEST(GetPLDMVersion, testDecodeResponse)
                sizeof(transferHandle) + sizeof(flag) + hdrSize,
            &version, sizeof(version));
 
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
 
     auto rc = decode_get_version_resp(response, responseMsg.size() - hdrSize,
@@ -495,6 +509,7 @@ TEST(GetTID, testEncodeResponse)
     uint8_t completionCode = 0;
     std::array<uint8_t, sizeof(pldm_msg_hdr) + PLDM_GET_TID_RESP_BYTES>
         responseMsg{};
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
     uint8_t tid = 1;
 
@@ -514,6 +529,7 @@ TEST(GetTID, testDecodeResponse)
     uint8_t completion_code;
     responseMsg[hdrSize] = PLDM_SUCCESS;
 
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
 
     auto rc = decode_get_tid_resp(response, responseMsg.size() - hdrSize,
@@ -524,7 +540,7 @@ TEST(GetTID, testDecodeResponse)
     EXPECT_EQ(tid, 1);
 }
 
-TEST(MultipartReceive, testDecodeRequestPass)
+TEST(DecodeMultipartReceiveResponse, testDecodeRequestPass)
 {
     constexpr uint8_t kPldmType = PLDM_BASE;
     constexpr uint8_t kFlag = PLDM_XFER_FIRST_PART;
@@ -532,35 +548,35 @@ TEST(MultipartReceive, testDecodeRequestPass)
     constexpr uint32_t kTransferHandle = 0x10;
     constexpr uint32_t kSectionOffset = 0x0;
     constexpr uint32_t kSectionLength = 0x10;
-    uint8_t pldm_type = 0x0;
-    uint8_t flag = PLDM_GET_FIRSTPART;
+
+    PLDM_MSG_DEFINE_P(msg, PLDM_MULTIPART_RECEIVE_REQ_BYTES);
+    PLDM_MSGBUF_DEFINE_P(buf);
+    int rc;
+
+    // Header values don't matter for this test.
+    rc = pldm_msgbuf_init_errno(buf, PLDM_MULTIPART_RECEIVE_REQ_BYTES,
+                                msg->payload, PLDM_MULTIPART_RECEIVE_REQ_BYTES);
+    ASSERT_EQ(rc, 0);
+    pldm_msgbuf_insert_uint8(buf, kPldmType);
+    pldm_msgbuf_insert_uint8(buf, kFlag);
+    pldm_msgbuf_insert_uint32(buf, kTransferCtx);
+    pldm_msgbuf_insert_uint32(buf, kTransferHandle);
+    pldm_msgbuf_insert_uint32(buf, kSectionOffset);
+    pldm_msgbuf_insert_uint32(buf, kSectionLength);
+    rc = pldm_msgbuf_complete(buf);
+    ASSERT_EQ(rc, 0);
+
+    uint8_t pldm_type;
+    uint8_t flag;
     uint32_t transfer_ctx;
     uint32_t transfer_handle;
     uint32_t section_offset;
     uint32_t section_length;
-
-    // Header values don't matter for this test.
-    pldm_msg_hdr hdr{};
-    // Assign values to the packet struct and memcpy to ensure correct byte
-    // ordering.
-    pldm_multipart_receive_req req_pkt = {
-        .pldm_type = kPldmType,
-        .transfer_opflag = kFlag,
-        .transfer_ctx = kTransferCtx,
-        .transfer_handle = kTransferHandle,
-        .section_offset = kSectionOffset,
-        .section_length = kSectionLength,
-    };
-    std::vector<uint8_t> req(sizeof(hdr) + PLDM_MULTIPART_RECEIVE_REQ_BYTES);
-    std::memcpy(req.data(), &hdr, sizeof(hdr));
-    std::memcpy(req.data() + sizeof(hdr), &req_pkt, sizeof(req_pkt));
-
-    pldm_msg* pldm_request = reinterpret_cast<pldm_msg*>(req.data());
-    int rc = decode_multipart_receive_req(
-        pldm_request, req.size() - hdrSize, &pldm_type, &flag, &transfer_ctx,
+    rc = decode_multipart_receive_req(
+        msg, PLDM_MULTIPART_RECEIVE_REQ_BYTES, &pldm_type, &flag, &transfer_ctx,
         &transfer_handle, &section_offset, &section_length);
 
-    EXPECT_EQ(rc, PLDM_SUCCESS);
+    ASSERT_EQ(rc, PLDM_SUCCESS);
     EXPECT_EQ(pldm_type, kPldmType);
     EXPECT_EQ(flag, kFlag);
     EXPECT_EQ(transfer_ctx, kTransferCtx);
@@ -569,17 +585,16 @@ TEST(MultipartReceive, testDecodeRequestPass)
     EXPECT_EQ(section_length, kSectionLength);
 }
 
-TEST(MultipartReceive, testDecodeRequestFailNullData)
+TEST(DecodeMultipartReceiveResponse, testDecodeRequestFailNullData)
 {
     EXPECT_EQ(decode_multipart_receive_req(NULL, 0, NULL, NULL, NULL, NULL,
                                            NULL, NULL),
               PLDM_ERROR_INVALID_DATA);
 }
 
-TEST(MultipartReceive, testDecodeRequestFailBadLength)
+TEST(DecodeMultipartReceiveResponse, testDecodeRequestFailBadLength)
 {
-    constexpr uint8_t kPldmType = PLDM_BASE;
-    constexpr uint8_t kFlag = PLDM_XFER_FIRST_PART;
+    PLDM_MSG_DEFINE_P(msg, PLDM_MULTIPART_RECEIVE_REQ_BYTES + 1);
     uint8_t pldm_type;
     uint8_t flag;
     uint32_t transfer_ctx;
@@ -587,30 +602,32 @@ TEST(MultipartReceive, testDecodeRequestFailBadLength)
     uint32_t section_offset;
     uint32_t section_length;
 
-    // Header values don't matter for this test.
-    pldm_msg_hdr hdr{};
-    // Assign values to the packet struct and memcpy to ensure correct byte
-    // ordering.
-    pldm_multipart_receive_req req_pkt{};
-    req_pkt.pldm_type = kPldmType;
-    req_pkt.transfer_opflag = kFlag;
-
-    std::vector<uint8_t> req(sizeof(hdr) + PLDM_MULTIPART_RECEIVE_REQ_BYTES);
-    std::memcpy(req.data(), &hdr, sizeof(hdr));
-    std::memcpy(req.data() + sizeof(hdr), &req_pkt, sizeof(req_pkt));
-
-    pldm_msg* pldm_request = reinterpret_cast<pldm_msg*>(req.data());
+    memset(msg, 0, PLDM_MSG_SIZE(PLDM_MULTIPART_RECEIVE_REQ_BYTES + 1));
     EXPECT_EQ(decode_multipart_receive_req(
-                  pldm_request, (req.size() - hdrSize) + 1, &pldm_type, &flag,
+                  msg, PLDM_MULTIPART_RECEIVE_REQ_BYTES + 1, &pldm_type, &flag,
                   &transfer_ctx, &transfer_handle, &section_offset,
                   &section_length),
-              PLDM_ERROR_INVALID_LENGTH);
+              PLDM_ERROR_INVALID_DATA);
 }
 
-TEST(MultipartReceive, testDecodeRequestFailBadPldmType)
+TEST(DecodeMultipartReceiveResponse, testDecodeRequestFailBadPldmType)
 {
     constexpr uint8_t kPldmType = 0xff;
     constexpr uint8_t kFlag = PLDM_XFER_FIRST_PART;
+
+    PLDM_MSG_DEFINE_P(msg, PLDM_MULTIPART_RECEIVE_REQ_BYTES);
+    PLDM_MSGBUF_DEFINE_P(buf);
+    int rc;
+
+    // Header values don't matter for this test.
+    rc = pldm_msgbuf_init_errno(buf, PLDM_MULTIPART_RECEIVE_REQ_BYTES,
+                                msg->payload, PLDM_MULTIPART_RECEIVE_REQ_BYTES);
+    ASSERT_EQ(rc, 0);
+    pldm_msgbuf_insert_uint8(buf, kPldmType);
+    pldm_msgbuf_insert_uint8(buf, kFlag);
+    rc = pldm_msgbuf_complete(buf);
+    ASSERT_EQ(rc, 0);
+
     uint8_t pldm_type;
     uint8_t flag;
     uint32_t transfer_ctx;
@@ -618,30 +635,31 @@ TEST(MultipartReceive, testDecodeRequestFailBadPldmType)
     uint32_t section_offset;
     uint32_t section_length;
 
-    // Header values don't matter for this test.
-    pldm_msg_hdr hdr{};
-    // Assign values to the packet struct and memcpy to ensure correct byte
-    // ordering.
-    pldm_multipart_receive_req req_pkt{};
-    req_pkt.pldm_type = kPldmType;
-    req_pkt.transfer_opflag = kFlag;
-
-    std::vector<uint8_t> req(sizeof(hdr) + PLDM_MULTIPART_RECEIVE_REQ_BYTES);
-    std::memcpy(req.data(), &hdr, sizeof(hdr));
-    std::memcpy(req.data() + sizeof(hdr), &req_pkt, sizeof(req_pkt));
-
-    pldm_msg* pldm_request = reinterpret_cast<pldm_msg*>(req.data());
-    EXPECT_EQ(decode_multipart_receive_req(pldm_request, req.size() - hdrSize,
-                                           &pldm_type, &flag, &transfer_ctx,
-                                           &transfer_handle, &section_offset,
-                                           &section_length),
+    EXPECT_EQ(decode_multipart_receive_req(
+                  msg, PLDM_MULTIPART_RECEIVE_REQ_BYTES, &pldm_type, &flag,
+                  &transfer_ctx, &transfer_handle, &section_offset,
+                  &section_length),
               PLDM_ERROR_INVALID_PLDM_TYPE);
 }
 
-TEST(MultipartReceive, testDecodeRequestFailBadTransferFlag)
+TEST(DecodeMultipartReceiveResponse, testDecodeRequestFailBadTransferFlag)
 {
     constexpr uint8_t kPldmType = PLDM_BASE;
     constexpr uint8_t kFlag = PLDM_XFER_CURRENT_PART + 0x10;
+
+    PLDM_MSG_DEFINE_P(msg, PLDM_MULTIPART_RECEIVE_REQ_BYTES);
+    PLDM_MSGBUF_DEFINE_P(buf);
+    int rc;
+
+    // Header values don't matter for this test.
+    rc = pldm_msgbuf_init_errno(buf, PLDM_MULTIPART_RECEIVE_REQ_BYTES,
+                                msg->payload, PLDM_MULTIPART_RECEIVE_REQ_BYTES);
+    ASSERT_EQ(rc, 0);
+    pldm_msgbuf_insert_uint8(buf, kPldmType);
+    pldm_msgbuf_insert_uint8(buf, kFlag);
+    rc = pldm_msgbuf_complete(buf);
+    ASSERT_EQ(rc, 0);
+
     uint8_t pldm_type;
     uint8_t flag;
     uint32_t transfer_ctx;
@@ -649,95 +667,515 @@ TEST(MultipartReceive, testDecodeRequestFailBadTransferFlag)
     uint32_t section_offset;
     uint32_t section_length;
 
-    // Header values don't matter for this test.
-    pldm_msg_hdr hdr{};
-    // Assign values to the packet struct and memcpy to ensure correct byte
-    // ordering.
-    pldm_multipart_receive_req req_pkt{};
-    req_pkt.pldm_type = kPldmType;
-    req_pkt.transfer_opflag = kFlag;
-
-    std::vector<uint8_t> req(sizeof(hdr) + PLDM_MULTIPART_RECEIVE_REQ_BYTES);
-    std::memcpy(req.data(), &hdr, sizeof(hdr));
-    std::memcpy(req.data() + sizeof(hdr), &req_pkt, sizeof(req_pkt));
-
-    pldm_msg* pldm_request = reinterpret_cast<pldm_msg*>(req.data());
-    EXPECT_EQ(decode_multipart_receive_req(pldm_request, req.size() - hdrSize,
-                                           &pldm_type, &flag, &transfer_ctx,
-                                           &transfer_handle, &section_offset,
-                                           &section_length),
-              PLDM_INVALID_TRANSFER_OPERATION_FLAG);
+    EXPECT_EQ(decode_multipart_receive_req(
+                  msg, PLDM_MULTIPART_RECEIVE_REQ_BYTES, &pldm_type, &flag,
+                  &transfer_ctx, &transfer_handle, &section_offset,
+                  &section_length),
+              PLDM_ERROR_UNEXPECTED_TRANSFER_FLAG_OPERATION);
 }
 
-TEST(MultipartReceive, testDecodeRequestFailBadOffset)
+TEST(DecodeMultipartReceiveResponse, testDecodeRequestFailBadOffset)
 {
     constexpr uint8_t kPldmType = PLDM_BASE;
     constexpr uint8_t kFlag = PLDM_XFER_NEXT_PART;
+    constexpr uint32_t kTransferCtx = 0x01;
     constexpr uint32_t kTransferHandle = 0x01;
     constexpr uint32_t kSectionOffset = 0x0;
+
+    PLDM_MSG_DEFINE_P(msg, PLDM_MULTIPART_RECEIVE_REQ_BYTES);
+    PLDM_MSGBUF_DEFINE_P(buf);
+    int rc;
+
+    // Header values don't matter for this test.
+    rc = pldm_msgbuf_init_errno(buf, PLDM_MULTIPART_RECEIVE_REQ_BYTES,
+                                msg->payload, PLDM_MULTIPART_RECEIVE_REQ_BYTES);
+    ASSERT_EQ(rc, 0);
+    pldm_msgbuf_insert_uint8(buf, kPldmType);
+    pldm_msgbuf_insert_uint8(buf, kFlag);
+    pldm_msgbuf_insert_uint32(buf, kTransferCtx);
+    pldm_msgbuf_insert_uint32(buf, kTransferHandle);
+    pldm_msgbuf_insert_uint32(buf, kSectionOffset);
+    rc = pldm_msgbuf_complete(buf);
+    ASSERT_EQ(rc, 0);
+
     uint8_t pldm_type;
     uint8_t flag;
     uint32_t transfer_ctx;
     uint32_t transfer_handle;
     uint32_t section_offset;
     uint32_t section_length;
-
-    // Header values don't matter for this test.
-    pldm_msg_hdr hdr{};
-    // Assign values to the packet struct and memcpy to ensure correct byte
-    // ordering.
-    pldm_multipart_receive_req req_pkt{};
-    req_pkt.pldm_type = kPldmType;
-    req_pkt.transfer_opflag = kFlag;
-    req_pkt.transfer_handle = kTransferHandle;
-    req_pkt.section_offset = kSectionOffset;
-
-    std::vector<uint8_t> req(sizeof(hdr) + PLDM_MULTIPART_RECEIVE_REQ_BYTES);
-    std::memcpy(req.data(), &hdr, sizeof(hdr));
-    std::memcpy(req.data() + sizeof(hdr), &req_pkt, sizeof(req_pkt));
-
-    pldm_msg* pldm_request = reinterpret_cast<pldm_msg*>(req.data());
-    EXPECT_EQ(decode_multipart_receive_req(pldm_request, req.size() - hdrSize,
-                                           &pldm_type, &flag, &transfer_ctx,
-                                           &transfer_handle, &section_offset,
-                                           &section_length),
+    EXPECT_EQ(decode_multipart_receive_req(
+                  msg, PLDM_MULTIPART_RECEIVE_REQ_BYTES, &pldm_type, &flag,
+                  &transfer_ctx, &transfer_handle, &section_offset,
+                  &section_length),
               PLDM_ERROR_INVALID_DATA);
 }
 
-TEST(MultipartReceive, testDecodeRequestFailBadHandle)
+TEST(DecodeMultipartReceiveResponse, testDecodeRequestFailBadHandle)
 {
     constexpr uint8_t kPldmType = PLDM_BASE;
     constexpr uint8_t kFlag = PLDM_XFER_NEXT_PART;
-    constexpr uint32_t kSectionOffset = 0x100;
+    constexpr uint32_t kTransferCtx = 0x01;
     constexpr uint32_t kTransferHandle = 0x0;
+    constexpr uint32_t kSectionOffset = 0x100;
+
+    PLDM_MSG_DEFINE_P(msg, PLDM_MULTIPART_RECEIVE_REQ_BYTES);
+    PLDM_MSGBUF_DEFINE_P(buf);
+    int rc;
+
+    // Header values don't matter for this test.
+    rc = pldm_msgbuf_init_errno(buf, PLDM_MULTIPART_RECEIVE_REQ_BYTES,
+                                msg->payload, PLDM_MULTIPART_RECEIVE_REQ_BYTES);
+    ASSERT_EQ(rc, 0);
+    pldm_msgbuf_insert_uint8(buf, kPldmType);
+    pldm_msgbuf_insert_uint8(buf, kFlag);
+    pldm_msgbuf_insert_uint32(buf, kTransferCtx);
+    pldm_msgbuf_insert_uint32(buf, kTransferHandle);
+    pldm_msgbuf_insert_uint32(buf, kSectionOffset);
+    rc = pldm_msgbuf_complete(buf);
+    ASSERT_EQ(rc, 0);
+
     uint8_t pldm_type;
     uint8_t flag;
     uint32_t transfer_ctx;
     uint32_t transfer_handle;
     uint32_t section_offset;
     uint32_t section_length;
-
-    // Header values don't matter for this test.
-    pldm_msg_hdr hdr{};
-    // Assign values to the packet struct and memcpy to ensure correct byte
-    // ordering.
-    pldm_multipart_receive_req req_pkt{};
-    req_pkt.pldm_type = kPldmType;
-    req_pkt.transfer_opflag = kFlag;
-    req_pkt.transfer_handle = kTransferHandle;
-    req_pkt.section_offset = kSectionOffset;
-
-    std::vector<uint8_t> req(sizeof(hdr) + PLDM_MULTIPART_RECEIVE_REQ_BYTES);
-    std::memcpy(req.data(), &hdr, sizeof(hdr));
-    std::memcpy(req.data() + sizeof(hdr), &req_pkt, sizeof(req_pkt));
-
-    pldm_msg* pldm_request = reinterpret_cast<pldm_msg*>(req.data());
-    EXPECT_EQ(decode_multipart_receive_req(pldm_request, req.size() - hdrSize,
-                                           &pldm_type, &flag, &transfer_ctx,
-                                           &transfer_handle, &section_offset,
-                                           &section_length),
+    EXPECT_EQ(decode_multipart_receive_req(
+                  msg, PLDM_MULTIPART_RECEIVE_REQ_BYTES, &pldm_type, &flag,
+                  &transfer_ctx, &transfer_handle, &section_offset,
+                  &section_length),
               PLDM_ERROR_INVALID_DATA);
 }
+
+#ifdef LIBPLDM_API_TESTING
+TEST(EncodeMultipartReceiveRequest, GoodTest)
+{
+    uint8_t instance_id = 0;
+
+    const struct pldm_base_multipart_receive_req req_data = {
+        PLDM_BASE, PLDM_XFER_FIRST_PART, 0x01, 0x10, 0x00, 0x10};
+
+    static constexpr const size_t requestMsgLength =
+        PLDM_MULTIPART_RECEIVE_REQ_BYTES;
+
+    std::array<uint8_t, requestMsgLength> requestMsg = {
+        PLDM_BASE, PLDM_XFER_FIRST_PART,
+        0x01,      0x00,
+        0x00,      0x00,
+        0x10,      0x00,
+        0x00,      0x00,
+        0x00,      0x00,
+        0x00,      0x00,
+        0x10,      0x00,
+        0x00,      0x00};
+
+    PLDM_MSG_DEFINE_P(requestPtr, requestMsgLength);
+    size_t payload_length = requestMsgLength;
+    auto rc = encode_pldm_base_multipart_receive_req(
+        instance_id, &req_data, requestPtr, &payload_length);
+
+    ASSERT_EQ(rc, 0);
+    EXPECT_EQ(
+        0, memcmp(requestPtr->payload, requestMsg.data(), sizeof(requestMsg)));
+    EXPECT_EQ(payload_length, requestMsgLength);
+}
+#endif
+
+#ifdef LIBPLDM_API_TESTING
+TEST(EncodeMultipartReceiveRequest, BadTestUnAllocatedPtrParams)
+{
+    uint8_t instance_id = 0;
+    int rc;
+
+    const struct pldm_base_multipart_receive_req req_data = {
+        PLDM_BASE, PLDM_XFER_FIRST_PART, 0x01, 0x10, 0x00, 0x10};
+
+    static constexpr const size_t requestMsgLength =
+        PLDM_MULTIPART_RECEIVE_REQ_BYTES;
+
+    PLDM_MSG_DEFINE_P(requestPtr, requestMsgLength);
+    size_t payload_length = requestMsgLength;
+    rc = encode_pldm_base_multipart_receive_req(instance_id, nullptr,
+                                                requestPtr, &payload_length);
+    EXPECT_EQ(rc, -EINVAL);
+
+    rc = encode_pldm_base_multipart_receive_req(instance_id, &req_data, nullptr,
+                                                &payload_length);
+    EXPECT_EQ(rc, -EINVAL);
+}
+#endif
+
+#ifdef LIBPLDM_API_TESTING
+TEST(EncodeMultipartReceiveRequest, BadTestInvalidExpectedOutputMsgLength)
+{
+    uint8_t instance_id = 0;
+    int rc;
+
+    const struct pldm_base_multipart_receive_req req_data = {
+        PLDM_BASE, PLDM_XFER_FIRST_PART, 0x01, 0x10, 0x00, 0x10};
+
+    static constexpr const size_t requestMsgLength =
+        PLDM_MULTIPART_RECEIVE_REQ_BYTES;
+
+    PLDM_MSG_DEFINE_P(requestPtr, requestMsgLength);
+    size_t payload_length = 1;
+    rc = encode_pldm_base_multipart_receive_req(instance_id, &req_data,
+                                                requestPtr, &payload_length);
+    EXPECT_EQ(rc, -EOVERFLOW);
+}
+#endif
+
+#ifdef LIBPLDM_API_TESTING
+TEST(DecodeMultipartReceiveResponse, GoodTest)
+{
+    uint8_t completionCode = PLDM_SUCCESS;
+    uint8_t transferFlag = PLDM_BASE_MULTIPART_RECEIVE_TRANSFER_FLAG_END;
+    uint32_t nextDataTransferHandle = 0x15;
+    static constexpr const uint32_t dataLength = 9;
+    std::vector<uint8_t> data = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+    uint32_t dataIntegrityChecksum = 0x3C;
+
+    struct pldm_base_multipart_receive_resp resp_data = {};
+
+    PLDM_MSGBUF_DEFINE_P(buf);
+    int rc;
+
+    static constexpr const size_t payload_length =
+        PLDM_BASE_MULTIPART_RECEIVE_RESP_MIN_BYTES + dataLength +
+        sizeof(dataIntegrityChecksum);
+    PLDM_MSG_DEFINE_P(responseMsg, payload_length);
+
+    rc = pldm_msgbuf_init_errno(buf, 0, responseMsg->payload, payload_length);
+    ASSERT_EQ(rc, 0);
+
+    pldm_msgbuf_insert_uint8(buf, completionCode);
+    pldm_msgbuf_insert_uint8(buf, transferFlag);
+    pldm_msgbuf_insert_uint32(buf, nextDataTransferHandle);
+    pldm_msgbuf_insert_uint32(buf, dataLength);
+    rc = pldm_msgbuf_insert_array_uint8(buf, dataLength, data.data(),
+                                        dataLength);
+    EXPECT_EQ(rc, 0);
+    pldm_msgbuf_insert_uint32(buf, dataIntegrityChecksum);
+
+    ASSERT_EQ(pldm_msgbuf_complete_consumed(buf), 0);
+
+    uint32_t respDataIntegrityChecksum = 0;
+
+    rc = decode_pldm_base_multipart_receive_resp(
+        responseMsg, payload_length, &resp_data, &respDataIntegrityChecksum);
+
+    ASSERT_EQ(rc, 0);
+    EXPECT_EQ(resp_data.completion_code, completionCode);
+    EXPECT_EQ(resp_data.transfer_flag, transferFlag);
+    EXPECT_EQ(resp_data.next_transfer_handle, nextDataTransferHandle);
+    EXPECT_EQ(resp_data.data.length, dataLength);
+    EXPECT_EQ(0,
+              memcmp(data.data(), resp_data.data.ptr, resp_data.data.length));
+    EXPECT_EQ(respDataIntegrityChecksum, dataIntegrityChecksum);
+}
+#endif
+
+#ifdef LIBPLDM_API_TESTING
+TEST(DecodeMultipartReceiveResponse, BadTestUnAllocatedPtrParams)
+{
+    uint8_t completionCode = PLDM_SUCCESS;
+    uint8_t transferFlag = PLDM_BASE_MULTIPART_RECEIVE_TRANSFER_FLAG_END;
+    uint32_t nextDataTransferHandle = 0x15;
+    static constexpr const uint32_t dataLength = 9;
+    std::vector<uint8_t> data = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+    uint32_t dataIntegrityChecksum = 0x3C;
+
+    struct pldm_base_multipart_receive_resp resp_data = {};
+
+    PLDM_MSGBUF_DEFINE_P(buf);
+    int rc;
+
+    static constexpr const size_t payload_length =
+        PLDM_BASE_MULTIPART_RECEIVE_RESP_MIN_BYTES + dataLength +
+        sizeof(dataIntegrityChecksum);
+    PLDM_MSG_DEFINE_P(responseMsg, payload_length);
+
+    rc = pldm_msgbuf_init_errno(buf, 0, responseMsg->payload, payload_length);
+    ASSERT_EQ(rc, 0);
+
+    pldm_msgbuf_insert_uint8(buf, completionCode);
+    pldm_msgbuf_insert_uint8(buf, transferFlag);
+    pldm_msgbuf_insert_uint32(buf, nextDataTransferHandle);
+    pldm_msgbuf_insert_uint32(buf, dataLength);
+    rc = pldm_msgbuf_insert_array_uint8(buf, dataLength, data.data(),
+                                        dataLength);
+    EXPECT_EQ(rc, 0);
+    pldm_msgbuf_insert_uint32(buf, dataIntegrityChecksum);
+
+    ASSERT_EQ(pldm_msgbuf_complete_consumed(buf), 0);
+
+    uint32_t respDataIntegrityChecksum = 0;
+
+    rc = decode_pldm_base_multipart_receive_resp(
+        nullptr, payload_length, &resp_data, &respDataIntegrityChecksum);
+
+    EXPECT_EQ(rc, -EINVAL);
+
+    rc = decode_pldm_base_multipart_receive_resp(
+        responseMsg, payload_length, nullptr, &respDataIntegrityChecksum);
+
+    EXPECT_EQ(rc, -EINVAL);
+}
+#endif
+
+#ifdef LIBPLDM_API_TESTING
+TEST(DecodeMultipartReceiveResponse, BadTestInvalidExpectedInputMsgLength)
+{
+    uint8_t completionCode = PLDM_SUCCESS;
+    uint8_t transferFlag = PLDM_BASE_MULTIPART_RECEIVE_TRANSFER_FLAG_END;
+    uint32_t nextDataTransferHandle = 0x15;
+    static constexpr const uint32_t dataLength = 9;
+    std::vector<uint8_t> data = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+    uint32_t dataIntegrityChecksum = 0x3C;
+
+    struct pldm_base_multipart_receive_resp resp_data = {};
+
+    PLDM_MSGBUF_DEFINE_P(buf);
+    int rc;
+
+    static constexpr const size_t payload_length =
+        PLDM_BASE_MULTIPART_RECEIVE_RESP_MIN_BYTES + dataLength +
+        sizeof(dataIntegrityChecksum);
+    PLDM_MSG_DEFINE_P(responseMsg, payload_length);
+
+    rc = pldm_msgbuf_init_errno(buf, 0, responseMsg->payload, payload_length);
+    ASSERT_EQ(rc, 0);
+
+    pldm_msgbuf_insert_uint8(buf, completionCode);
+    pldm_msgbuf_insert_uint8(buf, transferFlag);
+    pldm_msgbuf_insert_uint32(buf, nextDataTransferHandle);
+    pldm_msgbuf_insert_uint32(buf, dataLength);
+    rc = pldm_msgbuf_insert_array_uint8(buf, dataLength, data.data(),
+                                        dataLength);
+    EXPECT_EQ(rc, 0);
+    pldm_msgbuf_insert_uint32(buf, dataIntegrityChecksum);
+
+    ASSERT_EQ(pldm_msgbuf_complete_consumed(buf), 0);
+
+    uint32_t respDataIntegrityChecksum = 0;
+
+    rc = decode_pldm_base_multipart_receive_resp(responseMsg, 0, &resp_data,
+                                                 &respDataIntegrityChecksum);
+
+    EXPECT_EQ(rc, -EOVERFLOW);
+}
+#endif
+
+#ifdef LIBPLDM_API_TESTING
+TEST(EncodeMultipartReceiveResponse, GoodTestWithChecksum)
+{
+    uint8_t instance_id = 0;
+    uint8_t completionCode = PLDM_SUCCESS;
+    uint8_t transferFlag =
+        PLDM_BASE_MULTIPART_RECEIVE_TRANSFER_FLAG_START_AND_END;
+    uint32_t nextDataTransferHandle = 0x15;
+    static constexpr const uint32_t dataLength = 9;
+    std::vector<uint8_t> data = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+    uint32_t dataIntegrityChecksum = 0x3C;
+    static constexpr const size_t responseMsgLength =
+        PLDM_BASE_MULTIPART_RECEIVE_RESP_MIN_BYTES + dataLength +
+        sizeof(dataIntegrityChecksum);
+    size_t payload_length = responseMsgLength;
+
+    struct variable_field payload = {data.data(), dataLength};
+    struct pldm_base_multipart_receive_resp resp_data = {
+        completionCode, transferFlag, nextDataTransferHandle, payload};
+    std::array<uint8_t, responseMsgLength> responseMsg = {
+        completionCode,
+        transferFlag,
+        0x15, // nextDataTransferHandle
+        0x00,
+        0x00,
+        0x00,
+        0x09, // dataLength
+        0x00,
+        0x00,
+        0x00,
+        0x1, // data
+        0x2,
+        0x3,
+        0x4,
+        0x5,
+        0x6,
+        0x7,
+        0x8,
+        0x9,
+        0x3c, // dataIntegrityChecksum
+        0x00,
+        0x00,
+        0x00};
+
+    PLDM_MSG_DEFINE_P(responsePtr, responseMsgLength);
+    int rc;
+
+    rc = encode_base_multipart_receive_resp(instance_id, &resp_data,
+                                            dataIntegrityChecksum, responsePtr,
+                                            &payload_length);
+
+    ASSERT_EQ(0, rc);
+    EXPECT_EQ(0, memcmp(responsePtr->payload, responseMsg.data(),
+                        sizeof(responseMsg)));
+    EXPECT_EQ(payload_length, responseMsgLength);
+}
+#endif
+
+#ifdef LIBPLDM_API_TESTING
+TEST(EncodeMultipartReceiveResponse, GoodTestWithoutChecksum)
+{
+    uint8_t instance_id = 0;
+    uint8_t completionCode = PLDM_SUCCESS;
+    uint8_t transferFlag = PLDM_BASE_MULTIPART_RECEIVE_TRANSFER_FLAG_START;
+    uint32_t nextDataTransferHandle = 0x16;
+    static constexpr const uint32_t dataLength = 9;
+    std::vector<uint8_t> data = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+    static constexpr const size_t responseMsgLength =
+        PLDM_BASE_MULTIPART_RECEIVE_RESP_MIN_BYTES + dataLength;
+    size_t payload_length = responseMsgLength;
+
+    struct variable_field payload = {data.data(), dataLength};
+    struct pldm_base_multipart_receive_resp resp_data = {
+        completionCode, transferFlag, nextDataTransferHandle, payload};
+    std::array<uint8_t, responseMsgLength> responseMsg = {
+        completionCode,
+        transferFlag,
+        0x16, // nextDataTransferHandle
+        0x00,
+        0x00,
+        0x00,
+        0x09, // dataLength
+        0x00,
+        0x00,
+        0x00,
+        0x1, // data
+        0x2,
+        0x3,
+        0x4,
+        0x5,
+        0x6,
+        0x7,
+        0x8,
+        0x9};
+
+    PLDM_MSG_DEFINE_P(responsePtr, responseMsgLength);
+    int rc;
+
+    rc = encode_base_multipart_receive_resp(instance_id, &resp_data, 0,
+                                            responsePtr, &payload_length);
+
+    ASSERT_EQ(0, rc);
+    EXPECT_EQ(0, memcmp(responsePtr->payload, responseMsg.data(),
+                        sizeof(responseMsg)));
+    EXPECT_EQ(payload_length, responseMsgLength);
+}
+#endif
+
+#ifdef LIBPLDM_API_TESTING
+TEST(EncodeMultipartReceiveResponse, GoodTestCompletionCode)
+{
+    uint8_t instance_id = 0;
+    uint8_t completionCode = PLDM_MULTIPART_RECEIVE_NEGOTIATION_INCOMPLETE;
+    uint8_t transferFlag = PLDM_BASE_MULTIPART_RECEIVE_TRANSFER_FLAG_START;
+    uint32_t nextDataTransferHandle = 0x16;
+    static constexpr const uint32_t dataLength = 9;
+    std::vector<uint8_t> data = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+    static constexpr const size_t responseMsgLength =
+        PLDM_BASE_MULTIPART_RECEIVE_RESP_MIN_BYTES + dataLength;
+    size_t payload_length = responseMsgLength;
+
+    struct variable_field payload = {data.data(), dataLength};
+    struct pldm_base_multipart_receive_resp resp_data = {
+        completionCode, transferFlag, nextDataTransferHandle, payload};
+    std::array<uint8_t, 1> responseMsg = {completionCode};
+
+    PLDM_MSG_DEFINE_P(responsePtr, responseMsgLength);
+    int rc;
+
+    rc = encode_base_multipart_receive_resp(instance_id, &resp_data, 0,
+                                            responsePtr, &payload_length);
+
+    ASSERT_EQ(0, rc);
+    EXPECT_EQ(0, memcmp(responsePtr->payload, responseMsg.data(),
+                        sizeof(responseMsg)));
+    EXPECT_EQ(payload_length, 1);
+}
+#endif
+
+#ifdef LIBPLDM_API_TESTING
+TEST(EncodeMultipartReceiveResponse, BadTestUnAllocatedParams)
+{
+    uint8_t instance_id = 0;
+    uint8_t completionCode = PLDM_SUCCESS;
+    uint8_t transferFlag =
+        PLDM_BASE_MULTIPART_RECEIVE_TRANSFER_FLAG_START_AND_END;
+    uint32_t nextDataTransferHandle = 0x15;
+    static constexpr const uint32_t dataLength = 9;
+    std::vector<uint8_t> data = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+    uint32_t dataIntegrityChecksum = 0x3C;
+    static constexpr const size_t responseMsgLength =
+        PLDM_BASE_MULTIPART_RECEIVE_RESP_MIN_BYTES + dataLength +
+        sizeof(dataIntegrityChecksum);
+    size_t payload_length = responseMsgLength;
+
+    struct variable_field payload = {data.data(), dataLength};
+    struct pldm_base_multipart_receive_resp resp_data = {
+        completionCode, transferFlag, nextDataTransferHandle, payload};
+
+    PLDM_MSG_DEFINE_P(responsePtr, responseMsgLength);
+    int rc;
+
+    rc = encode_base_multipart_receive_resp(instance_id, nullptr,
+                                            dataIntegrityChecksum, responsePtr,
+                                            &payload_length);
+    EXPECT_EQ(rc, -EINVAL);
+
+    rc = encode_base_multipart_receive_resp(instance_id, &resp_data,
+                                            dataIntegrityChecksum, nullptr,
+                                            &payload_length);
+    EXPECT_EQ(rc, -EINVAL);
+
+    rc = encode_base_multipart_receive_resp(
+        instance_id, &resp_data, dataIntegrityChecksum, responsePtr, nullptr);
+    EXPECT_EQ(rc, -EINVAL);
+
+    resp_data.data.ptr = nullptr;
+    rc = encode_base_multipart_receive_resp(instance_id, &resp_data,
+                                            dataIntegrityChecksum, responsePtr,
+                                            &payload_length);
+    EXPECT_EQ(rc, -EINVAL);
+}
+#endif
+
+#ifdef LIBPLDM_API_TESTING
+TEST(EncodeMultipartReceiveResponse, BadTestInvalidExpectedOutputMsgLength)
+{
+    uint8_t instance_id = 0;
+    uint8_t completionCode = PLDM_SUCCESS;
+    uint8_t transferFlag = PLDM_BASE_MULTIPART_RECEIVE_TRANSFER_FLAG_START;
+    uint32_t nextDataTransferHandle = 0x16;
+    static constexpr const uint32_t dataLength = 9;
+    std::vector<uint8_t> data = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+    static constexpr const size_t responseMsgLength =
+        PLDM_BASE_MULTIPART_RECEIVE_RESP_MIN_BYTES;
+    size_t payload_length = responseMsgLength;
+
+    struct variable_field payload = {data.data(), dataLength};
+    struct pldm_base_multipart_receive_resp resp_data = {
+        completionCode, transferFlag, nextDataTransferHandle, payload};
+
+    PLDM_MSG_DEFINE_P(responsePtr, responseMsgLength);
+    int rc;
+
+    rc = encode_base_multipart_receive_resp(instance_id, &resp_data, 0,
+                                            responsePtr, &payload_length);
+    EXPECT_EQ(rc, -EOVERFLOW);
+}
+#endif
 
 TEST(CcOnlyResponse, testEncode)
 {
@@ -748,6 +1186,7 @@ TEST(CcOnlyResponse, testEncode)
                             3 /*completion code*/, &responseMsg);
     EXPECT_EQ(rc, PLDM_SUCCESS);
 
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto p = reinterpret_cast<uint8_t*>(&responseMsg);
     EXPECT_THAT(std::vector<uint8_t>(p, p + sizeof(responseMsg)),
                 ElementsAreArray({0, 1, 2, 3}));
@@ -764,6 +1203,7 @@ TEST(SetTID, testGoodEncodeRequest)
     uint8_t instanceId = 0;
     uint8_t tid = 0x01;
     std::array<uint8_t, sizeof(pldm_msg_hdr) + sizeof(tid)> requestMsg{};
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto request = reinterpret_cast<pldm_msg*>(requestMsg.data());
 
     auto rc = encode_set_tid_req(instanceId, tid, request);
@@ -781,6 +1221,7 @@ TEST(SetTID, testBadEncodeRequest)
 {
     uint8_t tid = 0x01;
     std::array<uint8_t, sizeof(pldm_msg_hdr) + sizeof(tid)> requestMsg{};
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto request = reinterpret_cast<pldm_msg*>(requestMsg.data());
 
     auto rc = encode_set_tid_req(0, tid, nullptr);
@@ -792,6 +1233,62 @@ TEST(SetTID, testBadEncodeRequest)
     rc = encode_set_tid_req(0, 0xff, request);
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
 }
+
+#ifdef LIBPLDM_API_TESTING
+TEST(SetTID, testGoodDecodeRequest)
+{
+    uint8_t tid = 0x01;
+    uint8_t tidOut = 0x00;
+    std::array<uint8_t, sizeof(pldm_msg_hdr) + sizeof(tid)> requestMsg{};
+
+    requestMsg[sizeof(pldm_msg_hdr)] = tid;
+
+    pldm_msg* request = new (requestMsg.data()) pldm_msg;
+    auto rc = decode_set_tid_req(
+        request, requestMsg.size() - sizeof(pldm_msg_hdr), &tidOut);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(tid, tidOut);
+}
+#endif
+
+#ifdef LIBPLDM_API_TESTING
+TEST(SetTID, testBadDecodeRequestMsg)
+{
+    uint8_t tid = 0x01;
+    std::array<uint8_t, hdrSize + PLDM_SET_TID_REQ_BYTES> requestMsg{};
+
+    auto rc = decode_set_tid_req(
+        nullptr, requestMsg.size() - sizeof(pldm_msg_hdr), &tid);
+
+    EXPECT_EQ(rc, -EINVAL);
+}
+#endif
+
+#ifdef LIBPLDM_API_TESTING
+TEST(SetTID, testBadDecodeRequestTid)
+{
+    std::array<uint8_t, hdrSize + PLDM_SET_TID_REQ_BYTES> requestMsg{};
+    pldm_msg* request = new (requestMsg.data()) pldm_msg;
+
+    auto rc = decode_set_tid_req(
+        request, requestMsg.size() - sizeof(pldm_msg_hdr), nullptr);
+
+    EXPECT_EQ(rc, -EINVAL);
+}
+#endif
+
+#ifdef LIBPLDM_API_TESTING
+TEST(SetTID, testBadDecodeRequestMsgSize)
+{
+    std::array<uint8_t, hdrSize + PLDM_SET_TID_REQ_BYTES> requestMsg{};
+    pldm_msg* request = new (requestMsg.data()) pldm_msg;
+
+    auto rc = decode_set_tid_req(request, -1, nullptr);
+
+    EXPECT_EQ(rc, -EINVAL);
+}
+#endif
 
 #ifdef LIBPLDM_API_TESTING
 TEST(PldmMsgHdr, correlateSuccess)
@@ -946,5 +1443,201 @@ TEST(PldmMsgHdr, correlateFailRequestIsResponse)
     };
 
     ASSERT_EQ(pldm_msg_hdr_correlate_response(&req, &resp), false);
+}
+#endif
+
+#ifdef LIBPLDM_API_TESTING
+TEST(EncodeNegotiateTransferParamsRequest, GoodTest)
+{
+    uint8_t instance_id = 0;
+
+    const struct pldm_base_negotiate_transfer_params_req req_data = {
+        0x0001, // BE 256
+        {{0x00}, {0x00}, {0x00}, {0x00}, {0x00}, {0x00}, {0x00}, {0x81}}};
+
+    static constexpr const size_t requestMsgLength =
+        PLDM_BASE_NEGOTIATE_TRANSFER_PARAMETERS_REQ_BYTES;
+
+    std::array<uint8_t, requestMsgLength> requestMsg = {
+        0x01, 0x00, // requester_part_size = 256
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x81}; // requester_protocol_support =
+                                 // PLDM_BASE & PLDM_FILE
+
+    PLDM_MSG_DEFINE_P(requestPtr, requestMsgLength);
+    size_t payload_length = requestMsgLength;
+    auto rc = encode_pldm_base_negotiate_transfer_params_req(
+        instance_id, &req_data, requestPtr, &payload_length);
+
+    ASSERT_EQ(rc, 0);
+    EXPECT_EQ(
+        0, memcmp(requestPtr->payload, requestMsg.data(), sizeof(requestMsg)));
+    EXPECT_EQ(payload_length, requestMsgLength);
+}
+#endif
+
+#ifdef LIBPLDM_API_TESTING
+TEST(EncodeNegotiateTransferParamsRequest, BadTestUnAllocatedPtrParams)
+{
+    int rc;
+    uint8_t instance_id = 0;
+    const struct pldm_base_negotiate_transfer_params_req req_data = {
+        0x0001, // BE 256
+        {{0x00}, {0x00}, {0x00}, {0x00}, {0x00}, {0x00}, {0x00}, {0x81}}};
+
+    static constexpr const size_t requestMsgLength =
+        PLDM_BASE_NEGOTIATE_TRANSFER_PARAMETERS_REQ_BYTES;
+
+    PLDM_MSG_DEFINE_P(requestPtr, requestMsgLength);
+    size_t payload_length = requestMsgLength;
+    rc = encode_pldm_base_negotiate_transfer_params_req(
+        instance_id, nullptr, requestPtr, &payload_length);
+    EXPECT_EQ(rc, -EINVAL);
+
+    rc = encode_pldm_base_negotiate_transfer_params_req(
+        instance_id, &req_data, nullptr, &payload_length);
+    EXPECT_EQ(rc, -EINVAL);
+}
+#endif
+
+#ifdef LIBPLDM_API_TESTING
+TEST(EncodeNegotiateTransferParamsRequest,
+     BadTestInvalidExpectedOutputMsgLength)
+{
+    int rc;
+    uint8_t instance_id = 0;
+    const struct pldm_base_negotiate_transfer_params_req req_data = {
+        0x0001, // BE 256
+        {{0x00}, {0x00}, {0x00}, {0x00}, {0x00}, {0x00}, {0x00}, {0x81}}};
+
+    PLDM_MSG_DEFINE_P(requestPtr,
+                      PLDM_BASE_NEGOTIATE_TRANSFER_PARAMETERS_REQ_BYTES);
+
+    size_t payload_length = 1;
+    rc = encode_pldm_base_negotiate_transfer_params_req(
+        instance_id, &req_data, requestPtr, &payload_length);
+    EXPECT_EQ(rc, -EOVERFLOW);
+}
+#endif
+
+#ifdef LIBPLDM_API_TESTING
+TEST(DecodeNegotiateTransferParamsResponse, GoodTest)
+{
+    uint8_t completionCode = PLDM_SUCCESS;
+    uint16_t responderPartSize = 128;
+    std::array<uint8_t, 8> responderProtocolSupport = {0x00, 0x00, 0x00, 0x00,
+                                                       0x00, 0x00, 0x00, 0x81};
+
+    struct pldm_base_negotiate_transfer_params_resp resp_data = {};
+
+    PLDM_MSGBUF_DEFINE_P(buf);
+    int rc;
+
+    static constexpr const size_t payload_length =
+        PLDM_BASE_NEGOTIATE_TRANSFER_PARAMETERS_RESP_BYTES;
+    PLDM_MSG_DEFINE_P(responseMsg, payload_length);
+
+    rc = pldm_msgbuf_init_errno(buf, 0, responseMsg->payload, payload_length);
+    ASSERT_EQ(rc, 0);
+
+    pldm_msgbuf_insert_uint8(buf, completionCode);
+    pldm_msgbuf_insert_uint16(buf, responderPartSize);
+    rc = pldm_msgbuf_insert_array_uint8(
+        buf, sizeof(resp_data.responder_protocol_support),
+        responderProtocolSupport.data(),
+        sizeof(resp_data.responder_protocol_support));
+    EXPECT_EQ(rc, 0);
+
+    ASSERT_EQ(pldm_msgbuf_complete_consumed(buf), 0);
+
+    rc = decode_pldm_base_negotiate_transfer_params_resp(
+        responseMsg, payload_length, &resp_data);
+
+    ASSERT_EQ(rc, 0);
+    EXPECT_EQ(resp_data.completion_code, completionCode);
+    EXPECT_EQ(resp_data.responder_part_size, responderPartSize);
+    EXPECT_EQ(0, memcmp(responderProtocolSupport.data(),
+                        resp_data.responder_protocol_support,
+                        sizeof(resp_data.responder_protocol_support)));
+}
+#endif
+
+#ifdef LIBPLDM_API_TESTING
+TEST(DecodeNegotiateTransferParamsResponse, BadTestUnAllocatedPtrParams)
+{
+    uint8_t completionCode = PLDM_SUCCESS;
+    uint16_t responderPartSize = 128;
+    std::array<uint8_t, 8> responderProtocolSupport = {0x00, 0x00, 0x00, 0x00,
+                                                       0x00, 0x00, 0x00, 0x81};
+
+    struct pldm_base_negotiate_transfer_params_resp resp_data = {};
+
+    PLDM_MSGBUF_DEFINE_P(buf);
+    int rc;
+
+    static constexpr const size_t payload_length =
+        PLDM_BASE_NEGOTIATE_TRANSFER_PARAMETERS_RESP_BYTES;
+    PLDM_MSG_DEFINE_P(responseMsg, payload_length);
+
+    rc = pldm_msgbuf_init_errno(buf, 0, responseMsg->payload, payload_length);
+    ASSERT_EQ(rc, 0);
+
+    pldm_msgbuf_insert_uint8(buf, completionCode);
+    pldm_msgbuf_insert_uint16(buf, responderPartSize);
+    rc = pldm_msgbuf_insert_array_uint8(
+        buf, sizeof(resp_data.responder_protocol_support),
+        responderProtocolSupport.data(),
+        sizeof(resp_data.responder_protocol_support));
+    EXPECT_EQ(rc, 0);
+
+    ASSERT_EQ(pldm_msgbuf_complete_consumed(buf), 0);
+
+    rc = decode_pldm_base_negotiate_transfer_params_resp(
+        nullptr, payload_length, &resp_data);
+
+    EXPECT_EQ(rc, -EINVAL);
+
+    rc = decode_pldm_base_negotiate_transfer_params_resp(
+        responseMsg, payload_length, nullptr);
+
+    EXPECT_EQ(rc, -EINVAL);
+}
+#endif
+
+#ifdef LIBPLDM_API_TESTING
+TEST(DecodeNegotiateTransferParamsResponse,
+     BadTestInvalidExpectedInputMsgLength)
+{
+    uint8_t completionCode = PLDM_SUCCESS;
+    uint16_t responderPartSize = 128;
+    std::array<uint8_t, 8> responderProtocolSupport = {0x00, 0x00, 0x00, 0x00,
+                                                       0x00, 0x00, 0x00, 0x81};
+
+    struct pldm_base_negotiate_transfer_params_resp resp_data = {};
+
+    PLDM_MSGBUF_DEFINE_P(buf);
+    int rc;
+
+    static constexpr const size_t payload_length =
+        PLDM_BASE_NEGOTIATE_TRANSFER_PARAMETERS_RESP_BYTES;
+    PLDM_MSG_DEFINE_P(responseMsg, payload_length);
+
+    rc = pldm_msgbuf_init_errno(buf, 0, responseMsg->payload, payload_length);
+    ASSERT_EQ(rc, 0);
+
+    pldm_msgbuf_insert_uint8(buf, completionCode);
+    pldm_msgbuf_insert_uint16(buf, responderPartSize);
+    rc = pldm_msgbuf_insert_array_uint8(
+        buf, sizeof(resp_data.responder_protocol_support),
+        responderProtocolSupport.data(),
+        sizeof(resp_data.responder_protocol_support));
+    EXPECT_EQ(rc, 0);
+
+    ASSERT_EQ(pldm_msgbuf_complete_consumed(buf), 0);
+
+    rc = decode_pldm_base_negotiate_transfer_params_resp(responseMsg, 0,
+                                                         &resp_data);
+
+    EXPECT_EQ(rc, -EOVERFLOW);
 }
 #endif

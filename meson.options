@@ -5,12 +5,28 @@ option(
     choices: ['deprecated', 'stable', 'testing'],
     value: ['deprecated', 'stable', 'testing'],
 )
-option('tests', type: 'feature', description: 'Build tests')
-option('oem-ibm', type: 'feature', description: 'Enable IBM OEM PLDM')
 option(
     'abi-compliance-check',
-    type: 'feature',
+    type: 'boolean',
     description: 'Detect public ABI/API changes',
 )
-option('oem-meta', type: 'feature', description: 'Enable Meta OEM PLDM')
-option('oem-nvidia', type: 'feature', description: 'Enable NVIDIA OEM PLDM')
+option(
+    'oem',
+    type: 'array',
+    description: 'Enable OEM PLDM extensions',
+    choices: ['ibm', 'meta', 'nvidia'],
+    value: ['ibm', 'meta', 'nvidia'],
+)
+option('tests', type: 'boolean', description: 'Build tests')
+option(
+    'transport',
+    type: 'boolean',
+    description: 'Enable transport implementation',
+)
+option(
+    'tools',
+    type: 'array',
+    description: 'Tools to build with the library',
+    choices: ['pd'],
+    value: ['pd'],
+)

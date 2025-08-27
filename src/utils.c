@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
 #include <libpldm/base.h>
 #include <libpldm/utils.h>
+#include "utils.h"
+
 #include <limits.h>
 #include <stdio.h>
 
@@ -85,7 +87,7 @@ static const uint8_t crc8_table[] = {
 };
 
 LIBPLDM_ABI_STABLE
-uint32_t crc32(const void *data, size_t size)
+uint32_t pldm_edac_crc32(const void *data, size_t size)
 {
 	const uint8_t *p = data;
 	uint32_t crc = ~0U;
@@ -95,8 +97,17 @@ uint32_t crc32(const void *data, size_t size)
 	return crc ^ ~0U;
 }
 
+int pldm_edac_crc32_validate(uint32_t expected, const void *data, size_t size)
+{
+	if (!data && size) { /* data is NULL but size is not zero */
+		return -EINVAL;
+	}
+	uint32_t actual = pldm_edac_crc32(data, size);
+	return (expected == actual) ? 0 : -EUCLEAN;
+}
+
 LIBPLDM_ABI_STABLE
-uint8_t crc8(const void *data, size_t size)
+uint8_t pldm_edac_crc8(const void *data, size_t size)
 {
 	const uint8_t *p = data;
 	uint8_t crc = 0x00;
@@ -200,16 +211,45 @@ uint32_t dec2bcd32(uint32_t dec)
 	       ((uint32_t)(dec2bcd16(dec / 10000)) << 16);
 }
 
-LIBPLDM_ABI_STABLE
+static int day_map(uint8_t month)
+{
+	switch (month) {
+	case 1:
+		return 31;
+	case 2:
+		return 28;
+	case 3:
+		return 31;
+	case 4:
+		return 30;
+	case 5:
+		return 31;
+	case 6:
+		return 30;
+	case 7:
+	case 8:
+		return 31;
+	case 9:
+		return 30;
+	case 10:
+		return 31;
+	case 11:
+		return 30;
+	case 12:
+		return 31;
+	default:
+		return 0;
+	}
+}
+
+LIBPLDM_ABI_DEPRECATED
 bool is_time_legal(uint8_t seconds, uint8_t minutes, uint8_t hours, uint8_t day,
 		   uint8_t month, uint16_t year)
 {
 	if (month < 1 || month > 12) {
 		return false;
 	}
-	static const int days[13] = { 0,  31, 28, 31, 30, 31, 30,
-				      31, 31, 30, 31, 30, 31 };
-	int rday = days[month];
+	int rday = day_map(month);
 	if (month == 2 &&
 	    ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0))) {
 		rday += 1;
@@ -221,7 +261,7 @@ bool is_time_legal(uint8_t seconds, uint8_t minutes, uint8_t hours, uint8_t day,
 	return true;
 }
 
-LIBPLDM_ABI_STABLE
+LIBPLDM_ABI_DEPRECATED
 bool is_transfer_flag_valid(uint8_t transfer_flag)
 {
 	switch (transfer_flag) {

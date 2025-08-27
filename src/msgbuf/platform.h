@@ -2,32 +2,41 @@
 #ifndef PLDM_MSGBUF_PLATFORM_H
 #define PLDM_MSGBUF_PLATFORM_H
 
+#include "../compiler.h"
 #include "../msgbuf.h"
 
 #include <libpldm/base.h>
 #include <libpldm/platform.h>
 
-static inline int
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE int
 pldm_msgbuf_extract_value_pdr_hdr(struct pldm_msgbuf *ctx,
-				  struct pldm_value_pdr_hdr *hdr)
+				  struct pldm_value_pdr_hdr *hdr, size_t lower,
+				  size_t upper)
 {
+	int rc;
+
 	pldm_msgbuf_extract(ctx, hdr->record_handle);
 	pldm_msgbuf_extract(ctx, hdr->version);
 	pldm_msgbuf_extract(ctx, hdr->type);
 	pldm_msgbuf_extract(ctx, hdr->record_change_num);
-	pldm_msgbuf_extract(ctx, hdr->length);
+	rc = pldm_msgbuf_extract(ctx, hdr->length);
+	if (rc) {
+		return rc;
+	}
 
-	return pldm_msgbuf_validate(ctx);
+	if (hdr->length + sizeof(*ctx) < lower) {
+		return -EOVERFLOW;
+	}
+
+	if (hdr->length > upper) {
+		return -EOVERFLOW;
+	}
+
+	return 0;
 }
 
-/*
- * We use __attribute__((always_inline)) below so the compiler has visibility of
- * the switch() at the call site. It is often the case that the size of multiple
- * fields depends on the tag. Inlining thus gives the compiler visibility to
- * hoist one tag-based code-path condition to cover all invocations.
- */
-
-__attribute__((always_inline)) static inline int
+LIBPLDM_CC_ALWAYS_INLINE int
 pldm_msgbuf_extract_sensor_data(struct pldm_msgbuf *ctx,
 				enum pldm_sensor_readings_data_type tag,
 				union_sensor_data_size *dst)
@@ -55,7 +64,7 @@ pldm_msgbuf_extract_sensor_data(struct pldm_msgbuf *ctx,
  * have used the approach used by callers of pldm_msgbuf_extract_sensor_data()
  * above
  */
-__attribute__((always_inline)) static inline int
+LIBPLDM_CC_ALWAYS_INLINE int
 pldm_msgbuf_extract_sensor_value(struct pldm_msgbuf *ctx,
 				 enum pldm_sensor_readings_data_type tag,
 				 void *val)
@@ -82,10 +91,8 @@ pldm_msgbuf_extract_sensor_value(struct pldm_msgbuf *ctx,
 	pldm_msgbuf_extract_typecheck(union_range_field_format,                \
 				      pldm__msgbuf_extract_range_field_format, \
 				      dst, ctx, tag, (void *)&(dst))
-__attribute__((always_inline)) static inline int
-pldm__msgbuf_extract_range_field_format(struct pldm_msgbuf *ctx,
-					enum pldm_range_field_format tag,
-					void *rff)
+LIBPLDM_CC_ALWAYS_INLINE int pldm__msgbuf_extract_range_field_format(
+	struct pldm_msgbuf *ctx, enum pldm_range_field_format tag, void *rff)
 {
 	switch (tag) {
 	case PLDM_RANGE_FIELD_FORMAT_UINT8:
@@ -122,7 +129,7 @@ pldm__msgbuf_extract_range_field_format(struct pldm_msgbuf *ctx,
 }
 
 /* This API is bad, but it's because the caller's APIs are also bad */
-__attribute__((always_inline)) static inline int
+LIBPLDM_CC_ALWAYS_INLINE int
 pldm_msgbuf_extract_effecter_value(struct pldm_msgbuf *ctx,
 				   enum pldm_effecter_data_size tag, void *dst)
 {
@@ -148,7 +155,7 @@ pldm_msgbuf_extract_effecter_value(struct pldm_msgbuf *ctx,
 	pldm_msgbuf_extract_typecheck(union_effecter_data_size,                \
 				      pldm__msgbuf_extract_range_field_format, \
 				      dst, ctx, tag, (void *)&(dst))
-__attribute__((always_inline)) static inline int
+LIBPLDM_CC_ALWAYS_INLINE int
 pldm__msgbuf_extract_effecter_data(struct pldm_msgbuf *ctx,
 				   enum pldm_effecter_data_size tag, void *ed)
 {

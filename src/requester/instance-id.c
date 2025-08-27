@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
 // NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
-#define _GNU_SOURCE
-#include <errno.h>
-#include <fcntl.h>
 #include <libpldm/instance-id.h>
 #include <libpldm/pldm.h>
+
+#include <errno.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -39,15 +39,15 @@ int pldm_instance_db_init(struct pldm_instance_db **ctx, const char *dbpath)
 	int rc;
 
 	/* Make sure the provided pointer was initialised to NULL. In the future
-     * if we stabilise the ABI and expose the struct definition the caller
-     * can potentially pass a valid pointer to a struct they've allocated
-     */
+	 * if we stabilise the ABI and expose the struct definition the caller
+	 * can potentially pass a valid pointer to a struct they've allocated
+	 */
 	if (!ctx || *ctx) {
 		return -EINVAL;
 	}
 
 	/* Ensure the underlying file is sized for properly managing allocations
-     */
+	 */
 	rc = stat(dbpath, &statbuf);
 	if (rc < 0) {
 		return -EINVAL;
@@ -69,7 +69,7 @@ int pldm_instance_db_init(struct pldm_instance_db **ctx, const char *dbpath)
 	}
 
 	/* Lock database may be read-only, either by permissions or mountpoint
-     */
+	 */
 	l_ctx->lock_db_fd = open(dbpath, O_RDONLY | O_CLOEXEC);
 	if (l_ctx->lock_db_fd < 0) {
 		free(l_ctx);
@@ -122,7 +122,7 @@ int pldm_instance_id_alloc(struct pldm_instance_db *ctx, pldm_tid_t tid,
 {
 	uint8_t l_iid;
 
-	if (!iid) {
+	if (!ctx || !iid) {
 		return -EINVAL;
 	}
 
@@ -156,17 +156,17 @@ int pldm_instance_id_alloc(struct pldm_instance_db *ctx, pldm_tid_t tid,
 		}
 
 		/*
-         * If we *may* promote the lock to exclusive then this IID is
-         * only reserved by us. This is now our allocated IID.
-         *
-         * If we *may not* promote the lock to exclusive then this IID
-         * is also reserved on another file descriptor. Move on to the
-         * next IID index.
-         *
-         * Note that we cannot actually *perform* the promotion in
-         * practice because this is prevented by the lock database being
-         * opened O_RDONLY.
-         */
+		 * If we *may* promote the lock to exclusive then this IID is
+		 * only reserved by us. This is now our allocated IID.
+		 *
+		 * If we *may not* promote the lock to exclusive then this IID
+		 * is also reserved on another file descriptor. Move on to the
+		 * next IID index.
+		 *
+		 * Note that we cannot actually *perform* the promotion in
+		 * practice because this is prevented by the lock database being
+		 * opened O_RDONLY.
+		 */
 		flop = pldm_instance_id_cflx;
 		flop.l_start = loff;
 		rc = fcntl(ctx->lock_db_fd, F_OFD_GETLK, &flop);
@@ -180,7 +180,7 @@ int pldm_instance_id_alloc(struct pldm_instance_db *ctx, pldm_tid_t tid,
 		}
 
 		/* F_UNLCK is the type of the lock if we could successfully
-         * promote it to F_WRLCK */
+		 * promote it to F_WRLCK */
 		if (flop.l_type == F_UNLCK) {
 			ctx->state[tid].prev = l_iid;
 			ctx->state[tid].allocations |= BIT(l_iid);
@@ -208,7 +208,7 @@ int pldm_instance_id_alloc(struct pldm_instance_db *ctx, pldm_tid_t tid,
 	}
 
 	/* Failed to allocate an IID after a full loop. Make the caller try
-     * again */
+	 * again */
 	return -EAGAIN;
 }
 
@@ -218,6 +218,11 @@ int pldm_instance_id_free(struct pldm_instance_db *ctx, pldm_tid_t tid,
 {
 	struct flock flop;
 	int rc;
+
+	/* check if provided context is null */
+	if (!ctx) {
+		return -EINVAL;
+	}
 
 	/* Trying to free an instance ID that is not currently allocated */
 	if (!(ctx->state[tid].allocations & BIT(iid))) {

@@ -171,7 +171,7 @@ int encode_get_fru_record_table_resp(uint8_t instance_id,
 	return PLDM_SUCCESS;
 }
 
-LIBPLDM_ABI_STABLE
+LIBPLDM_ABI_DEPRECATED_UNSAFE
 int encode_fru_record(uint8_t *fru_table, size_t total_size, size_t *curr_size,
 		      uint16_t record_set_id, uint8_t record_type,
 		      uint8_t num_frus, uint8_t encoding, uint8_t *tlvs,
@@ -183,7 +183,20 @@ int encode_fru_record(uint8_t *fru_table, size_t total_size, size_t *curr_size,
 	if (fru_table == NULL || curr_size == NULL || !tlvs_size) {
 		return PLDM_ERROR_INVALID_DATA;
 	}
-	if ((*curr_size + record_hdr_size + tlvs_size) != total_size) {
+
+	if (SIZE_MAX - *curr_size < record_hdr_size) {
+		return PLDM_ERROR_INVALID_LENGTH;
+	}
+
+	if (SIZE_MAX - (*curr_size + record_hdr_size) < tlvs_size) {
+		return PLDM_ERROR_INVALID_LENGTH;
+	}
+
+	if (total_size < *curr_size + record_hdr_size) {
+		return PLDM_ERROR_INVALID_LENGTH;
+	}
+
+	if (total_size - (*curr_size + record_hdr_size) < tlvs_size) {
 		return PLDM_ERROR_INVALID_LENGTH;
 	}
 
@@ -361,8 +374,12 @@ int encode_get_fru_record_by_option_resp(uint8_t instance_id,
 		return PLDM_ERROR_INVALID_DATA;
 	}
 
-	if (payload_length !=
-	    PLDM_GET_FRU_RECORD_BY_OPTION_MIN_RESP_BYTES + data_size) {
+	if (payload_length < PLDM_GET_FRU_RECORD_BY_OPTION_MIN_RESP_BYTES) {
+		return PLDM_ERROR_INVALID_LENGTH;
+	}
+
+	if (payload_length - PLDM_GET_FRU_RECORD_BY_OPTION_MIN_RESP_BYTES <
+	    data_size) {
 		return PLDM_ERROR_INVALID_LENGTH;
 	}
 

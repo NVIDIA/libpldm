@@ -1,20 +1,25 @@
-libpldm_sources = files('responder.c', 'utils.c')
+libpldm_sources = files('control.c', 'responder.c', 'utils.c')
 
 subdir('dsp')
-subdir('requester')
-subdir('transport')
 
-if get_option('oem-ibm').allowed()
+if get_option('transport')
+    subdir('requester')
+    subdir('transport')
+endif
+
+if get_option('oem').contains('ibm')
     subdir('oem/ibm')
 endif
 
-if get_option('oem-meta').allowed()
+if get_option('oem').contains('meta')
     subdir('oem/meta')
 endif
 
-if get_option('oem-nvidia').allowed()
+if get_option('oem').contains('nvidia')
     subdir('oem/nvidia')
 endif
+
+subdir('firmware_device')
 
 libpldm_link_args = []
 foreach alias : libpldm_deprecated_aliases
@@ -44,11 +49,11 @@ import('pkgconfig').generate(
     libraries: libpldm,
 )
 
-if get_option('tests').allowed()
+if get_option('tests')
     c_suite = meson.get_compiler('c').get_id()
     cpp_suite = meson.get_compiler('cpp').get_id()
 
-    if get_option('abi-compliance-check').allowed() and c_suite == cpp_suite and c_suite == 'gcc'
+    if get_option('abi-compliance-check') and c_suite == cpp_suite and c_suite == 'gcc'
         host = host_machine.cpu_family()
         baseline_dump = meson.project_source_root() / 'abi' / host / '@0@.dump'.format(
             c_suite,
@@ -65,11 +70,9 @@ if get_option('tests').allowed()
             required: get_option('abi-compliance-check'),
         )
 
-        test_abi_compliance = abi_dumper.found() and abi_compliance_checker.found() and import(
-            'fs',
-        ).is_file(
-            baseline_dump,
-        )
+        test_abi_compliance = abi_dumper.found() and \
+    abi_compliance_checker.found() and \
+    import('fs').is_file(baseline_dump)
 
         if test_abi_compliance
             current_dump = custom_target(
