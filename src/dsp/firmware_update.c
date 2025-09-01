@@ -471,6 +471,12 @@ decode_pldm_package_header_info_errno(const void *data, size_t length,
 		return pldm_msgbuf_discard(buf, -ENOTSUP);
 	}
 
+	if (memcmp(revision_info[hdr->package_header_format_revision].identifier,
+		   hdr->package_header_identifier,
+		   sizeof(hdr->package_header_identifier)) != 0) {
+		return pldm_msgbuf_discard(buf, -ENOTSUP);
+	}
+
 	if (hdr->package_header_format_revision >=
 	    PLDM_PACKAGE_HEADER_FORMAT_REVISION_FR04H) {
 		checksums = 2;
@@ -565,6 +571,10 @@ decode_pldm_package_header_info_errno(const void *data, size_t length,
 		return rc;
 	}
 
+#if !defined(LIBPLDM_OEM_NVIDIA)
+	// This payload calculation includes the 1024B signature
+	// added to the end of oem packages. This has been moved
+	// to package parser in pldmd.
 	if (hdr->package_header_format_revision >=
 	    PLDM_PACKAGE_HEADER_FORMAT_REVISION_FR04H) {
 		rc = pldm_edac_crc32_validate(package_payload_checksum,
@@ -577,6 +587,7 @@ decode_pldm_package_header_info_errno(const void *data, size_t length,
 			return rc;
 		}
 	}
+#endif
 
 	/* We stash these to resolve component images later */
 	pkg->pin = pin;
@@ -595,7 +606,7 @@ int decode_pldm_package_header_info(
 	struct pldm_package_header_information *package_header_info,
 	struct variable_field *package_version_str)
 {
-	DEFINE_PLDM_PACKAGE_FORMAT_PIN_FR01H(pin);
+	DEFINE_PLDM_PACKAGE_FORMAT_PIN_FR04H(pin);
 	pldm_package_header_information_pad hdr;
 	struct pldm_package pkg = { 0 };
 	int rc;
@@ -805,7 +816,7 @@ int decode_firmware_device_id_record(
 	struct variable_field *applicable_components,
 	struct variable_field *comp_image_set_version_str,
 	struct variable_field *record_descriptors,
-	struct variable_field *fw_device_pkg_data)
+	struct variable_field *fw_device_pkg_data, size_t format_revision)
 {
 	struct pldm_package_firmware_device_id_record rec;
 	pldm_package_header_information_pad hdr;
@@ -817,8 +828,7 @@ int decode_firmware_device_id_record(
 		return PLDM_ERROR_INVALID_DATA;
 	}
 
-	hdr.package_header_format_revision =
-		PLDM_PACKAGE_HEADER_FORMAT_REVISION_FR01H;
+	hdr.package_header_format_revision = format_revision;
 	hdr.component_bitmap_bit_length = component_bitmap_bit_length;
 
 	rc = decode_pldm_package_firmware_device_id_record_errno(

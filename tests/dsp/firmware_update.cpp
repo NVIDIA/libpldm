@@ -384,7 +384,8 @@ TEST(DecodeFirmwareDeviceIdRecord, goodPath)
     auto rc = decode_firmware_device_id_record(
         record.data(), record.size(), componentBitmapBitLength,
         &deviceIdRecHeader, &applicableComponents, &outCompImageSetVersionStr,
-        &recordDescriptors, &outFwDevicePkgData);
+        &recordDescriptors, &outFwDevicePkgData,
+        PLDM_PACKAGE_HEADER_FORMAT_REVISION_FR01H);
 
     ASSERT_EQ(rc, PLDM_SUCCESS);
     EXPECT_EQ(deviceIdRecHeader.record_length, recordLen);
@@ -475,7 +476,8 @@ TEST(DecodeFirmwareDeviceIdRecord, goodPathNofwDevicePkgData)
     auto rc = decode_firmware_device_id_record(
         record.data(), record.size(), componentBitmapBitLength,
         &deviceIdRecHeader, &applicableComponents, &outCompImageSetVersionStr,
-        &recordDescriptors, &outFwDevicePkgData);
+        &recordDescriptors, &outFwDevicePkgData,
+        PLDM_PACKAGE_HEADER_FORMAT_REVISION_FR01H);
 
     EXPECT_EQ(rc, PLDM_SUCCESS);
     EXPECT_EQ(deviceIdRecHeader.record_length, recordLen);
@@ -540,55 +542,57 @@ TEST(DecodeFirmwareDeviceIdRecord, ErrorPaths)
     rc = decode_firmware_device_id_record(
         nullptr, rec.size(), componentBitmapBitLength, &deviceIdRecHeader,
         &applicableComponents, &outCompImageSetVersionStr, &recordDescriptors,
-        &outFwDevicePkgData);
+        &outFwDevicePkgData, PLDM_PACKAGE_HEADER_FORMAT_REVISION_FR01H);
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
 
     rc = decode_firmware_device_id_record(
         rec.data(), rec.size(), componentBitmapBitLength, nullptr,
         &applicableComponents, &outCompImageSetVersionStr, &recordDescriptors,
-        &outFwDevicePkgData);
+        &outFwDevicePkgData, PLDM_PACKAGE_HEADER_FORMAT_REVISION_FR01H);
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
 
     rc = decode_firmware_device_id_record(
         rec.data(), rec.size(), componentBitmapBitLength, &deviceIdRecHeader,
         nullptr, &outCompImageSetVersionStr, &recordDescriptors,
-        &outFwDevicePkgData);
+        &outFwDevicePkgData, PLDM_PACKAGE_HEADER_FORMAT_REVISION_FR01H);
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
 
     rc = decode_firmware_device_id_record(
         rec.data(), rec.size(), componentBitmapBitLength, &deviceIdRecHeader,
-        &applicableComponents, nullptr, &recordDescriptors,
-        &outFwDevicePkgData);
+        &applicableComponents, nullptr, &recordDescriptors, &outFwDevicePkgData,
+        PLDM_PACKAGE_HEADER_FORMAT_REVISION_FR01H);
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
 
     rc = decode_firmware_device_id_record(
         rec.data(), rec.size(), componentBitmapBitLength, &deviceIdRecHeader,
         &applicableComponents, &outCompImageSetVersionStr, nullptr,
-        &outFwDevicePkgData);
+        &outFwDevicePkgData, PLDM_PACKAGE_HEADER_FORMAT_REVISION_FR01H);
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
 
     rc = decode_firmware_device_id_record(
         rec.data(), rec.size(), componentBitmapBitLength, &deviceIdRecHeader,
         &applicableComponents, &outCompImageSetVersionStr, &recordDescriptors,
-        nullptr);
+        nullptr, PLDM_PACKAGE_HEADER_FORMAT_REVISION_FR01H);
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
 
     rc = decode_firmware_device_id_record(
         rec.data(), rec.size() - 1, componentBitmapBitLength,
         &deviceIdRecHeader, &applicableComponents, &outCompImageSetVersionStr,
-        &recordDescriptors, &outFwDevicePkgData);
+        &recordDescriptors, &outFwDevicePkgData,
+        PLDM_PACKAGE_HEADER_FORMAT_REVISION_FR01H);
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
 
     rc = decode_firmware_device_id_record(
         rec.data(), rec.size(), componentBitmapBitLength + 1,
         &deviceIdRecHeader, &applicableComponents, &outCompImageSetVersionStr,
-        &recordDescriptors, &outFwDevicePkgData);
+        &recordDescriptors, &outFwDevicePkgData,
+        PLDM_PACKAGE_HEADER_FORMAT_REVISION_FR01H);
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
 
     rc = decode_firmware_device_id_record(
         rec.data(), rec.size(), componentBitmapBitLength, &deviceIdRecHeader,
         &applicableComponents, &outCompImageSetVersionStr, &recordDescriptors,
-        &outFwDevicePkgData);
+        &outFwDevicePkgData, PLDM_PACKAGE_HEADER_FORMAT_REVISION_FR01H);
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
 }
 
@@ -608,7 +612,7 @@ TEST(DecodeFirmwareDeviceIdRecord, invalidComponentImageSetVersionStringLength)
     rc = decode_firmware_device_id_record(
         rec.data(), rec.size(), componentBitmapBitLength, &deviceIdRecHeader,
         &applicableComponents, &outCompImageSetVersionStr, &recordDescriptors,
-        &outFwDevicePkgData);
+        &outFwDevicePkgData, PLDM_PACKAGE_HEADER_FORMAT_REVISION_FR01H);
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
 }
 
@@ -628,7 +632,7 @@ TEST(DecodeFirmwareDeviceIdRecord, shortBuffer)
     rc = decode_firmware_device_id_record(
         rec.data(), rec.size(), componentBitmapBitLength, &deviceIdRecHeader,
         &applicableComponents, &outCompImageSetVersionStr, &recordDescriptors,
-        &outFwDevicePkgData);
+        &outFwDevicePkgData, PLDM_PACKAGE_HEADER_FORMAT_REVISION_FR01H);
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
 }
 
@@ -648,7 +652,7 @@ TEST(DecodeFirmwareDeviceIdRecord, recordLengthMismatch)
     rc = decode_firmware_device_id_record(
         rec.data(), rec.size(), componentBitmapBitLength, &deviceIdRecHeader,
         &applicableComponents, &outCompImageSetVersionStr, &recordDescriptors,
-        &outFwDevicePkgData);
+        &outFwDevicePkgData, PLDM_PACKAGE_HEADER_FORMAT_REVISION_FR01H);
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
 }
 
@@ -675,7 +679,7 @@ TEST(DecodeFirmwareDeviceIdRecord, invalidFirmwareDevicePackageDataLength)
     rc = decode_firmware_device_id_record(
         rec.data(), rec.size(), componentBitmapBitLength, &deviceIdRecHeader,
         &applicableComponents, &outCompImageSetVersionStr, &recordDescriptors,
-        &outFwDevicePkgData);
+        &outFwDevicePkgData, PLDM_PACKAGE_HEADER_FORMAT_REVISION_FR01H);
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
 }
 

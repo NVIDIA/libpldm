@@ -1119,6 +1119,7 @@ int decode_pldm_package_header_info(
  *                                           ComponentImageSetVersionString
  *  @param[out] record_descriptors - pointer to RecordDescriptors
  *  @param[out] fw_device_pkg_data - pointer to FirmwareDevicePackageData
+ *  @param[in] format_revision - formare revision of the firmware update package
  *
  *  @return pldm_completion_codes
  */
@@ -1129,7 +1130,7 @@ int decode_firmware_device_id_record(
 	struct variable_field *applicable_components,
 	struct variable_field *comp_image_set_version_str,
 	struct variable_field *record_descriptors,
-	struct variable_field *fw_device_pkg_data);
+	struct variable_field *fw_device_pkg_data, size_t format_revision);
 
 /** @brief Decode the record descriptor entries in the firmware update package
  *         and the Descriptors in the QueryDeviceIDentifiers command

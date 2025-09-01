@@ -66,6 +66,11 @@ else
     conf.set('LIBPLDM_ABI_TESTING', '')
 endif
 
+# OEM feature control
+if get_option('oem').contains('nvidia')
+    add_project_arguments('-DLIBPLDM_OEM_NVIDIA', language: ['c', 'cpp'])
+endif
+
 config = configure_file(output: 'config.h', configuration: conf)
 
 add_project_arguments('-include', config.full_path(), language: 'c')
