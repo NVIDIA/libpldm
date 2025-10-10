@@ -6400,6 +6400,7 @@ TEST(decodePldmFileDescriptorPdr, BadTestDataBufferUnderLength)
 TEST(GetTerminusUID, testGoodEncodeRequest)
 {
     std::array<uint8_t, sizeof(pldm_msg_hdr)> requestMsg{};
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto request = reinterpret_cast<pldm_msg*>(requestMsg.data());
 
     auto rc = encode_get_terminus_uid_req(0, request);
@@ -6413,8 +6414,10 @@ TEST(GetTerminusUID, testGoodDecodeResponse)
     std::array<uint8_t, hdrSize + PLDM_GET_TERMINUS_UID_RESP_BYTES>
         responseMsg{};
 
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
     struct pldm_get_terminus_uid_resp* resp =
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         reinterpret_cast<struct pldm_get_terminus_uid_resp*>(response->payload);
 
     resp->completion_code = PLDM_SUCCESS;
