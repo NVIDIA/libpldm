@@ -2,6 +2,41 @@
 #ifndef PLDM_COMPILER_H
 #define PLDM_COMPILER_H
 
+#include <libpldm/compiler.h>
+
+#ifndef __has_attribute
+#error The libpldm implementation requires __has_attribute
+#endif
+
+#include <assert.h>
+
+static struct {
+	static_assert(__has_attribute(always_inline),
+		      "`always_inline` attribute is required");
+	static_assert(__has_attribute(nonnull),
+		      "`nonnull` attribute is required");
+	static_assert(__has_attribute(unused),
+		      "`unused` attribute is required");
+	static_assert(__has_attribute(warn_unused_result),
+		      "`warn_unused_result` attribute is required");
+	static_assert(__has_attribute(cleanup),
+		      "`cleanup` attribute is required");
+	int compliance;
+} pldm_required_attributes __attribute__((unused));
+
+#ifndef LIBPLDM_CC_ALWAYS_INLINE
+#error Missing definition for LIBPLDM_ALWAYS_INLINE
+#endif
+
+#ifndef LIBPLDM_CC_NONNULL
+#error Missing definition for LIBPLDM_CC_NONNULL
+#endif
+
+#define LIBPLDM_CC_CLEANUP(fn)	      __attribute__((cleanup(fn)))
+#define LIBPLDM_CC_NONNULL_ARGS(...)  __attribute__((nonnull(__VA_ARGS__)))
+#define LIBPLDM_CC_UNUSED	      __attribute__((unused))
+#define LIBPLDM_CC_WARN_UNUSED_RESULT __attribute__((warn_unused_result))
+
 // NOLINTBEGIN(bugprone-macro-parentheses)
 /**
  * Require that the given object is of the specified type.
@@ -36,8 +71,8 @@
  * @return The expression either yields 1, or compilation is terminated
  */
 #define pldm_require_obj_type(obj, type)                                       \
-    ((void)(sizeof(                                                            \
-        struct { char buf[_Generic((obj), type: 1, default: -1)]; })))
+	((void)(sizeof(                                                        \
+		struct { char buf[_Generic((obj), type: 1, default: -1)]; })))
 // NOLINTEND(bugprone-macro-parentheses)
 
 #endif

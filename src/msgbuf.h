@@ -2,6 +2,8 @@
 #ifndef PLDM_MSGBUF_H
 #define PLDM_MSGBUF_H
 
+#include "compiler.h"
+
 /*
  * Historically, many of the structs exposed in libpldm's public headers are
  * defined with __attribute__((packed)). This is unfortunate: it gives the
@@ -36,8 +38,7 @@
  */
 // NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
 #define _Static_assert(...) static_assert(__VA_ARGS__)
-extern "C"
-{
+extern "C" {
 #endif
 
 #include "compiler.h"
@@ -52,6 +53,7 @@ extern "C"
 #include <stdint.h>
 #include <string.h>
 #include <sys/types.h>
+#include <uchar.h>
 
 /*
  * We can't use static_assert() outside of some other C construct. Deal
@@ -59,86 +61,49 @@ extern "C"
  * declaration, that has a sole member for compliance with the requirement that
  * types must have a size.
  */
-static struct
-{
-    static_assert(INTMAX_MAX != SIZE_MAX,
-                  "Extraction and insertion value comparisons may be broken");
-    static_assert(INTMAX_MIN + INTMAX_MAX <= 0,
-                  "Extraction and insertion arithmetic may be broken");
-    static_assert(PLDM_SUCCESS == 0, "Error handling is broken");
-    int compliance;
-} build_assertions __attribute__((unused));
+static struct {
+	static_assert(
+		INTMAX_MAX != SIZE_MAX,
+		"Extraction and insertion value comparisons may be broken");
+	static_assert(INTMAX_MIN + INTMAX_MAX <= 0,
+		      "Extraction and insertion arithmetic may be broken");
+	int compliance;
+} build_assertions LIBPLDM_CC_UNUSED;
 
-enum pldm_msgbuf_error_mode
-{
-    PLDM_MSGBUF_PLDM_CC = 0x5a,
-    PLDM_MSGBUF_C_ERRNO = 0xa5,
+struct pldm_msgbuf {
+	uint8_t *cursor;
+	intmax_t remaining;
 };
 
-struct pldm_msgbuf
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE
+// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
+void pldm__msgbuf_cleanup(struct pldm_msgbuf *ctx LIBPLDM_CC_UNUSED)
 {
-    uint8_t* cursor;
-    intmax_t remaining;
-    enum pldm_msgbuf_error_mode mode;
-};
+	assert(ctx->cursor == NULL && ctx->remaining == INTMAX_MIN);
+}
 
-/**
- * @brief Either negate an errno value or return a value mapped to a PLDM
- * completion code.
- *
- * Note that `pldm_msgbuf_status()` is purely internal to the msgbuf API
- * for ergonomics. It's preferred that we don't try to unify this with
- * `pldm_xlate_errno()` from src/api.h despite the similarities.
- *
- * @param[in] ctx - The msgbuf context providing the personality info
- * @param[in] err - The positive errno value to translate
- *
- * @return Either the negated value of @p err if the context's error mode is
- *         `PLDM_MSGBUF_C_ERRNO`, or the equivalent PLDM completion code if the
- *         error mode is `PLDM_MSGBUF_PLDM_CC`.
- */
-__attribute__((always_inline)) static inline int
-    pldm_msgbuf_status(struct pldm_msgbuf* ctx, unsigned int err)
+#ifdef __cplusplus
+// NOLINTBEGIN(bugprone-macro-parentheses)
+#define PLDM_MSGBUF_DEFINE_P(name)                                             \
+	struct pldm_msgbuf _##name LIBPLDM_CC_CLEANUP(                         \
+		pldm__msgbuf_cleanup) = { NULL, INTMAX_MIN };                  \
+	auto *name = &(_##name)
+// NOLINTEND(bugprone-macro-parentheses)
+#else
+#define PLDM_MSGBUF_DEFINE_P(name)                                             \
+	struct pldm_msgbuf _##name LIBPLDM_CC_CLEANUP(                         \
+		pldm__msgbuf_cleanup) = { NULL, INTMAX_MIN };                  \
+	struct pldm_msgbuf *(name) = &(_##name)
+#endif
+
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE
+// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
+int pldm__msgbuf_invalidate(struct pldm_msgbuf *ctx)
 {
-    int rc;
-
-    assert(err != 0);
-    assert(err <= INT_MAX);
-
-    if (ctx->mode == PLDM_MSGBUF_C_ERRNO)
-    {
-        if (err > INT_MAX)
-        {
-            return -EINVAL;
-        }
-
-        static_assert(INT_MIN + INT_MAX < 0, "Arithmetic assumption failure");
-        return -((int)err);
-    }
-
-    if (err > INT_MAX)
-    {
-        return PLDM_ERROR;
-    }
-
-    assert(ctx->mode == PLDM_MSGBUF_PLDM_CC);
-    switch (err)
-    {
-        case EINVAL:
-            rc = PLDM_ERROR_INVALID_DATA;
-            break;
-        case EBADMSG:
-        case EOVERFLOW:
-            rc = PLDM_ERROR_INVALID_LENGTH;
-            break;
-        default:
-            assert(false);
-            rc = PLDM_ERROR;
-            break;
-    }
-
-    assert(rc > 0);
-    return rc;
+	ctx->remaining = INTMAX_MIN;
+	return -EOVERFLOW;
 }
 
 /**
@@ -152,95 +117,34 @@ __attribute__((always_inline)) static inline int
  * @return 0 on success, otherwise an error code appropriate for the current
  *         personality.
  */
-__attribute__((always_inline)) static inline int
-    // NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
-    pldm__msgbuf_init(struct pldm_msgbuf* ctx, size_t minsize, const void* buf,
-                      size_t len)
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE
+LIBPLDM_CC_WARN_UNUSED_RESULT
+int
+// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
+pldm_msgbuf_init_errno(struct pldm_msgbuf *ctx, size_t minsize, const void *buf,
+		       size_t len)
 {
-    assert(ctx);
-    assert(ctx->mode == PLDM_MSGBUF_PLDM_CC ||
-           ctx->mode == PLDM_MSGBUF_C_ERRNO);
+	ctx->cursor = NULL;
 
-    if (!buf)
-    {
-        return pldm_msgbuf_status(ctx, EINVAL);
-    }
-
-    if ((minsize > len))
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
+	if ((minsize > len)) {
+		return pldm__msgbuf_invalidate(ctx);
+	}
 
 #if INTMAX_MAX < SIZE_MAX
-    if (len > INTMAX_MAX)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
+	if (len > INTMAX_MAX) {
+		return pldm__msgbuf_invalidate(ctx);
+	}
 #endif
 
-    if ((uintptr_t)buf + len < len)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
+	if (UINTPTR_MAX - (uintptr_t)buf < len) {
+		return pldm__msgbuf_invalidate(ctx);
+	}
 
-    ctx->cursor = (uint8_t*)buf;
-    ctx->remaining = (intmax_t)len;
+	ctx->cursor = (uint8_t *)buf;
+	ctx->remaining = (intmax_t)len;
 
-    return 0;
-}
-
-/**
- * @brief Initialise a msgbuf instance to return errors as PLDM completion codes
- *
- * @see pldm__msgbuf_init
- *
- * @param[out] ctx - pldm_msgbuf context for extractor
- * @param[in] minsize - The minimum required length of buffer `buf`
- * @param[in] buf - buffer to be extracted
- * @param[in] len - size of buffer
- *
- * @return PLDM_SUCCESS if the provided buffer region is sensible,
- *         otherwise PLDM_ERROR_INVALID_DATA if pointer parameters are invalid,
- *         or PLDM_ERROR_INVALID_LENGTH if length constraints are violated.
- */
-__attribute__((always_inline)) static inline int
-    pldm_msgbuf_init_cc(struct pldm_msgbuf* ctx, size_t minsize,
-                        const void* buf, size_t len)
-{
-    if (!ctx)
-    {
-        return PLDM_ERROR_INVALID_DATA;
-    }
-
-    ctx->mode = PLDM_MSGBUF_PLDM_CC;
-    return pldm__msgbuf_init(ctx, minsize, buf, len);
-}
-
-/**
- * @brief Initialise a msgbuf instance to return errors as negative errno values
- *
- * @see pldm__msgbuf_init
- *
- * @param[out] ctx - pldm_msgbuf context for extractor
- * @param[in] minsize - The minimum required length of buffer `buf`
- * @param[in] buf - buffer to be extracted
- * @param[in] len - size of buffer
- *
- * @return 0 if the provided buffer region is sensible, otherwise -EINVAL if
- *         pointer parameters are invalid, or -EOVERFLOW if length constraints
- *         are violated.
- */
-__attribute__((always_inline)) static inline int
-    pldm_msgbuf_init_errno(struct pldm_msgbuf* ctx, size_t minsize,
-                           const void* buf, size_t len)
-{
-    if (!ctx)
-    {
-        return -EINVAL;
-    }
-
-    ctx->mode = PLDM_MSGBUF_C_ERRNO;
-    return pldm__msgbuf_init(ctx, minsize, buf, len);
+	return 0;
 }
 
 /**
@@ -254,16 +158,16 @@ __attribute__((always_inline)) static inline int
  * PLDM_ERROR_INVALID_DATA indicates that the provided context was not a valid
  * pointer.
  */
-__attribute__((always_inline)) static inline int
-    pldm_msgbuf_validate(struct pldm_msgbuf* ctx)
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE
+LIBPLDM_CC_WARN_UNUSED_RESULT
+int pldm_msgbuf_validate(struct pldm_msgbuf *ctx)
 {
-    assert(ctx);
-    if (ctx->remaining < 0)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
+	if (ctx->remaining < 0) {
+		return -EOVERFLOW;
+	}
 
-    return 0;
+	return 0;
 }
 
 /**
@@ -271,71 +175,82 @@ __attribute__((always_inline)) static inline int
  *
  * @param[in] ctx - pldm_msgbuf context for extractor
  *
- * @return PLDM_SUCCESS iff there are zero bytes of data that remain unread from
- * the buffer and no overflow has occurred. Otherwise, PLDM_ERROR_INVALID_LENGTH
- * indicates that an incorrect sequence of accesses have occurred, and
- * PLDM_ERROR_INVALID_DATA indicates that the provided context was not a valid
- * pointer.
+ * @return 0 iff there are zero bytes of data that remain unread from the buffer
+ * and no overflow has occurred. Otherwise, -EBADMSG if the buffer has not been
+ * completely consumed, or -EOVERFLOW if accesses were attempted beyond the
+ * bounds of the buffer.
  */
-__attribute__((always_inline)) static inline int
-    pldm_msgbuf_consumed(struct pldm_msgbuf* ctx)
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE
+LIBPLDM_CC_WARN_UNUSED_RESULT
+int pldm_msgbuf_consumed(struct pldm_msgbuf *ctx)
 {
-    assert(ctx);
-    if (ctx->remaining != 0)
-    {
-        return pldm_msgbuf_status(ctx, EBADMSG);
-    }
+	if (ctx->remaining > 0) {
+		return -EBADMSG;
+	}
 
-    return 0;
+	if (ctx->remaining < 0) {
+		return -EOVERFLOW;
+	}
+
+	return 0;
 }
 
 /**
- * @brief Destroy the pldm buf
+ * @brief End use of a msgbuf under error conditions
+ *
+ * @param[in] ctx - The msgbuf instance to discard
+ * @param[in] error - The error value to propagate
+ *
+ * Under normal conditions use of a msgbuf instance must be ended using @ref
+ * pldm_msgbuf_complete or one of its related APIs. Under error conditions, @ref
+ * pldm_msgbuf_discard should be used instead, as it makes it straight-forward
+ * to finalise the msgbuf while propagating the existing error code.
+ *
+ * @return The value provided in @param error
+ */
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE
+LIBPLDM_CC_WARN_UNUSED_RESULT
+int pldm_msgbuf_discard(struct pldm_msgbuf *ctx, int error)
+{
+	ctx->cursor = NULL;
+	pldm__msgbuf_invalidate(ctx);
+	return error;
+}
+
+/**
+ * @brief Complete the pldm_msgbuf instance
  *
  * @param[in] ctx - pldm_msgbuf context for extractor
  *
- * @return PLDM_SUCCESS if all buffer accesses were in-bounds,
- * PLDM_ERROR_INVALID_DATA if the ctx parameter is invalid, or
- * PLDM_ERROR_INVALID_LENGTH if prior accesses would have occurred beyond the
- * bounds of the buffer.
+ * @return 0 if all buffer accesses were in-bounds, -EOVERFLOW otherwise.
  */
-__attribute__((always_inline)) static inline int
-    pldm_msgbuf_destroy(struct pldm_msgbuf* ctx)
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE
+LIBPLDM_CC_WARN_UNUSED_RESULT
+int pldm_msgbuf_complete(struct pldm_msgbuf *ctx)
 {
-    int valid;
-
-    assert(ctx);
-    valid = pldm_msgbuf_validate(ctx);
-
-    ctx->cursor = NULL;
-    ctx->remaining = 0;
-
-    return valid;
+	return pldm_msgbuf_discard(ctx, pldm_msgbuf_validate(ctx));
 }
 
 /**
- * @brief Destroy the pldm_msgbuf instance, and check that the underlying buffer
- * has been completely consumed without overflow
+ * @brief Complete the pldm_msgbuf instance, and check that the underlying buffer
+ * has been entirely consumed without overflow
  *
  * @param[in] ctx - pldm_msgbuf context
  *
- * @return PLDM_SUCCESS if all buffer access were in-bounds and completely
- * consume the underlying buffer. Otherwise, PLDM_ERROR_INVALID_DATA if the ctx
- * parameter is invalid, or PLDM_ERROR_INVALID_LENGTH if prior accesses would
- * have occurred byond the bounds of the buffer
+ * @return 0 if all buffer access were in-bounds and completely consume the
+ * underlying buffer. Otherwise, -EBADMSG if the buffer has not been completely
+ * consumed, or -EOVERFLOW if accesses were attempted beyond the bounds of the
+ * buffer.
  */
-__attribute__((always_inline)) static inline int
-    pldm_msgbuf_destroy_consumed(struct pldm_msgbuf* ctx)
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE
+LIBPLDM_CC_WARN_UNUSED_RESULT
+int pldm_msgbuf_complete_consumed(struct pldm_msgbuf *ctx)
 {
-    int consumed;
-
-    assert(ctx);
-    consumed = pldm_msgbuf_consumed(ctx);
-
-    ctx->cursor = NULL;
-    ctx->remaining = 0;
-
-    return consumed;
+	return pldm_msgbuf_discard(ctx, pldm_msgbuf_consumed(ctx));
 }
 
 /*
@@ -419,10 +334,10 @@ __attribute__((always_inline)) static inline int
  */
 #ifdef __cplusplus
 #define pldm_msgbuf_extract_typecheck(ty, fn, dst, ...)                        \
-    pldm_msgbuf_typecheck_##ty<decltype(dst)>(__VA_ARGS__)
+	pldm_msgbuf_typecheck_##ty<decltype(dst)>(__VA_ARGS__)
 #else
 #define pldm_msgbuf_extract_typecheck(ty, fn, dst, ...)                        \
-    (pldm_require_obj_type(dst, ty), fn(__VA_ARGS__))
+	(pldm_require_obj_type(dst, ty), fn(__VA_ARGS__))
 #endif
 
 /**
@@ -436,286 +351,228 @@ __attribute__((always_inline)) static inline int
  * PLDM_ERROR_INVALID_DATA if input a invalid ctx
  */
 #define pldm_msgbuf_extract_uint8(ctx, dst)                                    \
-    pldm_msgbuf_extract_typecheck(uint8_t, pldm__msgbuf_extract_uint8, dst,    \
-                                  ctx, dst)
-__attribute__((always_inline)) static inline int
-    // NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
-    pldm__msgbuf_extract_uint8(struct pldm_msgbuf* ctx, void* dst)
+	pldm_msgbuf_extract_typecheck(uint8_t, pldm__msgbuf_extract_uint8,     \
+				      dst, ctx, (void *)&(dst))
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE int
+// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
+pldm__msgbuf_extract_uint8(struct pldm_msgbuf *ctx, void *dst)
 {
-    assert(ctx);
+	if (ctx->remaining >= (intmax_t)sizeof(uint8_t)) {
+		assert(ctx->cursor);
+		memcpy(dst, ctx->cursor, sizeof(uint8_t));
+		ctx->cursor++;
+		ctx->remaining -= sizeof(uint8_t);
+		return 0;
+	}
 
-    if (!ctx->cursor || !dst)
-    {
-        return pldm_msgbuf_status(ctx, EINVAL);
-    }
+	if (ctx->remaining > INTMAX_MIN + (intmax_t)sizeof(uint8_t)) {
+		ctx->remaining -= sizeof(uint8_t);
+		return -EOVERFLOW;
+	}
 
-    if (ctx->remaining == INTMAX_MIN)
-    {
-        assert(ctx->remaining < 0);
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
-    ctx->remaining -= sizeof(uint8_t);
-    assert(ctx->remaining >= 0);
-    if (ctx->remaining < 0)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
-
-    memcpy(dst, ctx->cursor, sizeof(uint8_t));
-
-    ctx->cursor++;
-    return 0;
+	return pldm__msgbuf_invalidate(ctx);
 }
 
 #define pldm_msgbuf_extract_int8(ctx, dst)                                     \
-    pldm_msgbuf_extract_typecheck(int8_t, pldm__msgbuf_extract_int8, dst, ctx, \
-                                  dst)
-__attribute__((always_inline)) static inline int
-    // NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
-    pldm__msgbuf_extract_int8(struct pldm_msgbuf* ctx, void* dst)
+	pldm_msgbuf_extract_typecheck(int8_t, pldm__msgbuf_extract_int8, dst,  \
+				      ctx, (void *)&(dst))
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE int
+// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
+pldm__msgbuf_extract_int8(struct pldm_msgbuf *ctx, void *dst)
 {
-    assert(ctx);
+	if (ctx->remaining >= (intmax_t)sizeof(int8_t)) {
+		assert(ctx->cursor);
+		memcpy(dst, ctx->cursor, sizeof(int8_t));
+		ctx->cursor++;
+		ctx->remaining -= sizeof(int8_t);
+		return 0;
+	}
 
-    if (!ctx->cursor || !dst)
-    {
-        return pldm_msgbuf_status(ctx, EINVAL);
-    }
+	if (ctx->remaining > INTMAX_MIN + (intmax_t)sizeof(int8_t)) {
+		ctx->remaining -= sizeof(int8_t);
+		return -EOVERFLOW;
+	}
 
-    if (ctx->remaining == INTMAX_MIN)
-    {
-        assert(ctx->remaining < 0);
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
-    ctx->remaining -= sizeof(int8_t);
-    assert(ctx->remaining >= 0);
-    if (ctx->remaining < 0)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
-
-    memcpy(dst, ctx->cursor, sizeof(int8_t));
-    ctx->cursor++;
-    return 0;
+	return pldm__msgbuf_invalidate(ctx);
 }
 
 #define pldm_msgbuf_extract_uint16(ctx, dst)                                   \
-    pldm_msgbuf_extract_typecheck(uint16_t, pldm__msgbuf_extract_uint16, dst,  \
-                                  ctx, dst)
-__attribute__((always_inline)) static inline int
-    // NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
-    pldm__msgbuf_extract_uint16(struct pldm_msgbuf* ctx, void* dst)
+	pldm_msgbuf_extract_typecheck(uint16_t, pldm__msgbuf_extract_uint16,   \
+				      dst, ctx, (void *)&(dst))
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE int
+// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
+pldm__msgbuf_extract_uint16(struct pldm_msgbuf *ctx, void *dst)
 {
-    uint16_t ldst;
+	uint16_t ldst;
 
-    assert(ctx);
+	// Check for underflow while tracking the magnitude of the buffer overflow
+	static_assert(
+		// NOLINTNEXTLINE(bugprone-sizeof-expression)
+		sizeof(ldst) < INTMAX_MAX,
+		"The following addition may not uphold the runtime assertion");
 
-    if (!ctx->cursor || !dst)
-    {
-        return pldm_msgbuf_status(ctx, EINVAL);
-    }
+	if (ctx->remaining >= (intmax_t)sizeof(ldst)) {
+		assert(ctx->cursor);
 
-    // Check for underflow while tracking the magnitude of the buffer overflow
-    static_assert(
-        // NOLINTNEXTLINE(bugprone-sizeof-expression)
-        sizeof(ldst) < INTMAX_MAX,
-        "The following addition may not uphold the runtime assertion");
-    if (ctx->remaining < INTMAX_MIN + (intmax_t)sizeof(ldst))
-    {
-        assert(ctx->remaining < 0);
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
+		// Use memcpy() to have the compiler deal with any alignment
+		// issues on the target architecture
+		memcpy(&ldst, ctx->cursor, sizeof(ldst));
 
-    // Check for buffer overflow. If we overflow, account for the request as
-    // negative values in ctx->remaining. This way we can debug how far
-    // we've overflowed.
-    ctx->remaining -= sizeof(ldst);
+		// Only assign the target value once it's correctly decoded
+		ldst = le16toh(ldst);
 
-    // Prevent the access if it would overflow. First, assert so we blow up
-    // the test suite right at the point of failure. However, cater to
-    // -DNDEBUG by explicitly testing that the access is valid.
-    assert(ctx->remaining >= 0);
-    if (ctx->remaining < 0)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
+		// Allow storing to unaligned
+		memcpy(dst, &ldst, sizeof(ldst));
 
-    // Use memcpy() to have the compiler deal with any alignment
-    // issues on the target architecture
-    memcpy(&ldst, ctx->cursor, sizeof(ldst));
+		ctx->cursor += sizeof(ldst);
+		ctx->remaining -= sizeof(ldst);
+		return 0;
+	}
 
-    // Only assign the target value once it's correctly decoded
-    ldst = le16toh(ldst);
+	if (ctx->remaining > INTMAX_MIN + (intmax_t)sizeof(ldst)) {
+		ctx->remaining -= sizeof(ldst);
+		return -EOVERFLOW;
+	}
 
-    // Allow storing to unaligned
-    memcpy(dst, &ldst, sizeof(ldst));
-
-    ctx->cursor += sizeof(ldst);
-
-    return 0;
+	return pldm__msgbuf_invalidate(ctx);
 }
 
 #define pldm_msgbuf_extract_int16(ctx, dst)                                    \
-    pldm_msgbuf_extract_typecheck(int16_t, pldm__msgbuf_extract_int16, dst,    \
-                                  ctx, dst)
-__attribute__((always_inline)) static inline int
-    // NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
-    pldm__msgbuf_extract_int16(struct pldm_msgbuf* ctx, void* dst)
+	pldm_msgbuf_extract_typecheck(int16_t, pldm__msgbuf_extract_int16,     \
+				      dst, ctx, (void *)&(dst))
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE int
+// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
+pldm__msgbuf_extract_int16(struct pldm_msgbuf *ctx, void *dst)
 {
-    int16_t ldst;
+	int16_t ldst;
 
-    assert(ctx);
+	static_assert(
+		// NOLINTNEXTLINE(bugprone-sizeof-expression)
+		sizeof(ldst) < INTMAX_MAX,
+		"The following addition may not uphold the runtime assertion");
 
-    if (!ctx->cursor || !dst)
-    {
-        return pldm_msgbuf_status(ctx, EINVAL);
-    }
+	if (ctx->remaining >= (intmax_t)sizeof(ldst)) {
+		assert(ctx->cursor);
+		memcpy(&ldst, ctx->cursor, sizeof(ldst));
+		ldst = le16toh(ldst);
+		memcpy(dst, &ldst, sizeof(ldst));
+		ctx->cursor += sizeof(ldst);
+		ctx->remaining -= sizeof(ldst);
+		return 0;
+	}
 
-    static_assert(
-        // NOLINTNEXTLINE(bugprone-sizeof-expression)
-        sizeof(ldst) < INTMAX_MAX,
-        "The following addition may not uphold the runtime assertion");
-    if (ctx->remaining < INTMAX_MIN + (intmax_t)sizeof(ldst))
-    {
-        assert(ctx->remaining < 0);
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
-    ctx->remaining -= sizeof(ldst);
-    assert(ctx->remaining >= 0);
-    if (ctx->remaining < 0)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
+	if (ctx->remaining > INTMAX_MIN + (intmax_t)sizeof(ldst)) {
+		ctx->remaining -= sizeof(ldst);
+		return -EOVERFLOW;
+	}
 
-    memcpy(&ldst, ctx->cursor, sizeof(ldst));
-
-    ldst = le16toh(ldst);
-    memcpy(dst, &ldst, sizeof(ldst));
-    ctx->cursor += sizeof(ldst);
-
-    return 0;
+	return pldm__msgbuf_invalidate(ctx);
 }
 
 #define pldm_msgbuf_extract_uint32(ctx, dst)                                   \
-    pldm_msgbuf_extract_typecheck(uint32_t, pldm__msgbuf_extract_uint32, dst,  \
-                                  ctx, dst)
-__attribute__((always_inline)) static inline int
-    // NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
-    pldm__msgbuf_extract_uint32(struct pldm_msgbuf* ctx, void* dst)
+	pldm_msgbuf_extract_typecheck(uint32_t, pldm__msgbuf_extract_uint32,   \
+				      dst, ctx, (void *)&(dst))
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE int
+// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
+pldm__msgbuf_extract_uint32(struct pldm_msgbuf *ctx, void *dst)
 {
-    uint32_t ldst;
+	uint32_t ldst;
 
-    assert(ctx);
+	static_assert(
+		// NOLINTNEXTLINE(bugprone-sizeof-expression)
+		sizeof(ldst) < INTMAX_MAX,
+		"The following addition may not uphold the runtime assertion");
 
-    if (!ctx->cursor || !dst)
-    {
-        return pldm_msgbuf_status(ctx, EINVAL);
-    }
+	if (ctx->remaining >= (intmax_t)sizeof(ldst)) {
+		assert(ctx->cursor);
+		memcpy(&ldst, ctx->cursor, sizeof(ldst));
+		ldst = le32toh(ldst);
+		memcpy(dst, &ldst, sizeof(ldst));
+		ctx->cursor += sizeof(ldst);
+		ctx->remaining -= sizeof(ldst);
+		return 0;
+	}
 
-    static_assert(
-        // NOLINTNEXTLINE(bugprone-sizeof-expression)
-        sizeof(ldst) < INTMAX_MAX,
-        "The following addition may not uphold the runtime assertion");
-    if (ctx->remaining < INTMAX_MIN + (intmax_t)sizeof(ldst))
-    {
-        assert(ctx->remaining < 0);
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
-    ctx->remaining -= sizeof(ldst);
-    assert(ctx->remaining >= 0);
-    if (ctx->remaining < 0)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
+	if (ctx->remaining > INTMAX_MIN + (intmax_t)sizeof(ldst)) {
+		ctx->remaining -= sizeof(ldst);
+		return -EOVERFLOW;
+	}
 
-    memcpy(&ldst, ctx->cursor, sizeof(ldst));
-    ldst = le32toh(ldst);
-    memcpy(dst, &ldst, sizeof(ldst));
-    ctx->cursor += sizeof(ldst);
-
-    return 0;
+	return pldm__msgbuf_invalidate(ctx);
 }
 
 #define pldm_msgbuf_extract_int32(ctx, dst)                                    \
-    pldm_msgbuf_extract_typecheck(int32_t, pldm__msgbuf_extract_int32, dst,    \
-                                  ctx, dst)
-__attribute__((always_inline)) static inline int
-    // NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
-    pldm__msgbuf_extract_int32(struct pldm_msgbuf* ctx, void* dst)
+	pldm_msgbuf_extract_typecheck(int32_t, pldm__msgbuf_extract_int32,     \
+				      dst, ctx, (void *)&(dst))
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE int
+// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
+pldm__msgbuf_extract_int32(struct pldm_msgbuf *ctx, void *dst)
 {
-    int32_t ldst;
+	int32_t ldst;
 
-    assert(ctx);
+	static_assert(
+		// NOLINTNEXTLINE(bugprone-sizeof-expression)
+		sizeof(ldst) < INTMAX_MAX,
+		"The following addition may not uphold the runtime assertion");
 
-    if (!ctx->cursor || !dst)
-    {
-        return pldm_msgbuf_status(ctx, EINVAL);
-    }
+	if (ctx->remaining >= (intmax_t)sizeof(ldst)) {
+		assert(ctx->cursor);
+		memcpy(&ldst, ctx->cursor, sizeof(ldst));
+		ldst = le32toh(ldst);
+		memcpy(dst, &ldst, sizeof(ldst));
+		ctx->cursor += sizeof(ldst);
+		ctx->remaining -= sizeof(ldst);
+		return 0;
+	}
 
-    static_assert(
-        // NOLINTNEXTLINE(bugprone-sizeof-expression)
-        sizeof(ldst) < INTMAX_MAX,
-        "The following addition may not uphold the runtime assertion");
-    if (ctx->remaining < INTMAX_MIN + (intmax_t)sizeof(ldst))
-    {
-        assert(ctx->remaining < 0);
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
-    ctx->remaining -= sizeof(ldst);
-    assert(ctx->remaining >= 0);
-    if (ctx->remaining < 0)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
+	if (ctx->remaining > INTMAX_MIN + (intmax_t)sizeof(ldst)) {
+		ctx->remaining -= sizeof(ldst);
+		return -EOVERFLOW;
+	}
 
-    memcpy(&ldst, ctx->cursor, sizeof(ldst));
-    ldst = le32toh(ldst);
-    memcpy(dst, &ldst, sizeof(ldst));
-    ctx->cursor += sizeof(ldst);
-
-    return PLDM_SUCCESS;
+	return pldm__msgbuf_invalidate(ctx);
 }
 
 #define pldm_msgbuf_extract_real32(ctx, dst)                                   \
-    pldm_msgbuf_extract_typecheck(real32_t, pldm__msgbuf_extract_real32, dst,  \
-                                  ctx, dst)
-__attribute__((always_inline)) static inline int
-    // NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
-    pldm__msgbuf_extract_real32(struct pldm_msgbuf* ctx, void* dst)
+	pldm_msgbuf_extract_typecheck(real32_t, pldm__msgbuf_extract_real32,   \
+				      dst, ctx, (void *)&(dst))
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE int
+// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
+pldm__msgbuf_extract_real32(struct pldm_msgbuf *ctx, void *dst)
 {
-    uint32_t ldst;
+	uint32_t ldst;
 
-    static_assert(sizeof(real32_t) == sizeof(ldst),
-                  "Mismatched type sizes for dst and ldst");
+	static_assert(sizeof(real32_t) == sizeof(ldst),
+		      "Mismatched type sizes for dst and ldst");
 
-    assert(ctx);
+	static_assert(
+		// NOLINTNEXTLINE(bugprone-sizeof-expression)
+		sizeof(ldst) < INTMAX_MAX,
+		"The following addition may not uphold the runtime assertion");
 
-    if (!ctx->cursor || !dst)
-    {
-        return pldm_msgbuf_status(ctx, EINVAL);
-    }
+	if (ctx->remaining >= (intmax_t)sizeof(ldst)) {
+		assert(ctx->cursor);
+		memcpy(&ldst, ctx->cursor, sizeof(ldst));
+		ldst = le32toh(ldst);
+		memcpy(dst, &ldst, sizeof(ldst));
+		ctx->cursor += sizeof(ldst);
+		ctx->remaining -= sizeof(ldst);
+		return 0;
+	}
 
-    static_assert(
-        // NOLINTNEXTLINE(bugprone-sizeof-expression)
-        sizeof(ldst) < INTMAX_MAX,
-        "The following addition may not uphold the runtime assertion");
-    if (ctx->remaining < INTMAX_MIN + (intmax_t)sizeof(ldst))
-    {
-        assert(ctx->remaining < 0);
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
-    ctx->remaining -= sizeof(ldst);
-    assert(ctx->remaining >= 0);
-    if (ctx->remaining < 0)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
+	if (ctx->remaining > INTMAX_MIN + (intmax_t)sizeof(ldst)) {
+		ctx->remaining -= sizeof(ldst);
+		return -EOVERFLOW;
+	}
 
-    memcpy(&ldst, ctx->cursor, sizeof(ldst));
-    ldst = le32toh(ldst);
-    memcpy(dst, &ldst, sizeof(ldst));
-    ctx->cursor += sizeof(ldst);
-
-    return 0;
+	return pldm__msgbuf_invalidate(ctx);
 }
 
 /**
@@ -728,14 +585,14 @@ __attribute__((always_inline)) static inline int
  * @return PLDM_SUCCESS on success, otherwise another value on error
  */
 #define pldm_msgbuf_extract(ctx, dst)                                          \
-    _Generic((dst),                                                            \
-        uint8_t: pldm__msgbuf_extract_uint8,                                   \
-        int8_t: pldm__msgbuf_extract_int8,                                     \
-        uint16_t: pldm__msgbuf_extract_uint16,                                 \
-        int16_t: pldm__msgbuf_extract_int16,                                   \
-        uint32_t: pldm__msgbuf_extract_uint32,                                 \
-        int32_t: pldm__msgbuf_extract_int32,                                   \
-        real32_t: pldm__msgbuf_extract_real32)(ctx, (void*)&(dst))
+	_Generic((dst),                                                        \
+		uint8_t: pldm__msgbuf_extract_uint8,                           \
+		int8_t: pldm__msgbuf_extract_int8,                             \
+		uint16_t: pldm__msgbuf_extract_uint16,                         \
+		int16_t: pldm__msgbuf_extract_int16,                           \
+		uint32_t: pldm__msgbuf_extract_uint32,                         \
+		int32_t: pldm__msgbuf_extract_int32,                           \
+		real32_t: pldm__msgbuf_extract_real32)(ctx, (void *)&(dst))
 
 /**
  * Extract the field at the msgbuf cursor into the object pointed-to by dst.
@@ -747,369 +604,656 @@ __attribute__((always_inline)) static inline int
  * @return PLDM_SUCCESS on success, otherwise another value on error
  */
 #define pldm_msgbuf_extract_p(ctx, dst)                                        \
-    _Generic((dst),                                                            \
-        uint8_t*: pldm__msgbuf_extract_uint8,                                  \
-        int8_t*: pldm__msgbuf_extract_int8,                                    \
-        uint16_t*: pldm__msgbuf_extract_uint16,                                \
-        int16_t*: pldm__msgbuf_extract_int16,                                  \
-        uint32_t*: pldm__msgbuf_extract_uint32,                                \
-        int32_t*: pldm__msgbuf_extract_int32,                                  \
-        real32_t*: pldm__msgbuf_extract_real32)(ctx, dst)
+	_Generic((dst),                                                        \
+		uint8_t *: pldm__msgbuf_extract_uint8,                         \
+		int8_t *: pldm__msgbuf_extract_int8,                           \
+		uint16_t *: pldm__msgbuf_extract_uint16,                       \
+		int16_t *: pldm__msgbuf_extract_int16,                         \
+		uint32_t *: pldm__msgbuf_extract_uint32,                       \
+		int32_t *: pldm__msgbuf_extract_int32,                         \
+		real32_t *: pldm__msgbuf_extract_real32)(ctx, dst)
 
-__attribute__((always_inline)) static inline int
-    pldm_msgbuf_extract_array_uint8(struct pldm_msgbuf* ctx, uint8_t* dst,
-                                    size_t count)
+/**
+ * @ref pldm_msgbuf_extract_array
+ */
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_WARN_UNUSED_RESULT
+LIBPLDM_CC_ALWAYS_INLINE int
+// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
+pldm__msgbuf_extract_array_void(struct pldm_msgbuf *ctx, size_t count,
+				void *dst, size_t dst_count)
 {
-    assert(ctx);
+	if (count > dst_count) {
+		return -EINVAL;
+	}
 
-    if (!ctx->cursor || !dst)
-    {
-        return pldm_msgbuf_status(ctx, EINVAL);
-    }
-
-    if (!count)
-    {
-        return 0;
-    }
+	if (!count) {
+		return 0;
+	}
 
 #if INTMAX_MAX < SIZE_MAX
-    if (count > INTMAX_MAX)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
+	if (count > INTMAX_MAX) {
+		return pldm__msgbuf_invalidate(ctx);
+	}
 #endif
 
-    if (ctx->remaining < INTMAX_MIN + (intmax_t)count)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
-    ctx->remaining -= (intmax_t)count;
-    assert(ctx->remaining >= 0);
-    if (ctx->remaining < 0)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
+	if (ctx->remaining >= (intmax_t)count) {
+		assert(ctx->cursor);
+		memcpy(dst, ctx->cursor, count);
+		ctx->cursor += count;
+		ctx->remaining -= (intmax_t)count;
+		return 0;
+	}
 
-    memcpy(dst, ctx->cursor, count);
-    ctx->cursor += count;
+	if (ctx->remaining > INTMAX_MIN + (intmax_t)count) {
+		ctx->remaining -= (intmax_t)count;
+		return -EOVERFLOW;
+	}
 
-    return 0;
+	return pldm__msgbuf_invalidate(ctx);
 }
 
-#define pldm_msgbuf_extract_array(ctx, dst, count)                             \
-    _Generic((*(dst)), uint8_t: pldm_msgbuf_extract_array_uint8)(ctx, dst,     \
-                                                                 count)
-
-__attribute__((always_inline)) static inline int
-    pldm_msgbuf_insert_uint32(struct pldm_msgbuf* ctx, const uint32_t src)
+/**
+ * @ref pldm_msgbuf_extract_array
+ */
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_WARN_UNUSED_RESULT
+LIBPLDM_CC_ALWAYS_INLINE int
+pldm_msgbuf_extract_array_char(struct pldm_msgbuf *ctx, size_t count, char *dst,
+			       size_t dst_count)
 {
-    uint32_t val = htole32(src);
-
-    assert(ctx);
-
-    if (!ctx->cursor)
-    {
-        return pldm_msgbuf_status(ctx, EINVAL);
-    }
-
-    static_assert(
-        // NOLINTNEXTLINE(bugprone-sizeof-expression)
-        sizeof(src) < INTMAX_MAX,
-        "The following addition may not uphold the runtime assertion");
-    if (ctx->remaining < INTMAX_MIN + (intmax_t)sizeof(src))
-    {
-        assert(ctx->remaining < 0);
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
-    ctx->remaining -= sizeof(src);
-    assert(ctx->remaining >= 0);
-    if (ctx->remaining < 0)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
-
-    memcpy(ctx->cursor, &val, sizeof(val));
-    ctx->cursor += sizeof(src);
-
-    return 0;
+	return pldm__msgbuf_extract_array_void(ctx, count, dst, dst_count);
 }
 
-__attribute__((always_inline)) static inline int
-    pldm_msgbuf_insert_uint16(struct pldm_msgbuf* ctx, const uint16_t src)
+/**
+ * @ref pldm_msgbuf_extract_array
+ */
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_WARN_UNUSED_RESULT
+LIBPLDM_CC_ALWAYS_INLINE int
+pldm_msgbuf_extract_array_uint8(struct pldm_msgbuf *ctx, size_t count,
+				uint8_t *dst, size_t dst_count)
 {
-    uint16_t val = htole16(src);
-
-    assert(ctx);
-
-    if (!ctx->cursor)
-    {
-        return pldm_msgbuf_status(ctx, EINVAL);
-    }
-
-    static_assert(
-        // NOLINTNEXTLINE(bugprone-sizeof-expression)
-        sizeof(src) < INTMAX_MAX,
-        "The following addition may not uphold the runtime assertion");
-    if (ctx->remaining < INTMAX_MIN + (intmax_t)sizeof(src))
-    {
-        assert(ctx->remaining < 0);
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
-    ctx->remaining -= sizeof(src);
-    assert(ctx->remaining >= 0);
-    if (ctx->remaining < 0)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
-
-    memcpy(ctx->cursor, &val, sizeof(val));
-    ctx->cursor += sizeof(src);
-
-    return 0;
+	return pldm__msgbuf_extract_array_void(ctx, count, dst, dst_count);
 }
 
-__attribute__((always_inline)) static inline int
-    pldm_msgbuf_insert_uint8(struct pldm_msgbuf* ctx, const uint8_t src)
+/**
+ * Extract an array of data from the msgbuf instance
+ *
+ * @param ctx - The msgbuf instance from which to extract an array of data
+ * @param count - The number of array elements to extract
+ * @param dst - The array object into which elements from @p ctx should be
+                extracted
+ * @param dst_count - The maximum number of elements to place into @p dst
+ *
+ * Note that both @p count and @p dst_count can only be counted by `sizeof` for
+ * arrays where `sizeof(*dst) == 1` holds. Specifically, they count the number
+ * of array elements and _not_ the object size of the array.
+ */
+#define pldm_msgbuf_extract_array(ctx, count, dst, dst_count)                  \
+	_Generic((*(dst)),                                                     \
+		uint8_t: pldm_msgbuf_extract_array_uint8,                      \
+		char: pldm_msgbuf_extract_array_char)(ctx, count, dst,         \
+						      dst_count)
+
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE int pldm_msgbuf_insert_uint64(struct pldm_msgbuf *ctx,
+						       const uint64_t src)
 {
-    assert(ctx);
+	uint64_t val = htole64(src);
 
-    if (!ctx->cursor)
-    {
-        return pldm_msgbuf_status(ctx, EINVAL);
-    }
+	static_assert(
+		// NOLINTNEXTLINE(bugprone-sizeof-expression)
+		sizeof(src) < INTMAX_MAX,
+		"The following addition may not uphold the runtime assertion");
 
-    static_assert(
-        // NOLINTNEXTLINE(bugprone-sizeof-expression)
-        sizeof(src) < INTMAX_MAX,
-        "The following addition may not uphold the runtime assertion");
-    if (ctx->remaining < INTMAX_MIN + (intmax_t)sizeof(src))
-    {
-        assert(ctx->remaining < 0);
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
-    ctx->remaining -= sizeof(src);
-    assert(ctx->remaining >= 0);
-    if (ctx->remaining < 0)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
+	if (ctx->remaining >= (intmax_t)sizeof(src)) {
+		assert(ctx->cursor);
+		memcpy(ctx->cursor, &val, sizeof(val));
+		ctx->cursor += sizeof(src);
+		ctx->remaining -= sizeof(src);
+		return 0;
+	}
 
-    memcpy(ctx->cursor, &src, sizeof(src));
-    ctx->cursor += sizeof(src);
+	if (ctx->remaining > INTMAX_MIN + (intmax_t)sizeof(src)) {
+		ctx->remaining -= sizeof(src);
+		return -EOVERFLOW;
+	}
 
-    return 0;
+	return pldm__msgbuf_invalidate(ctx);
 }
 
-__attribute__((always_inline)) static inline int
-    pldm_msgbuf_insert_int32(struct pldm_msgbuf* ctx, const int32_t src)
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE int pldm_msgbuf_insert_uint32(struct pldm_msgbuf *ctx,
+						       const uint32_t src)
 {
-    int32_t val = htole32(src);
+	uint32_t val = htole32(src);
 
-    assert(ctx);
+	static_assert(
+		// NOLINTNEXTLINE(bugprone-sizeof-expression)
+		sizeof(src) < INTMAX_MAX,
+		"The following addition may not uphold the runtime assertion");
 
-    if (!ctx->cursor)
-    {
-        return pldm_msgbuf_status(ctx, EINVAL);
-    }
+	if (ctx->remaining >= (intmax_t)sizeof(src)) {
+		assert(ctx->cursor);
+		memcpy(ctx->cursor, &val, sizeof(val));
+		ctx->cursor += sizeof(src);
+		ctx->remaining -= sizeof(src);
+		return 0;
+	}
 
-    static_assert(
-        // NOLINTNEXTLINE(bugprone-sizeof-expression)
-        sizeof(src) < INTMAX_MAX,
-        "The following addition may not uphold the runtime assertion");
-    if (ctx->remaining < INTMAX_MIN + (intmax_t)sizeof(src))
-    {
-        assert(ctx->remaining < 0);
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
-    ctx->remaining -= sizeof(src);
-    assert(ctx->remaining >= 0);
-    if (ctx->remaining < 0)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
+	if (ctx->remaining > INTMAX_MIN + (intmax_t)sizeof(src)) {
+		ctx->remaining -= sizeof(src);
+		return -EOVERFLOW;
+	}
 
-    memcpy(ctx->cursor, &val, sizeof(val));
-    ctx->cursor += sizeof(src);
-
-    return 0;
+	return pldm__msgbuf_invalidate(ctx);
 }
 
-__attribute__((always_inline)) static inline int
-    pldm_msgbuf_insert_int16(struct pldm_msgbuf* ctx, const int16_t src)
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE int pldm_msgbuf_insert_uint16(struct pldm_msgbuf *ctx,
+						       const uint16_t src)
 {
-    int16_t val = htole16(src);
+	uint16_t val = htole16(src);
 
-    assert(ctx);
+	static_assert(
+		// NOLINTNEXTLINE(bugprone-sizeof-expression)
+		sizeof(src) < INTMAX_MAX,
+		"The following addition may not uphold the runtime assertion");
 
-    if (!ctx->cursor)
-    {
-        return pldm_msgbuf_status(ctx, EINVAL);
-    }
+	if (ctx->remaining >= (intmax_t)sizeof(src)) {
+		assert(ctx->cursor);
+		memcpy(ctx->cursor, &val, sizeof(val));
+		ctx->cursor += sizeof(src);
+		ctx->remaining -= sizeof(src);
+		return 0;
+	}
 
-    static_assert(
-        // NOLINTNEXTLINE(bugprone-sizeof-expression)
-        sizeof(src) < INTMAX_MAX,
-        "The following addition may not uphold the runtime assertion");
-    if (ctx->remaining < INTMAX_MIN + (intmax_t)sizeof(src))
-    {
-        assert(ctx->remaining < 0);
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
-    ctx->remaining -= sizeof(src);
-    assert(ctx->remaining >= 0);
-    if (ctx->remaining < 0)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
+	if (ctx->remaining > INTMAX_MIN + (intmax_t)sizeof(src)) {
+		ctx->remaining -= sizeof(src);
+		return -EOVERFLOW;
+	}
 
-    memcpy(ctx->cursor, &val, sizeof(val));
-    ctx->cursor += sizeof(src);
-
-    return 0;
+	return pldm__msgbuf_invalidate(ctx);
 }
 
-__attribute__((always_inline)) static inline int
-    pldm_msgbuf_insert_int8(struct pldm_msgbuf* ctx, const int8_t src)
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE int pldm_msgbuf_insert_uint8(struct pldm_msgbuf *ctx,
+						      const uint8_t src)
 {
-    assert(ctx);
+	static_assert(
+		// NOLINTNEXTLINE(bugprone-sizeof-expression)
+		sizeof(src) < INTMAX_MAX,
+		"The following addition may not uphold the runtime assertion");
 
-    if (!ctx->cursor)
-    {
-        return pldm_msgbuf_status(ctx, EINVAL);
-    }
+	if (ctx->remaining >= (intmax_t)sizeof(src)) {
+		assert(ctx->cursor);
+		memcpy(ctx->cursor, &src, sizeof(src));
+		ctx->cursor += sizeof(src);
+		ctx->remaining -= sizeof(src);
+		return 0;
+	}
 
-    static_assert(
-        // NOLINTNEXTLINE(bugprone-sizeof-expression)
-        sizeof(src) < INTMAX_MAX,
-        "The following addition may not uphold the runtime assertion");
-    if (ctx->remaining < INTMAX_MIN + (intmax_t)sizeof(src))
-    {
-        assert(ctx->remaining < 0);
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
-    ctx->remaining -= sizeof(src);
-    assert(ctx->remaining >= 0);
-    if (ctx->remaining < 0)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
+	if (ctx->remaining > INTMAX_MIN + (intmax_t)sizeof(src)) {
+		ctx->remaining -= sizeof(src);
+		return -EOVERFLOW;
+	}
 
-    memcpy(ctx->cursor, &src, sizeof(src));
-    ctx->cursor += sizeof(src);
+	return pldm__msgbuf_invalidate(ctx);
+}
 
-    return 0;
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE int pldm_msgbuf_insert_int32(struct pldm_msgbuf *ctx,
+						      const int32_t src)
+{
+	int32_t val = htole32(src);
+
+	static_assert(
+		// NOLINTNEXTLINE(bugprone-sizeof-expression)
+		sizeof(src) < INTMAX_MAX,
+		"The following addition may not uphold the runtime assertion");
+
+	if (ctx->remaining >= (intmax_t)sizeof(src)) {
+		assert(ctx->cursor);
+		memcpy(ctx->cursor, &val, sizeof(val));
+		ctx->cursor += sizeof(src);
+		ctx->remaining -= sizeof(src);
+		return 0;
+	}
+
+	if (ctx->remaining > INTMAX_MIN + (intmax_t)sizeof(src)) {
+		ctx->remaining -= sizeof(src);
+		return -EOVERFLOW;
+	}
+
+	return pldm__msgbuf_invalidate(ctx);
+}
+
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE int pldm_msgbuf_insert_int16(struct pldm_msgbuf *ctx,
+						      const int16_t src)
+{
+	int16_t val = htole16(src);
+
+	static_assert(
+		// NOLINTNEXTLINE(bugprone-sizeof-expression)
+		sizeof(src) < INTMAX_MAX,
+		"The following addition may not uphold the runtime assertion");
+
+	if (ctx->remaining >= (intmax_t)sizeof(src)) {
+		assert(ctx->cursor);
+		memcpy(ctx->cursor, &val, sizeof(val));
+		ctx->cursor += sizeof(src);
+		ctx->remaining -= sizeof(src);
+		return 0;
+	}
+
+	if (ctx->remaining > INTMAX_MIN + (intmax_t)sizeof(src)) {
+		ctx->remaining -= sizeof(src);
+		return -EOVERFLOW;
+	}
+
+	return pldm__msgbuf_invalidate(ctx);
+}
+
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE int pldm_msgbuf_insert_int8(struct pldm_msgbuf *ctx,
+						     const int8_t src)
+{
+	static_assert(
+		// NOLINTNEXTLINE(bugprone-sizeof-expression)
+		sizeof(src) < INTMAX_MAX,
+		"The following addition may not uphold the runtime assertion");
+
+	if (ctx->remaining >= (intmax_t)sizeof(src)) {
+		assert(ctx->cursor);
+		memcpy(ctx->cursor, &src, sizeof(src));
+		ctx->cursor += sizeof(src);
+		ctx->remaining -= sizeof(src);
+		return 0;
+	}
+
+	if (ctx->remaining > INTMAX_MIN + (intmax_t)sizeof(src)) {
+		ctx->remaining -= sizeof(src);
+		return -EOVERFLOW;
+	}
+
+	return pldm__msgbuf_invalidate(ctx);
 }
 
 #define pldm_msgbuf_insert(dst, src)                                           \
-    _Generic((src),                                                            \
-        uint8_t: pldm_msgbuf_insert_uint8,                                     \
-        int8_t: pldm_msgbuf_insert_int8,                                       \
-        uint16_t: pldm_msgbuf_insert_uint16,                                   \
-        int16_t: pldm_msgbuf_insert_int16,                                     \
-        uint32_t: pldm_msgbuf_insert_uint32,                                   \
-        int32_t: pldm_msgbuf_insert_int32)(dst, src)
+	_Generic((src),                                                        \
+		uint8_t: pldm_msgbuf_insert_uint8,                             \
+		int8_t: pldm_msgbuf_insert_int8,                               \
+		uint16_t: pldm_msgbuf_insert_uint16,                           \
+		int16_t: pldm_msgbuf_insert_int16,                             \
+		uint32_t: pldm_msgbuf_insert_uint32,                           \
+		int32_t: pldm_msgbuf_insert_int32,                             \
+		uint64_t: pldm_msgbuf_insert_uint64)(dst, src)
 
-__attribute__((always_inline)) static inline int
-    pldm_msgbuf_insert_array_uint8(struct pldm_msgbuf* ctx, const uint8_t* src,
-                                   size_t count)
+/**
+ * @ref pldm_msgbuf_insert_array
+ */
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_WARN_UNUSED_RESULT
+LIBPLDM_CC_ALWAYS_INLINE int
+// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
+pldm__msgbuf_insert_array_void(struct pldm_msgbuf *ctx, size_t count,
+			       const void *src, size_t src_count)
 {
-    assert(ctx);
+	if (count > src_count) {
+		return -EINVAL;
+	}
 
-    if (!ctx->cursor || !src)
-    {
-        return pldm_msgbuf_status(ctx, EINVAL);
-    }
-
-    if (!count)
-    {
-        return 0;
-    }
+	if (!count) {
+		return 0;
+	}
 
 #if INTMAX_MAX < SIZE_MAX
-    if (count > INTMAX_MAX)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
+	if (count > INTMAX_MAX) {
+		return pldm__msgbuf_invalidate(ctx);
+	}
 #endif
 
-    if (ctx->remaining < INTMAX_MIN + (intmax_t)count)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
-    ctx->remaining -= (intmax_t)count;
-    assert(ctx->remaining >= 0);
-    if (ctx->remaining < 0)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
+	if (ctx->remaining >= (intmax_t)count) {
+		assert(ctx->cursor);
+		memcpy(ctx->cursor, src, count);
+		ctx->cursor += count;
+		ctx->remaining -= (intmax_t)count;
+		return 0;
+	}
 
-    memcpy(ctx->cursor, src, count);
-    ctx->cursor += count;
+	if (ctx->remaining > INTMAX_MIN + (intmax_t)count) {
+		ctx->remaining -= (intmax_t)count;
+		return -EOVERFLOW;
+	}
 
-    return 0;
+	return pldm__msgbuf_invalidate(ctx);
 }
 
-#define pldm_msgbuf_insert_array(dst, src, count)                              \
-    _Generic((*(src)), uint8_t: pldm_msgbuf_insert_array_uint8)(dst, src, count)
-
-__attribute__((always_inline)) static inline int
-    pldm_msgbuf_span_required(struct pldm_msgbuf* ctx, size_t required,
-                              void** cursor)
+/**
+ * @ref pldm_msgbuf_insert_array
+ */
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_WARN_UNUSED_RESULT
+LIBPLDM_CC_ALWAYS_INLINE int
+pldm_msgbuf_insert_array_char(struct pldm_msgbuf *ctx, size_t count,
+			      const char *src, size_t src_count)
 {
-    assert(ctx);
+	return pldm__msgbuf_insert_array_void(ctx, count, src, src_count);
+}
 
-    if (!ctx->cursor || !cursor || *cursor)
-    {
-        return pldm_msgbuf_status(ctx, EINVAL);
-    }
+/**
+ * @ref pldm_msgbuf_insert_array
+ */
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_WARN_UNUSED_RESULT
+LIBPLDM_CC_ALWAYS_INLINE int
+pldm_msgbuf_insert_array_uint8(struct pldm_msgbuf *ctx, size_t count,
+			       const uint8_t *src, size_t src_count)
+{
+	return pldm__msgbuf_insert_array_void(ctx, count, src, src_count);
+}
 
+/**
+ * Insert an array of data into the msgbuf instance
+ *
+ * @param ctx - The msgbuf instance into which the array of data should be
+ *              inserted
+ * @param count - The number of array elements to insert
+ * @param src - The array object from which elements should be inserted into
+                @p ctx
+ * @param src_count - The maximum number of elements to insert from @p src
+ *
+ * Note that both @p count and @p src_count can only be counted by `sizeof` for
+ * arrays where `sizeof(*dst) == 1` holds. Specifically, they count the number
+ * of array elements and _not_ the object size of the array.
+ */
+#define pldm_msgbuf_insert_array(dst, count, src, src_count)                   \
+	_Generic((*(src)),                                                     \
+		uint8_t: pldm_msgbuf_insert_array_uint8,                       \
+		char: pldm_msgbuf_insert_array_char)(dst, count, src,          \
+						     src_count)
+
+LIBPLDM_CC_NONNULL_ARGS(1)
+LIBPLDM_CC_ALWAYS_INLINE int pldm_msgbuf_span_required(struct pldm_msgbuf *ctx,
+						       size_t required,
+						       void **cursor)
+{
 #if INTMAX_MAX < SIZE_MAX
-    if (required > INTMAX_MAX)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
+	if (required > INTMAX_MAX) {
+		return pldm__msgbuf_invalidate(ctx);
+	}
 #endif
 
-    if (ctx->remaining < INTMAX_MIN + (intmax_t)required)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
-    ctx->remaining -= (intmax_t)required;
-    assert(ctx->remaining >= 0);
-    if (ctx->remaining < 0)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
+	if (ctx->remaining >= (intmax_t)required) {
+		assert(ctx->cursor);
+		if (cursor) {
+			*cursor = ctx->cursor;
+		}
+		ctx->cursor += required;
+		ctx->remaining -= (intmax_t)required;
+		return 0;
+	}
 
-    *cursor = ctx->cursor;
-    ctx->cursor += required;
+	if (ctx->remaining > INTMAX_MIN + (intmax_t)required) {
+		ctx->remaining -= (intmax_t)required;
+		return -EOVERFLOW;
+	}
 
-    return 0;
+	return pldm__msgbuf_invalidate(ctx);
 }
 
-__attribute__((always_inline)) static inline int
-    pldm_msgbuf_span_remaining(struct pldm_msgbuf* ctx, void** cursor,
-                               size_t* len)
+LIBPLDM_CC_NONNULL_ARGS(1)
+LIBPLDM_CC_ALWAYS_INLINE int
+pldm_msgbuf_span_string_ascii(struct pldm_msgbuf *ctx, void **cursor,
+			      size_t *length)
 {
-    assert(ctx);
+	intmax_t measured;
 
-    if (!ctx->cursor || !cursor || *cursor || !len)
-    {
-        return pldm_msgbuf_status(ctx, EINVAL);
-    }
+	if (ctx->remaining < 0) {
+		return pldm__msgbuf_invalidate(ctx);
+	}
+	assert(ctx->cursor);
 
-    assert(ctx->remaining >= 0);
-    if (ctx->remaining < 0)
-    {
-        return pldm_msgbuf_status(ctx, EOVERFLOW);
-    }
+	measured = (intmax_t)strnlen((const char *)ctx->cursor, ctx->remaining);
+	if (measured == ctx->remaining) {
+		return pldm__msgbuf_invalidate(ctx);
+	}
 
-    *cursor = ctx->cursor;
-    ctx->cursor += ctx->remaining;
-    *len = ctx->remaining;
-    ctx->remaining = 0;
+	/* Include the NUL terminator in the span length, as spans are opaque */
+	measured++;
 
-    return 0;
+	if (ctx->remaining >= measured) {
+		assert(ctx->cursor);
+		if (cursor) {
+			*cursor = ctx->cursor;
+		}
+
+		ctx->cursor += measured;
+
+		if (length) {
+			*length = measured;
+		}
+
+		ctx->remaining -= measured;
+		return 0;
+	}
+
+	if (ctx->remaining > INTMAX_MIN + measured) {
+		ctx->remaining -= measured;
+		return -EOVERFLOW;
+	}
+
+	return pldm__msgbuf_invalidate(ctx);
+}
+
+LIBPLDM_CC_NONNULL_ARGS(1)
+LIBPLDM_CC_ALWAYS_INLINE int
+pldm_msgbuf_span_string_utf16(struct pldm_msgbuf *ctx, void **cursor,
+			      size_t *length)
+{
+	static const char16_t term = 0;
+	ptrdiff_t measured;
+	void *end;
+
+	if (ctx->remaining < 0) {
+		return pldm__msgbuf_invalidate(ctx);
+	}
+	assert(ctx->cursor);
+
+	/*
+	 * Avoid tripping up on UTF16-LE: We may have consecutive NUL _bytes_ that do
+	 * not form a UTF16 NUL _code-point_ due to alignment with respect to the
+	 * start of the string
+	 */
+	end = ctx->cursor;
+	do {
+		if (end != ctx->cursor) {
+			/*
+			 * If we've looped we've found a relatively-unaligned NUL code-point.
+			 * Scan again from a relatively-aligned start point.
+			 */
+			end = (char *)end + 1;
+		}
+		measured = (char *)end - (char *)ctx->cursor;
+		end = memmem(end, ctx->remaining - measured, &term,
+			     sizeof(term));
+	} while (end && ((uintptr_t)end & 1) != ((uintptr_t)ctx->cursor & 1));
+
+	if (!end) {
+		/*
+		 * Optimistically, the last required pattern byte was one beyond the end of
+		 * the buffer. Setting ctx->remaining negative ensures the
+		 * `pldm_msgbuf_complete*()` APIs also return an error.
+		 */
+		return pldm__msgbuf_invalidate(ctx);
+	}
+
+	end = (char *)end + sizeof(char16_t);
+	measured = (char *)end - (char *)ctx->cursor;
+
+#if INTMAX_MAX < PTRDIFF_MAX
+	if (measured >= INTMAX_MAX) {
+		return pldm__msgbuf_invalidate(ctx);
+	}
+#endif
+
+	if (ctx->remaining >= (intmax_t)measured) {
+		assert(ctx->cursor);
+		if (cursor) {
+			*cursor = ctx->cursor;
+		}
+
+		ctx->cursor += measured;
+
+		if (length) {
+			*length = (size_t)measured;
+		}
+
+		ctx->remaining -= (intmax_t)measured;
+		return 0;
+	}
+
+	if (ctx->remaining > INTMAX_MIN + (intmax_t)measured) {
+		ctx->remaining -= (intmax_t)measured;
+		return -EOVERFLOW;
+	}
+
+	return pldm__msgbuf_invalidate(ctx);
+}
+
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE int
+pldm_msgbuf_span_remaining(struct pldm_msgbuf *ctx, void **cursor, size_t *len)
+{
+	if (ctx->remaining < 0) {
+		return -EOVERFLOW;
+	}
+
+	assert(ctx->cursor);
+	*cursor = ctx->cursor;
+	ctx->cursor += ctx->remaining;
+	*len = ctx->remaining;
+	ctx->remaining = 0;
+
+	return 0;
+}
+
+LIBPLDM_CC_NONNULL_ARGS(1)
+LIBPLDM_CC_ALWAYS_INLINE
+int pldm_msgbuf_span_until(struct pldm_msgbuf *ctx, size_t trailer,
+			   void **cursor, size_t *length)
+{
+#if INTMAX_MAX < SIZE_MAX
+	if (trailer > INTMAX_MAX) {
+		return pldm__msgbuf_invalidate(ctx);
+	}
+#endif
+
+	if (ctx->remaining >= (intmax_t)trailer) {
+		ptrdiff_t delta;
+
+		assert(ctx->cursor);
+
+		delta = ctx->remaining - (intmax_t)trailer;
+		if (cursor) {
+			*cursor = ctx->cursor;
+		}
+		ctx->cursor += delta;
+		if (length) {
+			*length = delta;
+		}
+		ctx->remaining = (intmax_t)trailer;
+		return 0;
+	}
+
+	if (ctx->remaining > INTMAX_MIN + (intmax_t)trailer) {
+		ctx->remaining = INTMAX_MIN + (intmax_t)trailer;
+		return -EOVERFLOW;
+	}
+
+	return pldm__msgbuf_invalidate(ctx);
+}
+
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE int
+pldm_msgbuf_peek_remaining(struct pldm_msgbuf *ctx, void **cursor, size_t *len)
+{
+	if (ctx->remaining < 0) {
+		return -EOVERFLOW;
+	}
+
+	assert(ctx->cursor);
+	*cursor = ctx->cursor;
+	*len = ctx->remaining;
+
+	return 0;
+}
+
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE int pldm_msgbuf_skip(struct pldm_msgbuf *ctx,
+					      size_t count)
+{
+#if INTMAX_MAX < SIZE_MAX
+	if (count > INTMAX_MAX) {
+		return pldm__msgbuf_invalidate(ctx);
+	}
+#endif
+
+	if (ctx->remaining >= (intmax_t)count) {
+		assert(ctx->cursor);
+		ctx->cursor += count;
+		ctx->remaining -= (intmax_t)count;
+		return 0;
+	}
+
+	if (ctx->remaining > INTMAX_MIN + (intmax_t)count) {
+		ctx->remaining -= (intmax_t)count;
+		return -EOVERFLOW;
+	}
+
+	return pldm__msgbuf_invalidate(ctx);
+}
+
+/**
+ * @brief Complete the pldm_msgbuf instance and return the number of bytes
+ * consumed.
+ *
+ * @param ctx - The msgbuf.
+ * @param orig_len - The original size of the msgbuf, the `len` argument passed to
+ * 		pldm_msgbuf_init_errno().
+ * @param ret_used_len - The number of bytes that have been used from the msgbuf instance.
+ *
+ * This can be called after a number of pldm_msgbuf_insert...() calls to
+ * determine the total size that was written.
+ *
+ * @return 0 on success, -EOVERFLOW if an implausible orig_len was provided or
+ * an out-of-bounds access occurred.
+ */
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE
+LIBPLDM_CC_WARN_UNUSED_RESULT
+int pldm_msgbuf_complete_used(struct pldm_msgbuf *ctx, size_t orig_len,
+			      size_t *ret_used_len)
+{
+	int rc;
+
+	ctx->cursor = NULL;
+	rc = pldm_msgbuf_validate(ctx);
+	if (rc) {
+		pldm__msgbuf_invalidate(ctx);
+		return rc;
+	}
+
+	if ((size_t)ctx->remaining > orig_len) {
+		/* Caller passed incorrect orig_len */
+		return pldm__msgbuf_invalidate(ctx);
+	}
+
+	*ret_used_len = orig_len - ctx->remaining;
+	pldm__msgbuf_invalidate(ctx);
+	return 0;
 }
 
 /**
@@ -1125,57 +1269,172 @@ __attribute__((always_inline)) static inline int
  * PLDM_ERROR_INVALID_DATA if input is invalid
  */
 #define pldm_msgbuf_copy(dst, src, type, name)                                 \
-    pldm__msgbuf_copy(dst, src, sizeof(type), #name)
-__attribute__((always_inline)) static inline int
-    // NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
-    pldm__msgbuf_copy(struct pldm_msgbuf* dst, struct pldm_msgbuf* src,
-                      size_t size, const char* description)
+	pldm__msgbuf_copy(dst, src, sizeof(type), #name)
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE int
+// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
+pldm__msgbuf_copy(struct pldm_msgbuf *dst, struct pldm_msgbuf *src, size_t size,
+		  const char *description LIBPLDM_CC_UNUSED)
 {
-    assert(src);
-    assert(dst);
-    assert(src->mode == dst->mode);
-
-    if (!src->cursor || !dst->cursor || !description)
-    {
-        return pldm_msgbuf_status(dst, EINVAL);
-    }
-
 #if INTMAX_MAX < SIZE_MAX
-    if (size > INTMAX_MAX)
-    {
-        return pldm_msgbuf_status(dst, EOVERFLOW);
-    }
+	if (size > INTMAX_MAX) {
+		pldm__msgbuf_invalidate(src);
+		pldm__msgbuf_invalidate(dst);
+		return -EOVERFLOW;
+	}
 #endif
 
-    if (src->remaining < INTMAX_MIN + (intmax_t)size)
-    {
-        return pldm_msgbuf_status(dst, EOVERFLOW);
-    }
+	if (src->remaining >= (intmax_t)size &&
+	    dst->remaining >= (intmax_t)size) {
+		assert(src->cursor && dst->cursor);
+		memcpy(dst->cursor, src->cursor, size);
+		src->cursor += size;
+		src->remaining -= (intmax_t)size;
+		dst->cursor += size;
+		dst->remaining -= (intmax_t)size;
+		return 0;
+	}
 
-    if (dst->remaining < INTMAX_MIN + (intmax_t)size)
-    {
-        return pldm_msgbuf_status(dst, EOVERFLOW);
-    }
+	if (src->remaining > INTMAX_MIN + (intmax_t)size) {
+		src->remaining -= (intmax_t)size;
+	} else {
+		pldm__msgbuf_invalidate(src);
+	}
 
-    src->remaining -= (intmax_t)size;
-    assert(src->remaining >= 0);
-    if (src->remaining < 0)
-    {
-        return pldm_msgbuf_status(dst, EOVERFLOW);
-    }
+	if (dst->remaining > INTMAX_MIN + (intmax_t)size) {
+		dst->remaining -= (intmax_t)size;
+	} else {
+		pldm__msgbuf_invalidate(dst);
+	}
 
-    dst->remaining -= (intmax_t)size;
-    assert(dst->remaining >= 0);
-    if (dst->remaining < 0)
-    {
-        return pldm_msgbuf_status(dst, EOVERFLOW);
-    }
+	return -EOVERFLOW;
+}
 
-    memcpy(dst->cursor, src->cursor, size);
-    src->cursor += size;
-    dst->cursor += size;
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_WARN_UNUSED_RESULT
+LIBPLDM_CC_ALWAYS_INLINE int
+pldm_msgbuf_copy_string_ascii(struct pldm_msgbuf *dst, struct pldm_msgbuf *src)
+{
+	void *ascii = NULL;
+	size_t len = 0;
+	int rc;
 
-    return 0;
+	rc = pldm_msgbuf_span_string_ascii(src, &ascii, &len);
+	if (rc < 0) {
+		return rc;
+	}
+
+	return pldm__msgbuf_insert_array_void(dst, len, ascii, len);
+}
+
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_WARN_UNUSED_RESULT
+LIBPLDM_CC_ALWAYS_INLINE int
+pldm_msgbuf_copy_string_utf16(struct pldm_msgbuf *dst, struct pldm_msgbuf *src)
+{
+	void *utf16 = NULL;
+	size_t len = 0;
+	int rc;
+
+	rc = pldm_msgbuf_span_string_utf16(src, &utf16, &len);
+	if (rc < 0) {
+		return rc;
+	}
+
+	return pldm__msgbuf_insert_array_void(dst, len, utf16, len);
+}
+
+/**
+ * @brief pldm_msgbuf uint8_t extractor for a size_t
+ *
+ * @param[in,out] ctx - pldm_msgbuf context for extractor
+ * @param[out] dst - destination of extracted value
+ *
+ * @return 0 if buffer accesses were in-bounds,
+ * -EINVAL if dst pointer is invalid,
+ * -EOVERFLOW is the buffer was out of bound.
+ */
+#define pldm_msgbuf_extract_uint8_to_size(ctx, dst)                            \
+	pldm__msgbuf_extract_uint8_to_size(ctx, &(dst))
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE int
+// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
+pldm__msgbuf_extract_uint8_to_size(struct pldm_msgbuf *ctx, size_t *dst)
+{
+	uint8_t value;
+	int rc;
+
+	rc = pldm__msgbuf_extract_uint8(ctx, &value);
+	if (rc) {
+		return rc;
+	}
+
+	static_assert(SIZE_MAX >= UINT8_MAX, "Invalid promotion");
+
+	*dst = value;
+	return 0;
+}
+
+/**
+ * @brief pldm_msgbuf uint16_t extractor for a size_t
+ *
+ * @param[in,out] ctx - pldm_msgbuf context for extractor
+ * @param[out] dst - destination of extracted value
+ *
+ * @return 0 if buffer accesses were in-bounds,
+ * -EINVAL if dst pointer is invalid,
+ * -EOVERFLOW is the buffer was out of bound.
+ */
+#define pldm_msgbuf_extract_uint16_to_size(ctx, dst)                           \
+	pldm__msgbuf_extract_uint16_to_size(ctx, &(dst))
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE int
+// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
+pldm__msgbuf_extract_uint16_to_size(struct pldm_msgbuf *ctx, size_t *dst)
+{
+	uint16_t value;
+	int rc;
+
+	rc = pldm__msgbuf_extract_uint16(ctx, &value);
+	if (rc) {
+		return rc;
+	}
+
+	static_assert(SIZE_MAX >= UINT16_MAX, "Invalid promotion");
+
+	*dst = value;
+	return 0;
+}
+
+/**
+ * @brief pldm_msgbuf uint32_t extractor for a size_t
+ *
+ * @param[in,out] ctx - pldm_msgbuf context for extractor
+ * @param[out] dst - destination of extracted value
+ *
+ * @return 0 if buffer accesses were in-bounds,
+ * -EINVAL if dst pointer is invalid,
+ * -EOVERFLOW is the buffer was out of bound.
+ */
+#define pldm_msgbuf_extract_uint32_to_size(ctx, dst)                           \
+	pldm__msgbuf_extract_uint32_to_size(ctx, &(dst))
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE int
+// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
+pldm__msgbuf_extract_uint32_to_size(struct pldm_msgbuf *ctx, size_t *dst)
+{
+	uint32_t value;
+	int rc;
+
+	rc = pldm__msgbuf_extract_uint32(ctx, &value);
+	if (rc) {
+		return rc;
+	}
+
+	static_assert(SIZE_MAX >= UINT32_MAX, "Invalid promotion");
+
+	*dst = value;
+	return 0;
 }
 
 #ifdef __cplusplus
@@ -1186,59 +1445,59 @@ __attribute__((always_inline)) static inline int
 #include <type_traits>
 
 template <typename T>
-static inline int pldm_msgbuf_typecheck_uint8_t(struct pldm_msgbuf* ctx,
-                                                void* buf)
+static inline int pldm_msgbuf_typecheck_uint8_t(struct pldm_msgbuf *ctx,
+						void *buf)
 {
-    static_assert(std::is_same<uint8_t*, T>::value);
-    return pldm__msgbuf_extract_uint8(ctx, buf);
+	static_assert(std::is_same<uint8_t, T>::value);
+	return pldm__msgbuf_extract_uint8(ctx, buf);
 }
 
 template <typename T>
-static inline int pldm_msgbuf_typecheck_int8_t(struct pldm_msgbuf* ctx,
-                                               void* buf)
+static inline int pldm_msgbuf_typecheck_int8_t(struct pldm_msgbuf *ctx,
+					       void *buf)
 {
-    static_assert(std::is_same<int8_t*, T>::value);
-    return pldm__msgbuf_extract_int8(ctx, buf);
+	static_assert(std::is_same<int8_t, T>::value);
+	return pldm__msgbuf_extract_int8(ctx, buf);
 }
 
 template <typename T>
-static inline int pldm_msgbuf_typecheck_uint16_t(struct pldm_msgbuf* ctx,
-                                                 void* buf)
+static inline int pldm_msgbuf_typecheck_uint16_t(struct pldm_msgbuf *ctx,
+						 void *buf)
 {
-    static_assert(std::is_same<uint16_t*, T>::value);
-    return pldm__msgbuf_extract_uint16(ctx, buf);
+	static_assert(std::is_same<uint16_t, T>::value);
+	return pldm__msgbuf_extract_uint16(ctx, buf);
 }
 
 template <typename T>
-static inline int pldm_msgbuf_typecheck_int16_t(struct pldm_msgbuf* ctx,
-                                                void* buf)
+static inline int pldm_msgbuf_typecheck_int16_t(struct pldm_msgbuf *ctx,
+						void *buf)
 {
-    static_assert(std::is_same<int16_t*, T>::value);
-    return pldm__msgbuf_extract_int16(ctx, buf);
+	static_assert(std::is_same<int16_t, T>::value);
+	return pldm__msgbuf_extract_int16(ctx, buf);
 }
 
 template <typename T>
-static inline int pldm_msgbuf_typecheck_uint32_t(struct pldm_msgbuf* ctx,
-                                                 void* buf)
+static inline int pldm_msgbuf_typecheck_uint32_t(struct pldm_msgbuf *ctx,
+						 void *buf)
 {
-    static_assert(std::is_same<uint32_t*, T>::value);
-    return pldm__msgbuf_extract_uint32(ctx, buf);
+	static_assert(std::is_same<uint32_t, T>::value);
+	return pldm__msgbuf_extract_uint32(ctx, buf);
 }
 
 template <typename T>
-static inline int pldm_msgbuf_typecheck_int32_t(struct pldm_msgbuf* ctx,
-                                                void* buf)
+static inline int pldm_msgbuf_typecheck_int32_t(struct pldm_msgbuf *ctx,
+						void *buf)
 {
-    static_assert(std::is_same<int32_t*, T>::value);
-    return pldm__msgbuf_extract_int32(ctx, buf);
+	static_assert(std::is_same<int32_t, T>::value);
+	return pldm__msgbuf_extract_int32(ctx, buf);
 }
 
 template <typename T>
-static inline int pldm_msgbuf_typecheck_real32_t(struct pldm_msgbuf* ctx,
-                                                 void* buf)
+static inline int pldm_msgbuf_typecheck_real32_t(struct pldm_msgbuf *ctx,
+						 void *buf)
 {
-    static_assert(std::is_same<real32_t*, T>::value);
-    return pldm__msgbuf_extract_real32(ctx, buf);
+	static_assert(std::is_same<real32_t, T>::value);
+	return pldm__msgbuf_extract_real32(ctx, buf);
 }
 #endif
 
