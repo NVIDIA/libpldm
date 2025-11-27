@@ -259,6 +259,7 @@ static bool is_aux_state_valid(uint8_t aux_state)
 	case PLDM_FD_OPERATION_SUCCESSFUL:
 	case PLDM_FD_OPERATION_FAILED:
 	case PLDM_FD_IDLE_LEARN_COMPONENTS_READ_XFER:
+	case PLDM_FD_IDLE_SELF_CONTAINED_ACTIVATION_FAILURE:
 		return true;
 
 	default:
@@ -3067,9 +3068,15 @@ int decode_get_status_resp(const struct pldm_msg *msg, size_t payload_length,
 		return PLDM_ERROR_INVALID_DATA;
 	}
 
-	if ((response->current_state == PLDM_FD_STATE_IDLE) ||
-	    (response->current_state == PLDM_FD_STATE_LEARN_COMPONENTS) ||
-	    (response->current_state == PLDM_FD_STATE_READY_XFER)) {
+	if (response->current_state == PLDM_FD_STATE_IDLE) {
+		if (response->aux_state !=
+			    PLDM_FD_IDLE_LEARN_COMPONENTS_READ_XFER &&
+		    response->aux_state !=
+			    PLDM_FD_IDLE_SELF_CONTAINED_ACTIVATION_FAILURE) {
+			return PLDM_ERROR_INVALID_DATA;
+		}
+	} else if (response->current_state == PLDM_FD_STATE_LEARN_COMPONENTS ||
+		   response->current_state == PLDM_FD_STATE_READY_XFER) {
 		if (response->aux_state !=
 		    PLDM_FD_IDLE_LEARN_COMPONENTS_READ_XFER) {
 			return PLDM_ERROR_INVALID_DATA;
