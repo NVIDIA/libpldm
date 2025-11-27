@@ -4546,7 +4546,7 @@ TEST(GetStatus, errorPathDecodeResponse)
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
 
     constexpr std::array<uint8_t, hdrSize + sizeof(pldm_get_status_resp)>
-        getStatusResponse5{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04,
+        getStatusResponse5{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     auto responseMsg5 =
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
