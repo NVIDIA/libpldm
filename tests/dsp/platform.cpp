@@ -900,6 +900,66 @@ TEST(SetNumericEffecterValue, testGoodEncodeRequest)
     EXPECT_EQ(effecter_value, *val);
 }
 
+TEST(SetNumericEffecterValue, testGoodEncode64BitRequest)
+{
+    std::vector<uint8_t> requestMsg(
+        sizeof(pldm_msg_hdr) + PLDM_SET_NUMERIC_EFFECTER_VALUE_MIN_REQ_BYTES +
+        7);
+    uint16_t effecter_id = 0xAB01;
+    uint8_t effecter_data_size;
+    uint64_t effecter_value;
+
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto request = reinterpret_cast<pldm_msg*>(requestMsg.data());
+    size_t payload_length;
+
+    // Test UINT64
+    effecter_data_size = PLDM_EFFECTER_DATA_SIZE_UINT64;
+    effecter_value = 0x123456789ABCDEF0ULL;
+    payload_length = PLDM_SET_NUMERIC_EFFECTER_VALUE_MIN_REQ_BYTES + 7;
+
+    auto rc = encode_set_numeric_effecter_value_req(
+        0, effecter_id, effecter_data_size,
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        reinterpret_cast<uint8_t*>(&effecter_value), request, payload_length);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+
+    struct pldm_set_numeric_effecter_value_req* req =
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        reinterpret_cast<struct pldm_set_numeric_effecter_value_req*>(
+            request->payload);
+    EXPECT_EQ(effecter_id, le16toh(req->effecter_id));
+    EXPECT_EQ(effecter_data_size, req->effecter_data_size);
+
+    uint64_t value = 0;
+    memcpy(&value, req->effecter_value, sizeof(uint64_t));
+    EXPECT_EQ(effecter_value, le64toh(value));
+
+    // Test SINT64
+    effecter_data_size = PLDM_EFFECTER_DATA_SIZE_SINT64;
+    int64_t effecter_value_signed = -0x123456789ABCDEF0LL;
+
+    rc = encode_set_numeric_effecter_value_req(
+        0, effecter_id, effecter_data_size,
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        reinterpret_cast<uint8_t*>(&effecter_value_signed), request,
+        payload_length);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    req = reinterpret_cast<struct pldm_set_numeric_effecter_value_req*>(
+        request->payload);
+    EXPECT_EQ(effecter_id, le16toh(req->effecter_id));
+    EXPECT_EQ(effecter_data_size, req->effecter_data_size);
+
+    int64_t value_signed = 0;
+    memcpy(&value_signed, req->effecter_value, sizeof(int64_t));
+    EXPECT_EQ(effecter_value_signed,
+              static_cast<int64_t>(le64toh(value_signed)));
+}
+
 TEST(SetNumericEffecterValue, testBadEncodeRequest)
 {
     std::vector<uint8_t> requestMsg(
@@ -914,7 +974,7 @@ TEST(SetNumericEffecterValue, testBadEncodeRequest)
     uint16_t effecter_value;
     rc = encode_set_numeric_effecter_value_req(
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-        0, 0, 6, reinterpret_cast<uint8_t*>(&effecter_value), request,
+        0, 0, 12, reinterpret_cast<uint8_t*>(&effecter_value), request,
         PLDM_SET_NUMERIC_EFFECTER_VALUE_MIN_REQ_BYTES);
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
 }
@@ -2887,6 +2947,71 @@ TEST(PlatformEventMessage, testGoodNumericSensorEventDataDecodeRequest)
     EXPECT_EQ(static_cast<int16_t>(retPresentReading), presentReadingNew);
 }
 
+TEST(PlatformEventMessage, testGoodNumericSensorEventData64BitDecodeRequest)
+{
+    std::array<uint8_t, PLDM_SENSOR_EVENT_NUMERIC_SENSOR_STATE_MAX_DATA_LENGTH>
+        eventDataArr{};
+
+    // Test UINT64
+    size_t sensorDataLength =
+        PLDM_SENSOR_EVENT_NUMERIC_SENSOR_STATE_MAX_DATA_LENGTH;
+    uint8_t eventState = PLDM_SENSOR_NORMAL;
+    uint8_t previousEventState = PLDM_SENSOR_UPPERCRITICAL;
+    uint8_t sensorDataSize = PLDM_SENSOR_DATA_SIZE_UINT64;
+    uint64_t presentReading = 0x123456789ABCDEF0ULL;
+
+    // Manually construct the buffer
+    eventDataArr[0] = eventState;
+    eventDataArr[1] = previousEventState;
+    eventDataArr[2] = sensorDataSize;
+    {
+        uint64_t presentReadingLE = htole64(presentReading);
+        memcpy(&eventDataArr[3], &presentReadingLE, sizeof(presentReadingLE));
+    }
+
+    uint8_t retEventState;
+    uint8_t retPreviousEventState;
+    uint8_t retSensorDataSize;
+    uint32_t retPresentReading;
+
+    // Test old API - should truncate to 32-bit
+    auto rc = decode_numeric_sensor_data(
+        eventDataArr.data(), sensorDataLength, &retEventState,
+        &retPreviousEventState, &retSensorDataSize, &retPresentReading);
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(retEventState, eventState);
+    EXPECT_EQ(retPreviousEventState, previousEventState);
+    EXPECT_EQ(retSensorDataSize, sensorDataSize);
+    EXPECT_EQ(retPresentReading, static_cast<uint32_t>(presentReading));
+
+    // Test new API - should preserve full 64-bit value
+    struct pldm_numeric_sensor_event_data event_data;
+    rc = decode_numeric_sensor_event_data(eventDataArr.data(), sensorDataLength,
+                                          &event_data);
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(event_data.event_state, eventState);
+    EXPECT_EQ(event_data.previous_event_state, previousEventState);
+    EXPECT_EQ(event_data.sensor_data_size, sensorDataSize);
+    EXPECT_EQ(event_data.present_reading.value_u64, presentReading);
+
+    // Test SINT64
+    int64_t presentReadingSigned = -0x123456789ABCDEF0LL;
+    eventDataArr[2] = PLDM_SENSOR_DATA_SIZE_SINT64;
+    {
+        int64_t presentReadingSignedLE = htole64(presentReadingSigned);
+        memcpy(&eventDataArr[3], &presentReadingSignedLE,
+               sizeof(presentReadingSignedLE));
+    }
+
+    rc = decode_numeric_sensor_event_data(eventDataArr.data(), sensorDataLength,
+                                          &event_data);
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(event_data.event_state, eventState);
+    EXPECT_EQ(event_data.previous_event_state, previousEventState);
+    EXPECT_EQ(event_data.sensor_data_size, PLDM_SENSOR_DATA_SIZE_SINT64);
+    EXPECT_EQ(event_data.present_reading.value_s64, presentReadingSigned);
+}
+
 TEST(PlatformEventMessage, testBadNumericSensorEventDataDecodeRequest)
 {
     uint8_t eventState;
@@ -3445,6 +3570,73 @@ TEST(GetSensorReading, testGoodEncodeResponse)
               *(reinterpret_cast<uint8_t*>(&resp->present_reading[0])));
 }
 
+TEST(GetSensorReading, testGoodEncode64BitResponse)
+{
+    std::array<uint8_t, hdrSize + PLDM_GET_SENSOR_READING_MIN_RESP_BYTES + 7>
+        responseMsg{};
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
+
+    uint8_t completionCode = 0;
+    uint8_t sensor_dataSize;
+    uint8_t sensor_operationalState = PLDM_SENSOR_ENABLED;
+    uint8_t sensor_event_messageEnable = PLDM_EVENTS_ENABLED;
+    uint8_t presentState = PLDM_SENSOR_NORMAL;
+    uint8_t previousState = PLDM_SENSOR_WARNING;
+    uint8_t eventState = PLDM_SENSOR_UPPERWARNING;
+
+    // Test UINT64
+    sensor_dataSize = PLDM_SENSOR_DATA_SIZE_UINT64;
+    uint64_t presentReading = 0x123456789ABCDEF0ULL;
+
+    auto rc = encode_get_sensor_reading_resp(
+        0, completionCode, sensor_dataSize, sensor_operationalState,
+        sensor_event_messageEnable, presentState, previousState, eventState,
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        reinterpret_cast<uint8_t*>(&presentReading), response,
+        responseMsg.size() - hdrSize);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+
+    struct pldm_get_sensor_reading_resp* resp =
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        reinterpret_cast<struct pldm_get_sensor_reading_resp*>(
+            response->payload);
+
+    EXPECT_EQ(completionCode, resp->completion_code);
+    EXPECT_EQ(sensor_dataSize, resp->sensor_data_size);
+    EXPECT_EQ(sensor_operationalState, resp->sensor_operational_state);
+    EXPECT_EQ(sensor_event_messageEnable, resp->sensor_event_message_enable);
+    EXPECT_EQ(presentState, resp->present_state);
+    EXPECT_EQ(previousState, resp->previous_state);
+    EXPECT_EQ(eventState, resp->event_state);
+
+    uint64_t value = 0;
+    memcpy(&value, resp->present_reading, sizeof(uint64_t));
+    EXPECT_EQ(presentReading, le64toh(value));
+
+    // Test SINT64
+    sensor_dataSize = PLDM_SENSOR_DATA_SIZE_SINT64;
+    int64_t presentReadingSigned = -0x123456789ABCDEF0LL;
+
+    rc = encode_get_sensor_reading_resp(
+        0, completionCode, sensor_dataSize, sensor_operationalState,
+        sensor_event_messageEnable, presentState, previousState, eventState,
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        reinterpret_cast<uint8_t*>(&presentReadingSigned), response,
+        responseMsg.size() - hdrSize);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    resp = reinterpret_cast<struct pldm_get_sensor_reading_resp*>(
+        response->payload);
+
+    int64_t valueSigned = 0;
+    memcpy(&valueSigned, resp->present_reading, sizeof(int64_t));
+    EXPECT_EQ(presentReadingSigned, static_cast<int64_t>(le64toh(valueSigned)));
+}
+
 TEST(GetSensorReading, testBadEncodeResponse)
 {
     std::array<uint8_t, hdrSize + PLDM_GET_SENSOR_READING_MIN_RESP_BYTES + 3>
@@ -3461,7 +3653,7 @@ TEST(GetSensorReading, testBadEncodeResponse)
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
 
     rc = encode_get_sensor_reading_resp(
-        0, PLDM_SUCCESS, 6, 1, 1, 1, 1, 1,
+        0, PLDM_SUCCESS, 12, 1, 1, 1, 1, 1,
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         reinterpret_cast<uint8_t*>(&presentReading), response,
         responseMsg.size() - hdrSize);
@@ -6448,4 +6640,391 @@ TEST(GetTerminusUID, testGoodDecodeResponse)
     }
     EXPECT_EQ(uuidMatched, true);
 }
+
+TEST(DecodeNumericSensorEventData, testGoodDecodeUint64)
+{
+    std::array<uint8_t,
+               PLDM_SENSOR_EVENT_NUMERIC_SENSOR_STATE_64BIT_DATA_LENGTH>
+        eventData{};
+
+    uint8_t eventState = PLDM_SENSOR_NORMAL;
+    uint8_t previousEventState = PLDM_SENSOR_WARNING;
+    uint8_t sensorDataSize = PLDM_SENSOR_DATA_SIZE_UINT64;
+    uint64_t presentReading = 0x123456789ABCDEF0ULL;
+
+    eventData[0] = eventState;
+    eventData[1] = previousEventState;
+    eventData[2] = sensorDataSize;
+    uint64_t presentReading_le = htole64(presentReading);
+    memcpy(&eventData[3], &presentReading_le, sizeof(presentReading_le));
+
+    struct pldm_numeric_sensor_event_data decodedData;
+    auto rc = decode_numeric_sensor_event_data(eventData.data(),
+                                               eventData.size(), &decodedData);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(decodedData.event_state, eventState);
+    EXPECT_EQ(decodedData.previous_event_state, previousEventState);
+    EXPECT_EQ(decodedData.sensor_data_size, sensorDataSize);
+    EXPECT_EQ(decodedData.present_reading.value_u64, presentReading);
+}
+
+TEST(DecodeNumericSensorEventData, testGoodDecodeSint64)
+{
+    std::array<uint8_t,
+               PLDM_SENSOR_EVENT_NUMERIC_SENSOR_STATE_64BIT_DATA_LENGTH>
+        eventData{};
+
+    uint8_t eventState = PLDM_SENSOR_CRITICAL;
+    uint8_t previousEventState = PLDM_SENSOR_UPPERCRITICAL;
+    uint8_t sensorDataSize = PLDM_SENSOR_DATA_SIZE_SINT64;
+    int64_t presentReading = -0x123456789ABCDEFLL;
+
+    eventData[0] = eventState;
+    eventData[1] = previousEventState;
+    eventData[2] = sensorDataSize;
+    int64_t presentReading_le = htole64(presentReading);
+    memcpy(&eventData[3], &presentReading_le, sizeof(presentReading_le));
+
+    struct pldm_numeric_sensor_event_data decodedData;
+    auto rc = decode_numeric_sensor_event_data(eventData.data(),
+                                               eventData.size(), &decodedData);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(decodedData.event_state, eventState);
+    EXPECT_EQ(decodedData.previous_event_state, previousEventState);
+    EXPECT_EQ(decodedData.sensor_data_size, sensorDataSize);
+    EXPECT_EQ(decodedData.present_reading.value_s64, presentReading);
+}
+
+TEST(DecodeNumericSensorEventData, testGoodDecodeUint32)
+{
+    std::array<uint8_t,
+               PLDM_SENSOR_EVENT_NUMERIC_SENSOR_STATE_32BIT_DATA_LENGTH>
+        eventData{};
+
+    uint8_t eventState = PLDM_SENSOR_NORMAL;
+    uint8_t previousEventState = PLDM_SENSOR_UNKNOWN;
+    uint8_t sensorDataSize = PLDM_SENSOR_DATA_SIZE_UINT32;
+    uint32_t presentReading = 0x12345678;
+
+    eventData[0] = eventState;
+    eventData[1] = previousEventState;
+    eventData[2] = sensorDataSize;
+    uint32_t presentReading_le = htole32(presentReading);
+    memcpy(&eventData[3], &presentReading_le, sizeof(presentReading_le));
+
+    struct pldm_numeric_sensor_event_data decodedData;
+    auto rc = decode_numeric_sensor_event_data(eventData.data(),
+                                               eventData.size(), &decodedData);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(decodedData.event_state, eventState);
+    EXPECT_EQ(decodedData.previous_event_state, previousEventState);
+    EXPECT_EQ(decodedData.sensor_data_size, sensorDataSize);
+    EXPECT_EQ(decodedData.present_reading.value_u32, presentReading);
+}
+
+TEST(DecodeNumericSensorEventData, testGoodDecodeSint32)
+{
+    std::array<uint8_t,
+               PLDM_SENSOR_EVENT_NUMERIC_SENSOR_STATE_32BIT_DATA_LENGTH>
+        eventData{};
+
+    uint8_t eventState = PLDM_SENSOR_LOWERFATAL;
+    uint8_t previousEventState = PLDM_SENSOR_LOWERCRITICAL;
+    uint8_t sensorDataSize = PLDM_SENSOR_DATA_SIZE_SINT32;
+    int32_t presentReading = -123456;
+
+    eventData[0] = eventState;
+    eventData[1] = previousEventState;
+    eventData[2] = sensorDataSize;
+    int32_t presentReading_le = htole32(presentReading);
+    memcpy(&eventData[3], &presentReading_le, sizeof(presentReading_le));
+
+    struct pldm_numeric_sensor_event_data decodedData;
+    auto rc = decode_numeric_sensor_event_data(eventData.data(),
+                                               eventData.size(), &decodedData);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(decodedData.event_state, eventState);
+    EXPECT_EQ(decodedData.previous_event_state, previousEventState);
+    EXPECT_EQ(decodedData.sensor_data_size, sensorDataSize);
+    EXPECT_EQ(decodedData.present_reading.value_s32, presentReading);
+}
+
+TEST(DecodeNumericSensorEventData, testGoodDecodeUint16)
+{
+    std::array<uint8_t,
+               PLDM_SENSOR_EVENT_NUMERIC_SENSOR_STATE_16BIT_DATA_LENGTH>
+        eventData{};
+
+    uint8_t eventState = PLDM_SENSOR_UPPERWARNING;
+    uint8_t previousEventState = PLDM_SENSOR_NORMAL;
+    uint8_t sensorDataSize = PLDM_SENSOR_DATA_SIZE_UINT16;
+    uint16_t presentReading = 0x1234;
+
+    eventData[0] = eventState;
+    eventData[1] = previousEventState;
+    eventData[2] = sensorDataSize;
+    uint16_t presentReading_le = htole16(presentReading);
+    memcpy(&eventData[3], &presentReading_le, sizeof(presentReading_le));
+
+    struct pldm_numeric_sensor_event_data decodedData;
+    auto rc = decode_numeric_sensor_event_data(eventData.data(),
+                                               eventData.size(), &decodedData);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(decodedData.event_state, eventState);
+    EXPECT_EQ(decodedData.previous_event_state, previousEventState);
+    EXPECT_EQ(decodedData.sensor_data_size, sensorDataSize);
+    EXPECT_EQ(decodedData.present_reading.value_u16, presentReading);
+}
+
+TEST(DecodeNumericSensorEventData, testGoodDecodeSint16)
+{
+    std::array<uint8_t,
+               PLDM_SENSOR_EVENT_NUMERIC_SENSOR_STATE_16BIT_DATA_LENGTH>
+        eventData{};
+
+    uint8_t eventState = PLDM_SENSOR_LOWERWARNING;
+    uint8_t previousEventState = PLDM_SENSOR_UPPERFATAL;
+    uint8_t sensorDataSize = PLDM_SENSOR_DATA_SIZE_SINT16;
+    int16_t presentReading = -1234;
+
+    eventData[0] = eventState;
+    eventData[1] = previousEventState;
+    eventData[2] = sensorDataSize;
+    int16_t presentReading_le = htole16(presentReading);
+    memcpy(&eventData[3], &presentReading_le, sizeof(presentReading_le));
+
+    struct pldm_numeric_sensor_event_data decodedData;
+    auto rc = decode_numeric_sensor_event_data(eventData.data(),
+                                               eventData.size(), &decodedData);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(decodedData.event_state, eventState);
+    EXPECT_EQ(decodedData.previous_event_state, previousEventState);
+    EXPECT_EQ(decodedData.sensor_data_size, sensorDataSize);
+    EXPECT_EQ(decodedData.present_reading.value_s16, presentReading);
+}
+
+TEST(DecodeNumericSensorEventData, testGoodDecodeUint8)
+{
+    std::array<uint8_t, PLDM_SENSOR_EVENT_NUMERIC_SENSOR_STATE_8BIT_DATA_LENGTH>
+        eventData{};
+
+    uint8_t eventState = PLDM_SENSOR_NORMAL;
+    uint8_t previousEventState = PLDM_SENSOR_WARNING;
+    uint8_t sensorDataSize = PLDM_SENSOR_DATA_SIZE_UINT8;
+    uint8_t presentReading = 0x42;
+
+    eventData[0] = eventState;
+    eventData[1] = previousEventState;
+    eventData[2] = sensorDataSize;
+    eventData[3] = presentReading;
+
+    struct pldm_numeric_sensor_event_data decodedData;
+    auto rc = decode_numeric_sensor_event_data(eventData.data(),
+                                               eventData.size(), &decodedData);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(decodedData.event_state, eventState);
+    EXPECT_EQ(decodedData.previous_event_state, previousEventState);
+    EXPECT_EQ(decodedData.sensor_data_size, sensorDataSize);
+    EXPECT_EQ(decodedData.present_reading.value_u8, presentReading);
+}
+
+TEST(DecodeNumericSensorEventData, testGoodDecodeSint8)
+{
+    std::array<uint8_t, PLDM_SENSOR_EVENT_NUMERIC_SENSOR_STATE_8BIT_DATA_LENGTH>
+        eventData{};
+
+    uint8_t eventState = PLDM_SENSOR_CRITICAL;
+    uint8_t previousEventState = PLDM_SENSOR_NORMAL;
+    uint8_t sensorDataSize = PLDM_SENSOR_DATA_SIZE_SINT8;
+    int8_t presentReading = -42;
+
+    eventData[0] = eventState;
+    eventData[1] = previousEventState;
+    eventData[2] = sensorDataSize;
+    memcpy(&eventData[3], &presentReading, sizeof(presentReading));
+
+    struct pldm_numeric_sensor_event_data decodedData;
+    auto rc = decode_numeric_sensor_event_data(eventData.data(),
+                                               eventData.size(), &decodedData);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(decodedData.event_state, eventState);
+    EXPECT_EQ(decodedData.previous_event_state, previousEventState);
+    EXPECT_EQ(decodedData.sensor_data_size, sensorDataSize);
+    EXPECT_EQ(decodedData.present_reading.value_s8, presentReading);
+}
+
+TEST(DecodeNumericSensorEventData, testBadDecodeNullSensorData)
+{
+    struct pldm_numeric_sensor_event_data decodedData;
+    auto rc = decode_numeric_sensor_event_data(
+        nullptr, PLDM_SENSOR_EVENT_NUMERIC_SENSOR_STATE_64BIT_DATA_LENGTH,
+        &decodedData);
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+}
+
+TEST(DecodeNumericSensorEventData, testBadDecodeNullEventData)
+{
+    std::array<uint8_t,
+               PLDM_SENSOR_EVENT_NUMERIC_SENSOR_STATE_64BIT_DATA_LENGTH>
+        eventData{};
+
+    auto rc = decode_numeric_sensor_event_data(eventData.data(),
+                                               eventData.size(), nullptr);
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+}
+
+TEST(DecodeNumericSensorEventData, testBadDecodeInvalidLength)
+{
+    std::array<uint8_t,
+               PLDM_SENSOR_EVENT_NUMERIC_SENSOR_STATE_MIN_DATA_LENGTH - 1>
+        eventData{};
+
+    struct pldm_numeric_sensor_event_data decodedData;
+    auto rc = decode_numeric_sensor_event_data(eventData.data(),
+                                               eventData.size(), &decodedData);
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
+}
+
+TEST(DecodeNumericSensorEventData, testBadDecodeTooLargeLength)
+{
+    std::array<uint8_t,
+               PLDM_SENSOR_EVENT_NUMERIC_SENSOR_STATE_MAX_DATA_LENGTH + 1>
+        eventData{};
+
+    struct pldm_numeric_sensor_event_data decodedData;
+    auto rc = decode_numeric_sensor_event_data(eventData.data(),
+                                               eventData.size(), &decodedData);
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
+}
+
+TEST(DecodeNumericSensorEventData, testBadDecodeInvalidSensorDataSize)
+{
+    std::array<uint8_t, PLDM_SENSOR_EVENT_NUMERIC_SENSOR_STATE_MIN_DATA_LENGTH>
+        eventData{};
+
+    eventData[0] = PLDM_SENSOR_NORMAL;
+    eventData[1] = PLDM_SENSOR_WARNING;
+    eventData[2] = 0xFF; // Invalid sensor data size
+
+    struct pldm_numeric_sensor_event_data decodedData;
+    auto rc = decode_numeric_sensor_event_data(eventData.data(),
+                                               eventData.size(), &decodedData);
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+}
+
+TEST(DecodeNumericSensorEventData, testBadDecodeInsufficientDataForSize)
+{
+    std::array<uint8_t,
+               PLDM_SENSOR_EVENT_NUMERIC_SENSOR_STATE_32BIT_DATA_LENGTH>
+        eventData{};
+
+    eventData[0] = PLDM_SENSOR_NORMAL;
+    eventData[1] = PLDM_SENSOR_WARNING;
+    eventData[2] =
+        PLDM_SENSOR_DATA_SIZE_UINT64; // Claims 64-bit but buffer too small
+
+    struct pldm_numeric_sensor_event_data decodedData;
+    auto rc = decode_numeric_sensor_event_data(eventData.data(),
+                                               eventData.size(), &decodedData);
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
+}
+
+TEST(DecodeNumericSensorEventData, testGoodDecodeBoundaryValuesUint64Max)
+{
+    std::array<uint8_t,
+               PLDM_SENSOR_EVENT_NUMERIC_SENSOR_STATE_64BIT_DATA_LENGTH>
+        eventData{};
+
+    uint8_t eventState = PLDM_SENSOR_UPPERFATAL;
+    uint8_t previousEventState = PLDM_SENSOR_UPPERCRITICAL;
+    uint8_t sensorDataSize = PLDM_SENSOR_DATA_SIZE_UINT64;
+    uint64_t presentReading = UINT64_MAX;
+
+    eventData[0] = eventState;
+    eventData[1] = previousEventState;
+    eventData[2] = sensorDataSize;
+    uint64_t presentReading_le = htole64(presentReading);
+    memcpy(&eventData[3], &presentReading_le, sizeof(presentReading_le));
+
+    struct pldm_numeric_sensor_event_data decodedData;
+    auto rc = decode_numeric_sensor_event_data(eventData.data(),
+                                               eventData.size(), &decodedData);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(decodedData.event_state, eventState);
+    EXPECT_EQ(decodedData.previous_event_state, previousEventState);
+    EXPECT_EQ(decodedData.sensor_data_size, sensorDataSize);
+    EXPECT_EQ(decodedData.present_reading.value_u64, presentReading);
+}
+
+TEST(DecodeNumericSensorEventData, testGoodDecodeBoundaryValuesSint64Min)
+{
+    std::array<uint8_t,
+               PLDM_SENSOR_EVENT_NUMERIC_SENSOR_STATE_64BIT_DATA_LENGTH>
+        eventData{};
+
+    uint8_t eventState = PLDM_SENSOR_LOWERFATAL;
+    uint8_t previousEventState = PLDM_SENSOR_LOWERCRITICAL;
+    uint8_t sensorDataSize = PLDM_SENSOR_DATA_SIZE_SINT64;
+    int64_t presentReading = INT64_MIN;
+
+    eventData[0] = eventState;
+    eventData[1] = previousEventState;
+    eventData[2] = sensorDataSize;
+    int64_t presentReading_le = htole64(presentReading);
+    memcpy(&eventData[3], &presentReading_le, sizeof(presentReading_le));
+
+    struct pldm_numeric_sensor_event_data decodedData;
+    auto rc = decode_numeric_sensor_event_data(eventData.data(),
+                                               eventData.size(), &decodedData);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(decodedData.event_state, eventState);
+    EXPECT_EQ(decodedData.previous_event_state, previousEventState);
+    EXPECT_EQ(decodedData.sensor_data_size, sensorDataSize);
+    EXPECT_EQ(decodedData.present_reading.value_s64, presentReading);
+}
+
+TEST(DecodeNumericSensorEventData, testGoodDecodeBoundaryValuesSint64Max)
+{
+    std::array<uint8_t,
+               PLDM_SENSOR_EVENT_NUMERIC_SENSOR_STATE_64BIT_DATA_LENGTH>
+        eventData{};
+
+    uint8_t eventState = PLDM_SENSOR_UPPERFATAL;
+    uint8_t previousEventState = PLDM_SENSOR_NORMAL;
+    uint8_t sensorDataSize = PLDM_SENSOR_DATA_SIZE_SINT64;
+    int64_t presentReading = INT64_MAX;
+
+    eventData[0] = eventState;
+    eventData[1] = previousEventState;
+    eventData[2] = sensorDataSize;
+    int64_t presentReading_le = htole64(presentReading);
+    memcpy(&eventData[3], &presentReading_le, sizeof(presentReading_le));
+
+    struct pldm_numeric_sensor_event_data decodedData;
+    auto rc = decode_numeric_sensor_event_data(eventData.data(),
+                                               eventData.size(), &decodedData);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(decodedData.event_state, eventState);
+    EXPECT_EQ(decodedData.previous_event_state, previousEventState);
+    EXPECT_EQ(decodedData.sensor_data_size, sensorDataSize);
+    EXPECT_EQ(decodedData.present_reading.value_s64, presentReading);
+}
+
 #endif

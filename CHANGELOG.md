@@ -19,6 +19,28 @@ Change categories:
 
 ### Added
 
+- platform: Added 64-bit sensor and effecter support per PLDM Type 2 v1.3.0 (DSP0248)
+  - Added `PLDM_SENSOR_DATA_SIZE_UINT64` and `PLDM_SENSOR_DATA_SIZE_SINT64` enum
+    values to `enum pldm_sensor_readings_data_type`
+  - Added `PLDM_EFFECTER_DATA_SIZE_UINT64` and `PLDM_EFFECTER_DATA_SIZE_SINT64`
+    enum values to `enum pldm_effecter_data_size`
+  - Added `PLDM_RANGE_FIELD_FORMAT_UINT64` and `PLDM_RANGE_FIELD_FORMAT_SINT64`
+    enum values to `enum pldm_range_field_format`
+  - Added `value_u64` and `value_s64` fields to `union_sensor_data_size`,
+    `union_effecter_data_size`, and `union_range_field_format` for 64-bit value support
+  - Added `PLDM_SENSOR_EVENT_NUMERIC_SENSOR_STATE_64BIT_DATA_LENGTH` constant (value: 11)
+  - Updated `PLDM_SENSOR_EVENT_NUMERIC_SENSOR_STATE_MAX_DATA_LENGTH` from 7 to 11
+  - Added `struct pldm_numeric_sensor_event_data` for decoded numeric sensor
+    event data with full 64-bit reading support
+  - Added `decode_numeric_sensor_event_data()` function for decoding numeric
+    sensor event data with full 64-bit support without truncation. This provides
+    a structured output via `struct pldm_numeric_sensor_event_data`
+  - 64-bit encode/decode operations now properly handle endianness with `htole64()`
+    and `le64toh()` functions
+  - Added comprehensive test coverage for `decode_numeric_sensor_event_data()`
+    with 18 test cases covering all data sizes (UINT8/SINT8/UINT16/SINT16/
+    UINT32/SINT32/UINT64/SINT64), error conditions, and boundary values
+
 ### Changed
 
 - base:
@@ -71,6 +93,11 @@ Change categories:
 ### Removed
 
 ### Fixed
+
+- platform: Fixed `encode_get_sensor_reading_resp()` using incorrect
+  `PLDM_EFFECTER_DATA_SIZE_*` constants instead of `PLDM_SENSOR_DATA_SIZE_*` for
+  sensor data size validation. This bug could cause sensor readings to fail
+  validation when using 64-bit sensor values.
 
 ### Security
 
