@@ -54,6 +54,10 @@ pldm_msgbuf_extract_sensor_data(struct pldm_msgbuf *ctx,
 		return pldm_msgbuf_extract(ctx, dst->value_u32);
 	case PLDM_SENSOR_DATA_SIZE_SINT32:
 		return pldm_msgbuf_extract(ctx, dst->value_s32);
+	case PLDM_SENSOR_DATA_SIZE_UINT64:
+		return pldm_msgbuf_extract(ctx, dst->value_u64);
+	case PLDM_SENSOR_DATA_SIZE_SINT64:
+		return pldm_msgbuf_extract(ctx, dst->value_s64);
 	}
 
 	return -PLDM_ERROR_INVALID_DATA;
@@ -82,6 +86,10 @@ pldm_msgbuf_extract_sensor_value(struct pldm_msgbuf *ctx,
 		return pldm__msgbuf_extract_uint32(ctx, val);
 	case PLDM_SENSOR_DATA_SIZE_SINT32:
 		return pldm__msgbuf_extract_int32(ctx, val);
+	case PLDM_SENSOR_DATA_SIZE_UINT64:
+		return pldm__msgbuf_extract_uint64(ctx, val);
+	case PLDM_SENSOR_DATA_SIZE_SINT64:
+		return pldm__msgbuf_extract_int64(ctx, val);
 	}
 
 	return -PLDM_ERROR_INVALID_DATA;
@@ -123,6 +131,14 @@ LIBPLDM_CC_ALWAYS_INLINE int pldm__msgbuf_extract_range_field_format(
 		return pldm__msgbuf_extract_real32(
 			ctx, ((char *)rff) + offsetof(union_range_field_format,
 						      value_f32));
+	case PLDM_RANGE_FIELD_FORMAT_UINT64:
+		return pldm__msgbuf_extract_uint64(
+			ctx, ((char *)rff) + offsetof(union_range_field_format,
+						      value_u64));
+	case PLDM_RANGE_FIELD_FORMAT_SINT64:
+		return pldm__msgbuf_extract_int64(
+			ctx, ((char *)rff) + offsetof(union_range_field_format,
+						      value_s64));
 	}
 
 	return -PLDM_ERROR_INVALID_DATA;
@@ -146,6 +162,10 @@ pldm_msgbuf_extract_effecter_value(struct pldm_msgbuf *ctx,
 		return pldm__msgbuf_extract_uint32(ctx, dst);
 	case PLDM_EFFECTER_DATA_SIZE_SINT32:
 		return pldm__msgbuf_extract_int32(ctx, dst);
+	case PLDM_EFFECTER_DATA_SIZE_UINT64:
+		return pldm__msgbuf_extract_uint64(ctx, dst);
+	case PLDM_EFFECTER_DATA_SIZE_SINT64:
+		return pldm__msgbuf_extract_int64(ctx, dst);
 	}
 
 	return -PLDM_ERROR_INVALID_DATA;
@@ -184,6 +204,14 @@ pldm__msgbuf_extract_effecter_data(struct pldm_msgbuf *ctx,
 		return pldm__msgbuf_extract_int32(
 			ctx, ((char *)ed) + offsetof(union_effecter_data_size,
 						     value_s32));
+	case PLDM_EFFECTER_DATA_SIZE_UINT64:
+		return pldm__msgbuf_extract_uint64(
+			ctx, ((char *)ed) + offsetof(union_effecter_data_size,
+						     value_u64));
+	case PLDM_EFFECTER_DATA_SIZE_SINT64:
+		return pldm__msgbuf_extract_int64(
+			ctx, ((char *)ed) + offsetof(union_effecter_data_size,
+						     value_s64));
 	}
 
 	return -PLDM_ERROR_INVALID_DATA;
