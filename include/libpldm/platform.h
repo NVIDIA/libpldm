@@ -948,7 +948,7 @@ typedef union {
 
 /** @struct pldm_value_pdr_hdr
  *
- *  Structure representing PLDM PDR header for unpacked value
+ *  Structure representing PLDM PDR header for packed wire format
  *  Refer to: DSP0248_1.2.0: 28.1 Table 75
  */
 struct pldm_value_pdr_hdr {
@@ -957,7 +957,7 @@ struct pldm_value_pdr_hdr {
 	uint8_t type;
 	uint16_t record_change_num;
 	uint16_t length;
-};
+} __attribute__((packed));
 
 /** @struct pldm_numeric_sensor_value_pdr
  *
