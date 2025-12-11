@@ -27,6 +27,7 @@ typedef enum pldm_requester_error_codes {
 	PLDM_REQUESTER_INVALID_SETUP = -11,
 	PLDM_REQUESTER_POLL_FAIL = -12,
 	PLDM_REQUESTER_TRANSPORT_BUSY = -13,
+	PLDM_REQUESTER_MCTP_TRANSPORT_ERROR = -14,
 } pldm_requester_rc_t;
 
 #ifdef __cplusplus
