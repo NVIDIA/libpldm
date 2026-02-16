@@ -6305,4 +6305,367 @@ TEST(DecodePldmFirmwareUpdatePackage,
     }
     EXPECT_NE(rc, 0);
 }
+
+TEST(EncodeTransferCompleteReq, testGoodEncode)
+{
+    constexpr uint8_t instanceId = FIXED_INSTANCE_ID;
+    constexpr uint8_t transferResult = PLDM_FWUP_TRANSFER_SUCCESS;
+    constexpr size_t payloadLen = sizeof(transferResult);
+    PLDM_MSG_DEFINE_P(msg, payloadLen);
+    size_t pl = payloadLen;
+
+    auto rc =
+        encode_transfer_complete_req(instanceId, transferResult, msg, &pl);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(msg->hdr.request, PLDM_REQUEST);
+    EXPECT_EQ(msg->hdr.type, PLDM_FWUP);
+    EXPECT_EQ(msg->hdr.command, PLDM_TRANSFER_COMPLETE);
+    EXPECT_EQ(msg->hdr.instance_id, instanceId);
+    EXPECT_EQ(msg->payload[0], transferResult);
+}
+
+TEST(EncodeTransferCompleteReq, testBadNullArgs)
+{
+    size_t pl = 1;
+    EXPECT_EQ(encode_transfer_complete_req(0, 0, nullptr, &pl), -EINVAL);
+    PLDM_MSG_DEFINE_P(msg, 1);
+    EXPECT_EQ(encode_transfer_complete_req(0, 0, msg, nullptr), -EINVAL);
+}
+
+TEST(EncodeVerifyCompleteReq, testGoodEncode)
+{
+    constexpr uint8_t instanceId = FIXED_INSTANCE_ID;
+    constexpr uint8_t verifyResult = PLDM_FWUP_VERIFY_SUCCESS;
+    constexpr size_t payloadLen = sizeof(verifyResult);
+    PLDM_MSG_DEFINE_P(msg, payloadLen);
+    size_t pl = payloadLen;
+
+    auto rc = encode_verify_complete_req(instanceId, verifyResult, msg, &pl);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(msg->payload[0], verifyResult);
+}
+
+TEST(EncodeVerifyCompleteReq, testBadNullArgs)
+{
+    size_t pl = 1;
+    EXPECT_EQ(encode_verify_complete_req(0, 0, nullptr, &pl), -EINVAL);
+    PLDM_MSG_DEFINE_P(msg, 1);
+    EXPECT_EQ(encode_verify_complete_req(0, 0, msg, nullptr), -EINVAL);
+}
+
+TEST(EncodeApplyCompleteReq, testGoodEncode)
+{
+    constexpr uint8_t instanceId = FIXED_INSTANCE_ID;
+    constexpr size_t payloadLen = sizeof(pldm_apply_complete_req);
+    PLDM_MSG_DEFINE_P(msg, payloadLen);
+    size_t pl = payloadLen;
+
+    struct pldm_apply_complete_req reqData = {};
+    reqData.apply_result = PLDM_FWUP_APPLY_SUCCESS;
+    reqData.comp_activation_methods_modification.value = 0;
+
+    auto rc = encode_apply_complete_req(instanceId, &reqData, msg, &pl);
+    EXPECT_EQ(rc, 0);
+}
+
+TEST(EncodeApplyCompleteReq, testBadNullArgs)
+{
+    size_t pl = sizeof(pldm_apply_complete_req);
+    struct pldm_apply_complete_req reqData = {};
+    EXPECT_EQ(encode_apply_complete_req(0, &reqData, nullptr, &pl), -EINVAL);
+    PLDM_MSG_DEFINE_P(msg, sizeof(pldm_apply_complete_req));
+    EXPECT_EQ(encode_apply_complete_req(0, &reqData, msg, nullptr), -EINVAL);
+}
+
+TEST(EncodeRequestFirmwareDataReq, testGoodEncode)
+{
+    constexpr uint8_t instanceId = FIXED_INSTANCE_ID;
+    constexpr size_t payloadLen = sizeof(pldm_request_firmware_data_req);
+    PLDM_MSG_DEFINE_P(msg, payloadLen);
+    size_t pl = payloadLen;
+
+    struct pldm_request_firmware_data_req reqParams = {};
+    reqParams.offset = 0x100;
+    reqParams.length = 0x200;
+
+    auto rc =
+        encode_request_firmware_data_req(instanceId, &reqParams, msg, &pl);
+    EXPECT_EQ(rc, 0);
+}
+
+TEST(EncodeRequestFirmwareDataReq, testBadNullArgs)
+{
+    size_t pl = sizeof(pldm_request_firmware_data_req);
+    struct pldm_request_firmware_data_req reqParams = {};
+    EXPECT_EQ(encode_request_firmware_data_req(0, &reqParams, nullptr, &pl),
+              -EINVAL);
+    PLDM_MSG_DEFINE_P(msg, sizeof(pldm_request_firmware_data_req));
+    EXPECT_EQ(encode_request_firmware_data_req(0, &reqParams, msg, nullptr),
+              -EINVAL);
+}
+
+TEST(DecodeActivateFirmwareReq, testGoodDecode)
+{
+    constexpr size_t payloadLen = sizeof(uint8_t);
+    PLDM_MSG_DEFINE_P(msg, payloadLen);
+    msg->payload[0] = 1;
+
+    bool selfContained = false;
+    auto rc = decode_activate_firmware_req(msg, payloadLen, &selfContained);
+    EXPECT_EQ(rc, 0);
+    EXPECT_TRUE(selfContained);
+}
+
+TEST(DecodeActivateFirmwareReq, testBadNullArgs)
+{
+    EXPECT_EQ(decode_activate_firmware_req(nullptr, 1, nullptr), -EINVAL);
+}
+
+TEST(EncodeActivateFirmwareResp, testGoodEncode)
+{
+    constexpr uint8_t instanceId = FIXED_INSTANCE_ID;
+    constexpr size_t payloadLen =
+        sizeof(uint8_t) + sizeof(pldm_activate_firmware_resp);
+    PLDM_MSG_DEFINE_P(msg, payloadLen);
+    size_t pl = payloadLen;
+
+    struct pldm_activate_firmware_resp respData = {};
+    respData.estimated_time_activation = 60;
+
+    auto rc = encode_activate_firmware_resp(instanceId, &respData, msg, &pl);
+    EXPECT_EQ(rc, 0);
+    check_response(msg, PLDM_ACTIVATE_FIRMWARE);
+}
+
+TEST(EncodeActivateFirmwareResp, testBadNullArgs)
+{
+    size_t pl = 10;
+    struct pldm_activate_firmware_resp respData = {};
+    EXPECT_EQ(encode_activate_firmware_resp(0, &respData, nullptr, &pl),
+              -EINVAL);
+    PLDM_MSG_DEFINE_P(msg, 10);
+    EXPECT_EQ(encode_activate_firmware_resp(0, &respData, msg, nullptr),
+              -EINVAL);
+}
+
+TEST(EncodePassComponentTableResp, testGoodEncode)
+{
+    constexpr uint8_t instanceId = FIXED_INSTANCE_ID;
+    constexpr size_t payloadLen =
+        sizeof(uint8_t) + sizeof(pldm_pass_component_table_resp);
+    PLDM_MSG_DEFINE_P(msg, payloadLen);
+    size_t pl = payloadLen;
+
+    struct pldm_pass_component_table_resp respData = {};
+    respData.comp_resp = 0;
+    respData.comp_resp_code = 0;
+
+    auto rc = encode_pass_component_table_resp(instanceId, &respData, msg, &pl);
+    EXPECT_EQ(rc, 0);
+    check_response(msg, PLDM_PASS_COMPONENT_TABLE);
+}
+
+TEST(EncodePassComponentTableResp, testBadNullArgs)
+{
+    size_t pl = 10;
+    EXPECT_EQ(encode_pass_component_table_resp(0, nullptr, nullptr, &pl),
+              -EINVAL);
+}
+
+TEST(EncodeUpdateComponentResp, testGoodEncode)
+{
+    constexpr uint8_t instanceId = FIXED_INSTANCE_ID;
+    constexpr size_t payloadLen =
+        sizeof(uint8_t) + sizeof(pldm_update_component_resp);
+    PLDM_MSG_DEFINE_P(msg, payloadLen);
+    size_t pl = payloadLen;
+
+    struct pldm_update_component_resp respData = {};
+    respData.comp_compatibility_resp = 0;
+    respData.comp_compatibility_resp_code = 0;
+    respData.update_option_flags_enabled.value = 0;
+    respData.time_before_req_fw_data = 100;
+
+    auto rc = encode_update_component_resp(instanceId, &respData, msg, &pl);
+    EXPECT_EQ(rc, 0);
+    check_response(msg, PLDM_UPDATE_COMPONENT);
+}
+
+TEST(EncodeUpdateComponentResp, testBadNullArgs)
+{
+    size_t pl = 20;
+    EXPECT_EQ(encode_update_component_resp(0, nullptr, nullptr, &pl), -EINVAL);
+}
+
+TEST(EncodeCancelUpdateResp, testGoodEncode)
+{
+    constexpr uint8_t instanceId = FIXED_INSTANCE_ID;
+    constexpr size_t payloadLen =
+        sizeof(uint8_t) + sizeof(pldm_cancel_update_resp);
+    PLDM_MSG_DEFINE_P(msg, payloadLen);
+    size_t pl = payloadLen;
+
+    struct pldm_cancel_update_resp respData = {};
+    respData.non_functioning_component_indication = false;
+    respData.non_functioning_component_bitmap = 0;
+
+    auto rc = encode_cancel_update_resp(instanceId, &respData, msg, &pl);
+    EXPECT_EQ(rc, 0);
+    check_response(msg, PLDM_CANCEL_UPDATE);
+}
+
+TEST(EncodeCancelUpdateResp, testBadNullArgs)
+{
+    size_t pl = 20;
+    struct pldm_cancel_update_resp respData = {};
+    EXPECT_EQ(encode_cancel_update_resp(0, &respData, nullptr, &pl), -EINVAL);
+    PLDM_MSG_DEFINE_P(msg, 20);
+    EXPECT_EQ(encode_cancel_update_resp(0, &respData, msg, nullptr), -EINVAL);
+}
+
+TEST(DecodeRequestUpdateReq, testGoodDecode)
+{
+    constexpr uint32_t maxTransferSize = 512;
+    constexpr uint16_t numOfComp = 3;
+    constexpr uint8_t maxOutstandingTransferReq = 2;
+    constexpr uint16_t pkgDataLen = 0x1234;
+    constexpr uint8_t compImgSetVerStrType = PLDM_STR_TYPE_ASCII;
+    constexpr uint8_t compImgSetVerStrLen = 5;
+    const char verStr[] = "1.0.0";
+
+    constexpr size_t payloadLen =
+        sizeof(pldm_request_update_req) + compImgSetVerStrLen;
+    PLDM_MSG_DEFINE_P(msg, payloadLen);
+
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto* request = reinterpret_cast<pldm_request_update_req*>(msg->payload);
+    request->max_transfer_size = htole32(maxTransferSize);
+    request->num_of_comp = htole16(numOfComp);
+    request->max_outstanding_transfer_req = maxOutstandingTransferReq;
+    request->pkg_data_len = htole16(pkgDataLen);
+    request->comp_image_set_ver_str_type = compImgSetVerStrType;
+    request->comp_image_set_ver_str_len = compImgSetVerStrLen;
+    memcpy(msg->payload + sizeof(pldm_request_update_req), verStr,
+           compImgSetVerStrLen);
+
+    struct pldm_request_update_req_full req{};
+    auto rc = decode_request_update_req(msg, payloadLen, &req);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(req.max_transfer_size, maxTransferSize);
+    EXPECT_EQ(req.num_of_comp, numOfComp);
+    EXPECT_EQ(req.max_outstanding_transfer_req, maxOutstandingTransferReq);
+    EXPECT_EQ(req.pkg_data_len, pkgDataLen);
+    EXPECT_EQ(req.image_set_ver.str_type, PLDM_STR_TYPE_ASCII);
+    EXPECT_EQ(req.image_set_ver.str_len, compImgSetVerStrLen);
+}
+
+TEST(DecodeRequestUpdateReq, testBadNullArgs)
+{
+    EXPECT_EQ(decode_request_update_req(nullptr, 0, nullptr), -EINVAL);
+}
+
+TEST(DecodeRequestDownstreamDeviceUpdateReq, testGoodDecode)
+{
+    constexpr size_t payloadLen = PLDM_DOWNSTREAM_DEVICE_UPDATE_REQUEST_BYTES;
+    PLDM_MSG_DEFINE_P(msg, payloadLen);
+
+    struct pldm_request_downstream_device_update_req expected = {};
+    expected.maximum_downstream_device_transfer_size = 1024;
+    expected.maximum_outstanding_transfer_requests = 4;
+    expected.downstream_device_package_data_length = 256;
+
+    auto* payload = msg->payload;
+    uint32_t leTransferSize =
+        htole32(expected.maximum_downstream_device_transfer_size);
+    memcpy(payload, &leTransferSize, sizeof(leTransferSize));
+    payload += sizeof(leTransferSize);
+    *payload = expected.maximum_outstanding_transfer_requests;
+    payload += sizeof(uint8_t);
+    uint16_t lePkgLen = htole16(expected.downstream_device_package_data_length);
+    memcpy(payload, &lePkgLen, sizeof(lePkgLen));
+
+    struct pldm_request_downstream_device_update_req req{};
+    auto rc =
+        decode_request_downstream_device_update_req(msg, payloadLen, &req);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(req.maximum_downstream_device_transfer_size,
+              expected.maximum_downstream_device_transfer_size);
+    EXPECT_EQ(req.maximum_outstanding_transfer_requests,
+              expected.maximum_outstanding_transfer_requests);
+    EXPECT_EQ(req.downstream_device_package_data_length,
+              expected.downstream_device_package_data_length);
+}
+
+TEST(DecodeRequestDownstreamDeviceUpdateReq, testBadNullArgs)
+{
+    EXPECT_EQ(decode_request_downstream_device_update_req(nullptr, 0, nullptr),
+              -EINVAL);
+}
+
+TEST(EncodeRequestDownstreamDeviceUpdateResp, testGoodEncode)
+{
+    constexpr uint8_t instanceId = FIXED_INSTANCE_ID;
+    constexpr size_t payloadLen = PLDM_DOWNSTREAM_DEVICE_UPDATE_RESPONSE_BYTES;
+    PLDM_MSG_DEFINE_P(msg, payloadLen);
+    size_t pl = payloadLen;
+
+    struct pldm_request_downstream_device_update_resp respData = {};
+    respData.completion_code = PLDM_SUCCESS;
+    respData.downstream_device_meta_data_length = 0;
+    respData.downstream_device_will_send_get_package_data = 0;
+    respData.get_package_data_maximum_transfer_size = 256;
+
+    auto rc = encode_request_downstream_device_update_resp(instanceId,
+                                                           &respData, msg, &pl);
+    EXPECT_EQ(rc, 0);
+}
+
+TEST(EncodeRequestDownstreamDeviceUpdateResp, testBadNullArgs)
+{
+    size_t pl = 10;
+    struct pldm_request_downstream_device_update_resp respData = {};
+    EXPECT_EQ(encode_request_downstream_device_update_resp(0, &respData,
+                                                           nullptr, &pl),
+              -EINVAL);
+    PLDM_MSG_DEFINE_P(msg, 10);
+    EXPECT_EQ(encode_request_downstream_device_update_resp(0, &respData, msg,
+                                                           nullptr),
+              -EINVAL);
+}
+
+TEST(EncodeGetFirmwareParametersResp, testGoodEncode)
+{
+    constexpr uint8_t instanceId = FIXED_INSTANCE_ID;
+    constexpr char activeVer[] = "v1.0";
+    constexpr char pendingVer[] = "v2.0";
+    constexpr size_t payloadLen = 256;
+    PLDM_MSG_DEFINE_P(msg, payloadLen);
+    size_t pl = payloadLen;
+
+    struct pldm_get_firmware_parameters_resp_full respData = {};
+    respData.completion_code = PLDM_SUCCESS;
+    respData.capabilities_during_update.value = 0;
+    respData.comp_count = 1;
+    respData.active_comp_image_set_ver_str.str_type = PLDM_STR_TYPE_ASCII;
+    respData.active_comp_image_set_ver_str.str_len = strlen(activeVer);
+    memcpy(respData.active_comp_image_set_ver_str.str_data, activeVer,
+           strlen(activeVer));
+    respData.pending_comp_image_set_ver_str.str_type = PLDM_STR_TYPE_ASCII;
+    respData.pending_comp_image_set_ver_str.str_len = strlen(pendingVer);
+    memcpy(respData.pending_comp_image_set_ver_str.str_data, pendingVer,
+           strlen(pendingVer));
+
+    auto rc =
+        encode_get_firmware_parameters_resp(instanceId, &respData, msg, &pl);
+    EXPECT_EQ(rc, 0);
+    check_response(msg, PLDM_GET_FIRMWARE_PARAMETERS);
+}
+
+TEST(EncodeGetFirmwareParametersResp, testBadNullArgs)
+{
+    size_t pl = 256;
+    EXPECT_EQ(encode_get_firmware_parameters_resp(0, nullptr, nullptr, &pl),
+              -EINVAL);
+}
+
 #endif

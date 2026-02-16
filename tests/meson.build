@@ -36,6 +36,10 @@ if get_option('oem').contains('meta')
     subdir('oem/meta')
 endif
 
+if get_option('oem').contains('nvidia')
+    subdir('oem/nvidia')
+endif
+
 foreach t : tests
     test(
         t,
@@ -57,5 +61,35 @@ test(
         'msgbuf_generic.c',
         implicit_include_directories: false,
         include_directories: test_include_dirs,
+    ),
+)
+
+# pldm_xlate_errno() is static inline. With optimisations the compiler may
+# eliminate the default switch branch (guarded by assert(false) compiled out
+# via NDEBUG), defeating the coverage test. Compile at -O0 to keep it.
+test(
+    'xlate_errno',
+    executable(
+        'xlate_errno',
+        'xlate_errno.cpp',
+        implicit_include_directories: false,
+        include_directories: test_include_dirs,
+        dependencies: [libpldm_dep, gtest_dep],
+        cpp_args: ['-O0'],
+    ),
+)
+
+# Mock strnlen/memmem to exercise defensive overflow guards in
+# pldm_msgbuf_span_string_ascii() and pldm_msgbuf_span_string_utf16().
+# Compiled at -O0 to prevent the compiler from eliminating mock paths.
+test(
+    'msgbuf_span_overflow',
+    executable(
+        'msgbuf_span_overflow',
+        'msgbuf_span_overflow.cpp',
+        implicit_include_directories: false,
+        include_directories: test_include_dirs,
+        dependencies: [libpldm_dep, gtest_dep],
+        cpp_args: ['-O0'],
     ),
 )

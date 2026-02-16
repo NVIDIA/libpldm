@@ -32,6 +32,22 @@ TEST(InstanceId, dbInstanceInvalidPath)
     EXPECT_NE(::pldm_instance_db_init(&db, ""), 0);
 }
 
+TEST(InstanceId, dbInstanceDefaultPath)
+{
+    struct pldm_instance_db* db = nullptr;
+
+    int rc = ::pldm_instance_db_init_default(&db);
+    if (rc == 0)
+    {
+        EXPECT_NE(db, nullptr);
+        EXPECT_EQ(::pldm_instance_db_destroy(db), 0);
+    }
+    else
+    {
+        EXPECT_EQ(db, nullptr);
+    }
+}
+
 class PldmInstanceDbTest : public ::testing::Test
 {
   protected:

@@ -2658,3 +2658,190 @@ TEST(EntityAssociationPDR, testDeleteNode)
     pldm_entity_association_tree_destroy(tree);
 }
 #endif
+
+TEST(IsEmptyEntityAssocTree, testEmptyTree)
+{
+    auto* tree = pldm_entity_association_tree_init();
+    ASSERT_NE(tree, nullptr);
+    EXPECT_TRUE(pldm_is_empty_entity_assoc_tree(tree));
+
+    pldm_entity entity{1, 1, 0};
+    auto* node = pldm_entity_association_tree_add(
+        tree, &entity, 0xffff, nullptr, PLDM_ENTITY_ASSOCIAION_PHYSICAL);
+    ASSERT_NE(node, nullptr);
+    EXPECT_FALSE(pldm_is_empty_entity_assoc_tree(tree));
+
+    pldm_entity_association_tree_destroy(tree);
+}
+
+TEST(EntityAssociationTreeDestroyRoot, testDestroyRoot)
+{
+    auto* tree = pldm_entity_association_tree_init();
+    ASSERT_NE(tree, nullptr);
+
+    pldm_entity entity{1, 1, 0};
+    auto* node = pldm_entity_association_tree_add(
+        tree, &entity, 0xffff, nullptr, PLDM_ENTITY_ASSOCIAION_PHYSICAL);
+    ASSERT_NE(node, nullptr);
+    EXPECT_FALSE(pldm_is_empty_entity_assoc_tree(tree));
+
+    pldm_entity_association_tree_destroy_root(tree);
+    EXPECT_TRUE(pldm_is_empty_entity_assoc_tree(tree));
+
+    pldm_entity_association_tree_destroy(tree);
+}
+
+TEST(EntityAssociationTreeDestroyRoot, testDestroyNullTree)
+{
+    pldm_entity_association_tree_destroy_root(nullptr);
+}
+
+#ifdef LIBPLDM_API_DEPRECATED
+TEST(EntityAssociationTreeCopyRoot, testCopyRoot)
+{
+    auto* orgTree = pldm_entity_association_tree_init();
+    ASSERT_NE(orgTree, nullptr);
+    auto* newTree = pldm_entity_association_tree_init();
+    ASSERT_NE(newTree, nullptr);
+
+    pldm_entity entity{1, 1, 0};
+    auto* node = pldm_entity_association_tree_add(
+        orgTree, &entity, 0xffff, nullptr, PLDM_ENTITY_ASSOCIAION_PHYSICAL);
+    ASSERT_NE(node, nullptr);
+
+    pldm_entity_association_tree_copy_root(orgTree, newTree);
+    EXPECT_FALSE(pldm_is_empty_entity_assoc_tree(newTree));
+
+    pldm_entity_association_tree_destroy(orgTree);
+    pldm_entity_association_tree_destroy(newTree);
+}
+#endif
+
+TEST(EntityAssociationTreeFindWithLocality, testFindLocal)
+{
+    auto* tree = pldm_entity_association_tree_init();
+    ASSERT_NE(tree, nullptr);
+
+    pldm_entity entity{1, 1, 0};
+    auto* node = pldm_entity_association_tree_add(
+        tree, &entity, 0xffff, nullptr, PLDM_ENTITY_ASSOCIAION_PHYSICAL);
+    ASSERT_NE(node, nullptr);
+
+    pldm_entity search{1, 1, 0};
+    auto* found =
+        pldm_entity_association_tree_find_with_locality(tree, &search, false);
+    EXPECT_NE(found, nullptr);
+
+    pldm_entity noMatch{9999, 1, 0};
+    auto* notFound =
+        pldm_entity_association_tree_find_with_locality(tree, &noMatch, false);
+    EXPECT_EQ(notFound, nullptr);
+
+    pldm_entity_association_tree_destroy(tree);
+}
+
+TEST(EntityAssociationTreeFindWithLocality, testBadNullArgs)
+{
+    pldm_entity entity{1, 1, 0};
+    EXPECT_EQ(pldm_entity_association_tree_find_with_locality(nullptr, &entity,
+                                                              false),
+              nullptr);
+    auto* tree = pldm_entity_association_tree_init();
+    EXPECT_EQ(
+        pldm_entity_association_tree_find_with_locality(tree, nullptr, false),
+        nullptr);
+    pldm_entity_association_tree_destroy(tree);
+}
+
+TEST(PdrAddFromNode, testGoodPath)
+{
+    auto* tree = pldm_entity_association_tree_init();
+    ASSERT_NE(tree, nullptr);
+    auto* repo = pldm_pdr_init();
+    ASSERT_NE(repo, nullptr);
+
+    pldm_entity parent{1, 1, 0};
+    auto* parentNode = pldm_entity_association_tree_add(
+        tree, &parent, 0xffff, nullptr, PLDM_ENTITY_ASSOCIAION_PHYSICAL);
+    ASSERT_NE(parentNode, nullptr);
+
+    pldm_entity child{2, 1, 0};
+    auto* childNode = pldm_entity_association_tree_add(
+        tree, &child, 0xffff, parentNode, PLDM_ENTITY_ASSOCIAION_PHYSICAL);
+    ASSERT_NE(childNode, nullptr);
+
+    pldm_entity entities[1] = {{1, 1, 0}};
+    pldm_entity* entitiesPtr = entities;
+    auto rc = pldm_entity_association_pdr_add_from_node(
+        parentNode, repo, &entitiesPtr, 1, false, 1);
+    EXPECT_EQ(rc, 0);
+
+    pldm_pdr_destroy(repo);
+    pldm_entity_association_tree_destroy(tree);
+}
+
+TEST(PdrAddFromNode, testBadNullArgs)
+{
+    auto rc = pldm_entity_association_pdr_add_from_node(nullptr, nullptr,
+                                                        nullptr, 0, false, 0);
+    EXPECT_NE(rc, 0);
+}
+
+TEST(EntityNodeGetRemoteContainerId, testGoodPath)
+{
+    auto* tree = pldm_entity_association_tree_init();
+    ASSERT_NE(tree, nullptr);
+
+    pldm_entity entity{1, 1, 0};
+    auto* node = pldm_entity_association_tree_add(
+        tree, &entity, 0xffff, nullptr, PLDM_ENTITY_ASSOCIAION_PHYSICAL);
+    ASSERT_NE(node, nullptr);
+
+    uint16_t containerId = pldm_entity_node_get_remote_container_id(node);
+    EXPECT_EQ(containerId, 0);
+
+    pldm_entity_association_tree_destroy(tree);
+}
+
+TEST(PdrUpdateTLPdr, testUpdateTerminusLocator)
+{
+    auto* repo = pldm_pdr_init();
+    ASSERT_NE(repo, nullptr);
+
+    struct pldm_terminus_locator_pdr tlPdr{};
+    tlPdr.hdr.record_handle = 0;
+    tlPdr.hdr.version = 1;
+    tlPdr.hdr.type = PLDM_TERMINUS_LOCATOR_PDR;
+    tlPdr.hdr.record_change_num = 0;
+    tlPdr.hdr.length = sizeof(pldm_terminus_locator_pdr) - sizeof(pldm_pdr_hdr);
+    tlPdr.terminus_handle = 1;
+    tlPdr.tid = 1;
+    tlPdr.validity = 0;
+    tlPdr.terminus_locator_type = PLDM_TERMINUS_LOCATOR_TYPE_MCTP_EID;
+    tlPdr.terminus_locator_value_size =
+        sizeof(pldm_terminus_locator_type_mctp_eid);
+
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto* eidValue = reinterpret_cast<pldm_terminus_locator_type_mctp_eid*>(
+        tlPdr.terminus_locator_value);
+    eidValue->eid = 10;
+
+    uint32_t recordHandle = 0;
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto rc2 = pldm_pdr_add(repo, reinterpret_cast<uint8_t*>(&tlPdr),
+                            sizeof(tlPdr), false, 1, &recordHandle);
+    EXPECT_EQ(rc2, 0);
+
+    pldm_pdr_update_TL_pdr(repo, 1, 1, 10, true);
+
+    uint8_t* outData = nullptr;
+    uint32_t size = 0;
+    auto* record = pldm_pdr_find_record_by_type(repo, PLDM_TERMINUS_LOCATOR_PDR,
+                                                nullptr, &outData, &size);
+    ASSERT_NE(record, nullptr);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto* updatedPdr = reinterpret_cast<pldm_terminus_locator_pdr*>(outData);
+    EXPECT_EQ(updatedPdr->validity, 1);
+
+    pldm_pdr_destroy(repo);
+}

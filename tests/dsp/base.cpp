@@ -1,11 +1,28 @@
 #include <libpldm/base.h>
 #include <libpldm/pldm_types.h>
 
+/*
+ * config.h is auto-included only for C (language: 'c') by meson, so C++ test
+ * files do not see PLDM_HAS_POLL. Define it here so the poll-related transport
+ * declarations in the headers below are visible.
+ */
+#ifndef PLDM_HAS_POLL
+#define PLDM_HAS_POLL 1
+#endif
+#include <libpldm/transport/af-mctp.h>
+#include <libpldm/transport/mctp-demux.h>
+#include <poll.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
+
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <thread>
 #include <vector>
 
+#include "api.h"
 #include "msgbuf.h"
 
 #include <gmock/gmock.h>
@@ -1641,3 +1658,158 @@ TEST(DecodeNegotiateTransferParamsResponse,
     EXPECT_EQ(rc, -EOVERFLOW);
 }
 #endif
+
+TEST(BaseXlateErrno, testAllPaths)
+{
+    EXPECT_EQ(pldm_xlate_errno(-EBADMSG), PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(pldm_xlate_errno(-EINVAL), PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(pldm_xlate_errno(-EPROTO), PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(pldm_xlate_errno(-EUCLEAN), PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(pldm_xlate_errno(-ENOMSG), PLDM_ERROR_INVALID_PLDM_TYPE);
+    EXPECT_EQ(pldm_xlate_errno(-EOVERFLOW), PLDM_ERROR_INVALID_LENGTH);
+    EXPECT_EQ(pldm_xlate_errno(-ENOTSUP), PLDM_ERROR);
+}
+
+TEST(BaseEncodeDecode, testCcOnlyPaths)
+{
+    PLDM_MSG_BUFFER(req_buf, 1);
+    auto* req = static_cast<struct pldm_msg*>(static_cast<void*>(req_buf));
+    uint8_t cc = 0xff;
+
+    EXPECT_EQ(encode_get_types_req(0, nullptr), PLDM_ERROR_INVALID_DATA);
+    ASSERT_EQ(encode_get_types_req(3, req), PLDM_SUCCESS);
+    EXPECT_EQ(req->hdr.request, PLDM_REQUEST);
+    EXPECT_EQ(req->hdr.instance_id, 3);
+    EXPECT_EQ(req->hdr.command, PLDM_GET_PLDM_TYPES);
+
+    EXPECT_EQ(decode_cc_only_resp(nullptr, PLDM_CC_ONLY_RESP_BYTES, &cc),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(decode_cc_only_resp(req, 0, &cc), PLDM_ERROR_INVALID_LENGTH);
+
+    req->payload[0] = PLDM_SUCCESS;
+    EXPECT_EQ(decode_cc_only_resp(req, PLDM_CC_ONLY_RESP_BYTES, &cc),
+              PLDM_SUCCESS);
+    EXPECT_EQ(cc, PLDM_SUCCESS);
+}
+
+TEST(TransportAfMctp, testApiEdges)
+{
+    struct pldm_transport_af_mctp* ctx = nullptr;
+    int token = 0;
+    auto* invalid =
+        static_cast<struct pldm_transport_af_mctp*>(static_cast<void*>(&token));
+
+    EXPECT_EQ(pldm_transport_af_mctp_init(nullptr), -EINVAL);
+    EXPECT_EQ(pldm_transport_af_mctp_init(&invalid), -EINVAL);
+    EXPECT_EQ(pldm_transport_af_mctp_bind(nullptr, nullptr, 0),
+              PLDM_REQUESTER_INVALID_SETUP);
+    pldm_transport_af_mctp_destroy(nullptr);
+
+    if (pldm_transport_af_mctp_init(&ctx) == 0)
+    {
+        struct pldm_transport* core = pldm_transport_af_mctp_core(ctx);
+        ASSERT_NE(core, nullptr);
+
+        struct pollfd pollfd = {};
+        EXPECT_EQ(pldm_transport_af_mctp_init_pollfd(core, &pollfd), 0);
+        EXPECT_EQ(pollfd.events, POLLIN);
+
+        EXPECT_EQ(pldm_transport_af_mctp_map_tid(ctx, 9, 8), 0);
+        EXPECT_EQ(pldm_transport_af_mctp_unmap_tid(ctx, 9, 8), 0);
+        EXPECT_EQ(pldm_transport_af_mctp_bind(ctx, nullptr, 1),
+                  PLDM_REQUESTER_INVALID_SETUP);
+        pldm_transport_af_mctp_destroy(ctx);
+    }
+}
+
+static void mctp_demux_accept_one(int lsock)
+{
+    struct pollfd pfd = {};
+    pfd.fd = lsock;
+    pfd.events = POLLIN;
+
+    if (poll(&pfd, 1, 3000) <= 0)
+    {
+        return;
+    }
+
+    int csock = accept(lsock, nullptr, nullptr);
+    if (csock < 0)
+    {
+        return;
+    }
+
+    uint8_t msg_type;
+    if (read(csock, &msg_type, sizeof(msg_type)) < 0)
+    {
+        close(csock);
+        return;
+    }
+
+    struct pollfd cpfd = {};
+    cpfd.fd = csock;
+    cpfd.events = POLLHUP;
+    poll(&cpfd, 1, 3000);
+    close(csock);
+}
+
+TEST(TransportMctpDemux, testApiEdges)
+{
+    struct pldm_transport_mctp_demux* ctx = nullptr;
+    int token = 0;
+    auto* invalid = static_cast<struct pldm_transport_mctp_demux*>(
+        static_cast<void*>(&token));
+
+    EXPECT_EQ(pldm_transport_mctp_demux_init(nullptr), -EINVAL);
+    EXPECT_EQ(pldm_transport_mctp_demux_init(&invalid), -EINVAL);
+    pldm_transport_mctp_demux_destroy(nullptr);
+
+    int lsock = socket(AF_UNIX, SOCK_SEQPACKET, 0);
+    if (lsock < 0)
+    {
+        GTEST_SKIP() << "socket() failed: " << strerror(errno);
+    }
+
+    const char path[] = "\0mctp-mux";
+    struct sockaddr_un addr = {};
+    addr.sun_family = AF_UNIX;
+    memcpy(addr.sun_path, path, sizeof(path) - 1);
+
+    socklen_t addrlen =
+        static_cast<socklen_t>(sizeof(addr.sun_family) + sizeof(path) - 1);
+
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    if (bind(lsock, reinterpret_cast<struct sockaddr*>(&addr), addrlen) < 0)
+    {
+        close(lsock);
+        GTEST_SKIP() << "bind() failed (abstract socket \\0mctp-mux may be in "
+                        "use): "
+                     << strerror(errno);
+    }
+
+    if (listen(lsock, 1) < 0)
+    {
+        close(lsock);
+        GTEST_SKIP() << "listen() failed: " << strerror(errno);
+    }
+
+    std::thread acceptor(mctp_demux_accept_one, lsock);
+
+    int init_rc = pldm_transport_mctp_demux_init(&ctx);
+    if (init_rc == 0)
+    {
+        struct pldm_transport* core = pldm_transport_mctp_demux_core(ctx);
+        ASSERT_NE(core, nullptr);
+
+        struct pollfd pollfd = {};
+        EXPECT_EQ(pldm_transport_mctp_demux_init_pollfd(core, &pollfd), 0);
+        EXPECT_EQ(pollfd.events, POLLIN);
+
+        EXPECT_EQ(pldm_transport_mctp_demux_map_tid(ctx, 4, 3), 0);
+        EXPECT_EQ(pldm_transport_mctp_demux_unmap_tid(ctx, 4, 3), 0);
+        pldm_transport_mctp_demux_destroy(ctx);
+    }
+
+    acceptor.join();
+    close(lsock);
+}

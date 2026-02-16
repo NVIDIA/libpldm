@@ -236,3 +236,46 @@ TEST(EncodeOemMetaFileIoReadResp, testInvalidDataEncodeResponse)
         PLDM_OEM_META_FILE_IO_READ_RESP_MIN_SIZE - 1);
     EXPECT_EQ(rc, -EOVERFLOW);
 }
+
+#ifdef LIBPLDM_API_DEPRECATED
+TEST(DecodeOemMetaFileIoReq, testGoodDecodeRequest)
+{
+    constexpr uint8_t fileHandle = 0x01;
+    constexpr uint8_t writeData[] = {0xDE, 0xAD};
+
+    constexpr size_t payloadLen =
+        PLDM_OEM_META_FILE_IO_WRITE_REQ_MIN_LENGTH + sizeof(writeData);
+
+    std::array<uint8_t, sizeof(pldm_msg_hdr) + payloadLen> requestMsg{};
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto request = reinterpret_cast<pldm_msg*>(requestMsg.data());
+
+    PLDM_MSGBUF_DEFINE_P(ctx);
+    auto rc = pldm_msgbuf_init_errno(ctx, 0, request->payload, payloadLen);
+    ASSERT_EQ(rc, 0);
+    pldm_msgbuf_insert_uint8(ctx, fileHandle);
+    pldm_msgbuf_insert_uint32(ctx, sizeof(writeData));
+    rc = pldm_msgbuf_insert_array_uint8(ctx, sizeof(writeData), writeData,
+                                        sizeof(writeData));
+    ASSERT_EQ(rc, 0);
+    ASSERT_EQ(pldm_msgbuf_complete(ctx), 0);
+
+    uint8_t decodedHandle = 0;
+    uint32_t decodedLength = 0;
+    uint8_t decodedData[64] = {};
+
+    rc = decode_oem_meta_file_io_req(request, payloadLen, &decodedHandle,
+                                     &decodedLength, decodedData);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(decodedHandle, fileHandle);
+    EXPECT_EQ(decodedLength, sizeof(writeData));
+    EXPECT_EQ(decodedData[0], 0xDE);
+    EXPECT_EQ(decodedData[1], 0xAD);
+}
+
+TEST(DecodeOemMetaFileIoReq, testBadNullArgs)
+{
+    EXPECT_NE(
+        decode_oem_meta_file_io_req(nullptr, 0, nullptr, nullptr, nullptr), 0);
+}
+#endif
