@@ -12,6 +12,7 @@
 #define NDEBUG 1
 #endif
 #include "msgbuf.h"
+#include "msgbuf/platform.h"
 
 /* Given we disabled asserts above, set up our own expectation framework */
 #define expect(cond) __expect(__func__, __LINE__, (cond))
@@ -291,6 +292,677 @@ static void test_msgbuf_insert_array_generic_uint8(void)
     expect(pldm_msgbuf_complete(ctx) == 0);
 }
 
+static void test_msgbuf_extract_generic_uint64(void)
+{
+    struct pldm_msgbuf _ctx;
+    struct pldm_msgbuf* ctx = &_ctx;
+    uint64_t buf[1] = {htole64(UINT64_C(0x1122334455667788))};
+    uint64_t val = 0;
+
+    expect(pldm_msgbuf_init_errno(ctx, sizeof(buf), buf, sizeof(buf)) == 0);
+    expect(pldm_msgbuf_extract(ctx, val) == 0);
+    expect(val == UINT64_C(0x1122334455667788));
+    expect(pldm_msgbuf_complete(ctx) == 0);
+}
+
+static void test_msgbuf_extract_generic_int64(void)
+{
+    struct pldm_msgbuf _ctx;
+    struct pldm_msgbuf* ctx = &_ctx;
+    int64_t src = -INT64_C(0x0102030405060708);
+    uint64_t buf[1] = {htole64((uint64_t)src)};
+    int64_t val = 0;
+
+    expect(pldm_msgbuf_init_errno(ctx, sizeof(buf), buf, sizeof(buf)) == 0);
+    expect(pldm_msgbuf_extract(ctx, val) == 0);
+    expect(val == src);
+    expect(pldm_msgbuf_complete(ctx) == 0);
+}
+
+static void test_msgbuf_insert_generic_uint64(void)
+{
+    struct pldm_msgbuf _ctx;
+    struct pldm_msgbuf* ctx = &_ctx;
+    uint64_t src = UINT64_C(0x1122334455667788);
+    uint64_t checkVal = 0;
+    uint8_t buf[sizeof(uint64_t)] = {0};
+
+    expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+    expect(pldm_msgbuf_insert(ctx, src) == 0);
+
+    struct pldm_msgbuf _ctxExtract;
+    struct pldm_msgbuf* ctxExtract = &_ctxExtract;
+    expect(pldm_msgbuf_init_errno(ctxExtract, 0, buf, sizeof(buf)) == 0);
+    expect(pldm_msgbuf_extract(ctxExtract, checkVal) == 0);
+    expect(checkVal == src);
+    expect(pldm_msgbuf_complete(ctxExtract) == 0);
+    expect(pldm_msgbuf_complete(ctx) == 0);
+}
+
+static void test_msgbuf_platform_extract_value_pdr_hdr(void)
+{
+    {
+        uint8_t wire[sizeof(struct pldm_value_pdr_hdr)] = {0};
+        struct pldm_msgbuf _enc;
+        struct pldm_msgbuf* enc = &_enc;
+        struct pldm_msgbuf _dec;
+        struct pldm_msgbuf* dec = &_dec;
+        struct pldm_value_pdr_hdr hdr = {0};
+
+        expect(pldm_msgbuf_init_errno(enc, 0, wire, sizeof(wire)) == 0);
+        expect(pldm_msgbuf_insert_uint32(enc, UINT32_C(0x10203040)) == 0);
+        expect(pldm_msgbuf_insert_uint8(enc, 0x22) == 0);
+        expect(pldm_msgbuf_insert_uint8(enc, 0x23) == 0);
+        expect(pldm_msgbuf_insert_uint16(enc, 0x3344) == 0);
+        expect(pldm_msgbuf_insert_uint16(enc, 0x0010) == 0);
+        expect(pldm_msgbuf_complete(enc) == 0);
+
+        expect(pldm_msgbuf_init_errno(dec, 0, wire, sizeof(wire)) == 0);
+        expect(pldm_msgbuf_extract_value_pdr_hdr(
+                   dec, &hdr, sizeof(struct pldm_msgbuf) + 0x0010, 0x0010) ==
+               0);
+        expect(hdr.record_handle == UINT32_C(0x10203040));
+        expect(hdr.version == 0x22);
+        expect(hdr.type == 0x23);
+        expect(hdr.record_change_num == 0x3344);
+        expect(hdr.length == 0x0010);
+        expect(pldm_msgbuf_complete(dec) == 0);
+    }
+
+    {
+        uint8_t wire[5] = {0};
+        struct pldm_msgbuf _dec;
+        struct pldm_msgbuf* dec = &_dec;
+        struct pldm_value_pdr_hdr hdr = {0};
+
+        expect(pldm_msgbuf_init_errno(dec, 0, wire, sizeof(wire)) == 0);
+        expect(pldm_msgbuf_extract_value_pdr_hdr(dec, &hdr, 0, UINT16_MAX) ==
+               -EOVERFLOW);
+        expect(pldm_msgbuf_complete(dec) == -EOVERFLOW);
+    }
+
+    {
+        uint8_t wire[sizeof(struct pldm_value_pdr_hdr)] = {0};
+        struct pldm_msgbuf _enc;
+        struct pldm_msgbuf* enc = &_enc;
+        struct pldm_msgbuf _dec;
+        struct pldm_msgbuf* dec = &_dec;
+        struct pldm_value_pdr_hdr hdr = {0};
+
+        expect(pldm_msgbuf_init_errno(enc, 0, wire, sizeof(wire)) == 0);
+        expect(pldm_msgbuf_insert_uint32(enc, UINT32_C(0x10203040)) == 0);
+        expect(pldm_msgbuf_insert_uint8(enc, 0x22) == 0);
+        expect(pldm_msgbuf_insert_uint8(enc, 0x23) == 0);
+        expect(pldm_msgbuf_insert_uint16(enc, 0x3344) == 0);
+        expect(pldm_msgbuf_insert_uint16(enc, 0x0001) == 0);
+        expect(pldm_msgbuf_complete(enc) == 0);
+
+        expect(pldm_msgbuf_init_errno(dec, 0, wire, sizeof(wire)) == 0);
+        expect(pldm_msgbuf_extract_value_pdr_hdr(
+                   dec, &hdr, sizeof(struct pldm_msgbuf) + 0x0002, 0x0010) ==
+               -EOVERFLOW);
+        expect(pldm_msgbuf_complete(dec) == 0);
+    }
+
+    {
+        uint8_t wire[sizeof(struct pldm_value_pdr_hdr)] = {0};
+        struct pldm_msgbuf _enc;
+        struct pldm_msgbuf* enc = &_enc;
+        struct pldm_msgbuf _dec;
+        struct pldm_msgbuf* dec = &_dec;
+        struct pldm_value_pdr_hdr hdr = {0};
+
+        expect(pldm_msgbuf_init_errno(enc, 0, wire, sizeof(wire)) == 0);
+        expect(pldm_msgbuf_insert_uint32(enc, UINT32_C(0x10203040)) == 0);
+        expect(pldm_msgbuf_insert_uint8(enc, 0x22) == 0);
+        expect(pldm_msgbuf_insert_uint8(enc, 0x23) == 0);
+        expect(pldm_msgbuf_insert_uint16(enc, 0x3344) == 0);
+        expect(pldm_msgbuf_insert_uint16(enc, 0x0020) == 0);
+        expect(pldm_msgbuf_complete(enc) == 0);
+
+        expect(pldm_msgbuf_init_errno(dec, 0, wire, sizeof(wire)) == 0);
+        expect(pldm_msgbuf_extract_value_pdr_hdr(dec, &hdr, 0, 0x0010) ==
+               -EOVERFLOW);
+        expect(pldm_msgbuf_complete(dec) == 0);
+    }
+}
+
+static void test_msgbuf_platform_extract_sensor_data(void)
+{
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_sensor_data_size value = {0};
+        uint8_t buf[1] = {0x7f};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm_msgbuf_extract_sensor_data(ctx, PLDM_SENSOR_DATA_SIZE_UINT8,
+                                               &value) == 0);
+        expect(value.value_u8 == 0x7f);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_sensor_data_size value = {0};
+        int8_t buf[1] = {-1};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm_msgbuf_extract_sensor_data(ctx, PLDM_SENSOR_DATA_SIZE_SINT8,
+                                               &value) == 0);
+        expect(value.value_s8 == -1);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_sensor_data_size value = {0};
+        uint16_t buf[1] = {htole16(0x1234)};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm_msgbuf_extract_sensor_data(
+                   ctx, PLDM_SENSOR_DATA_SIZE_UINT16, &value) == 0);
+        expect(value.value_u16 == 0x1234);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_sensor_data_size value = {0};
+        int16_t buf[1] = {(int16_t)htole16((uint16_t)-1234)};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm_msgbuf_extract_sensor_data(
+                   ctx, PLDM_SENSOR_DATA_SIZE_SINT16, &value) == 0);
+        expect(value.value_s16 == -1234);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_sensor_data_size value = {0};
+        uint32_t buf[1] = {htole32(UINT32_C(0x55667788))};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm_msgbuf_extract_sensor_data(
+                   ctx, PLDM_SENSOR_DATA_SIZE_UINT32, &value) == 0);
+        expect(value.value_u32 == UINT32_C(0x55667788));
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_sensor_data_size value = {0};
+        int32_t buf[1] = {(int32_t)htole32((uint32_t)-12345678)};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm_msgbuf_extract_sensor_data(
+                   ctx, PLDM_SENSOR_DATA_SIZE_SINT32, &value) == 0);
+        expect(value.value_s32 == -12345678);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_sensor_data_size value = {0};
+        uint64_t buf[1] = {htole64(UINT64_C(0x1122334455667788))};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm_msgbuf_extract_sensor_data(
+                   ctx, PLDM_SENSOR_DATA_SIZE_UINT64, &value) == 0);
+        expect(value.value_u64 == UINT64_C(0x1122334455667788));
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_sensor_data_size value = {0};
+        int64_t src = -INT64_C(0x0102030405060708);
+        uint64_t buf[1] = {htole64((uint64_t)src)};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm_msgbuf_extract_sensor_data(
+                   ctx, PLDM_SENSOR_DATA_SIZE_SINT64, &value) == 0);
+        expect(value.value_s64 == src);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_sensor_data_size value = {0};
+        uint8_t buf[1] = {0};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, 0) == 0);
+        expect(pldm_msgbuf_extract_sensor_data(
+                   ctx, (enum pldm_sensor_readings_data_type)0xff, &value) ==
+               -PLDM_ERROR_INVALID_DATA);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+}
+
+static void test_msgbuf_platform_extract_sensor_value(void)
+{
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        uint8_t val = 0;
+        uint8_t buf[1] = {0x7f};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm_msgbuf_extract_sensor_value(
+                   ctx, PLDM_SENSOR_DATA_SIZE_UINT8, &val) == 0);
+        expect(val == 0x7f);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        int8_t val = 0;
+        int8_t buf[1] = {-1};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm_msgbuf_extract_sensor_value(
+                   ctx, PLDM_SENSOR_DATA_SIZE_SINT8, &val) == 0);
+        expect(val == -1);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        uint16_t val = 0;
+        uint16_t buf[1] = {htole16(0x1234)};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm_msgbuf_extract_sensor_value(
+                   ctx, PLDM_SENSOR_DATA_SIZE_UINT16, &val) == 0);
+        expect(val == 0x1234);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        int16_t val = 0;
+        int16_t buf[1] = {(int16_t)htole16((uint16_t)-1234)};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm_msgbuf_extract_sensor_value(
+                   ctx, PLDM_SENSOR_DATA_SIZE_SINT16, &val) == 0);
+        expect(val == -1234);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        uint32_t val = 0;
+        uint32_t buf[1] = {htole32(UINT32_C(0x55667788))};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm_msgbuf_extract_sensor_value(
+                   ctx, PLDM_SENSOR_DATA_SIZE_UINT32, &val) == 0);
+        expect(val == UINT32_C(0x55667788));
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        int32_t val = 0;
+        int32_t buf[1] = {(int32_t)htole32((uint32_t)-12345678)};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm_msgbuf_extract_sensor_value(
+                   ctx, PLDM_SENSOR_DATA_SIZE_SINT32, &val) == 0);
+        expect(val == -12345678);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        uint64_t val = 0;
+        uint64_t buf[1] = {htole64(UINT64_C(0x1122334455667788))};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm_msgbuf_extract_sensor_value(
+                   ctx, PLDM_SENSOR_DATA_SIZE_UINT64, &val) == 0);
+        expect(val == UINT64_C(0x1122334455667788));
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        int64_t val = 0;
+        int64_t src = -INT64_C(0x0102030405060708);
+        uint64_t buf[1] = {htole64((uint64_t)src)};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm_msgbuf_extract_sensor_value(
+                   ctx, PLDM_SENSOR_DATA_SIZE_SINT64, &val) == 0);
+        expect(val == src);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        uint8_t val = 0;
+        uint8_t buf[1] = {0};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, 0) == 0);
+        expect(pldm_msgbuf_extract_sensor_value(
+                   ctx, (enum pldm_sensor_readings_data_type)0xff, &val) ==
+               -PLDM_ERROR_INVALID_DATA);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+}
+
+static void test_msgbuf_platform_extract_range_field_format(void)
+{
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_range_field_format value = {0};
+        uint8_t buf[1] = {0x7f};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm__msgbuf_extract_range_field_format(
+                   ctx, PLDM_RANGE_FIELD_FORMAT_UINT8, &value) == 0);
+        expect(value.value_u8 == 0x7f);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_range_field_format value = {0};
+        int8_t buf[1] = {-1};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm__msgbuf_extract_range_field_format(
+                   ctx, PLDM_RANGE_FIELD_FORMAT_SINT8, &value) == 0);
+        expect(value.value_s8 == -1);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_range_field_format value = {0};
+        uint16_t buf[1] = {htole16(0x1234)};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm__msgbuf_extract_range_field_format(
+                   ctx, PLDM_RANGE_FIELD_FORMAT_UINT16, &value) == 0);
+        expect(value.value_u16 == 0x1234);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_range_field_format value = {0};
+        int16_t buf[1] = {(int16_t)htole16((uint16_t)-1234)};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm__msgbuf_extract_range_field_format(
+                   ctx, PLDM_RANGE_FIELD_FORMAT_SINT16, &value) == 0);
+        expect(value.value_s16 == -1234);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_range_field_format value = {0};
+        uint32_t buf[1] = {htole32(UINT32_C(0x55667788))};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm__msgbuf_extract_range_field_format(
+                   ctx, PLDM_RANGE_FIELD_FORMAT_UINT32, &value) == 0);
+        expect(value.value_u32 == UINT32_C(0x55667788));
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_range_field_format value = {0};
+        int32_t buf[1] = {(int32_t)htole32((uint32_t)-12345678)};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm__msgbuf_extract_range_field_format(
+                   ctx, PLDM_RANGE_FIELD_FORMAT_SINT32, &value) == 0);
+        expect(value.value_s32 == -12345678);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        real32_t src = FLT_MAX;
+        uint32_t raw = 0;
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_range_field_format value = {0};
+        uint32_t buf[1] = {0};
+        memcpy(&raw, &src, sizeof(raw));
+        buf[0] = htole32(raw);
+
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm__msgbuf_extract_range_field_format(
+                   ctx, PLDM_RANGE_FIELD_FORMAT_REAL32, &value) == 0);
+        expect(value.value_f32 == FLT_MAX);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_range_field_format value = {0};
+        uint64_t buf[1] = {htole64(UINT64_C(0x1122334455667788))};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm__msgbuf_extract_range_field_format(
+                   ctx, PLDM_RANGE_FIELD_FORMAT_UINT64, &value) == 0);
+        expect(value.value_u64 == UINT64_C(0x1122334455667788));
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_range_field_format value = {0};
+        int64_t src = -INT64_C(0x0102030405060708);
+        uint64_t buf[1] = {htole64((uint64_t)src)};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm__msgbuf_extract_range_field_format(
+                   ctx, PLDM_RANGE_FIELD_FORMAT_SINT64, &value) == 0);
+        expect(value.value_s64 == src);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_range_field_format value = {0};
+        uint8_t buf[1] = {0};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, 0) == 0);
+        expect(pldm__msgbuf_extract_range_field_format(
+                   ctx, (enum pldm_range_field_format)0xff, &value) ==
+               -PLDM_ERROR_INVALID_DATA);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+}
+
+static void test_msgbuf_platform_extract_effecter_value(void)
+{
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        uint8_t val = 0;
+        uint8_t buf[1] = {0x7f};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm_msgbuf_extract_effecter_value(
+                   ctx, PLDM_EFFECTER_DATA_SIZE_UINT8, &val) == 0);
+        expect(val == 0x7f);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        int8_t val = 0;
+        int8_t buf[1] = {-1};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm_msgbuf_extract_effecter_value(
+                   ctx, PLDM_EFFECTER_DATA_SIZE_SINT8, &val) == 0);
+        expect(val == -1);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        uint16_t val = 0;
+        uint16_t buf[1] = {htole16(0x1234)};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm_msgbuf_extract_effecter_value(
+                   ctx, PLDM_EFFECTER_DATA_SIZE_UINT16, &val) == 0);
+        expect(val == 0x1234);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        int16_t val = 0;
+        int16_t buf[1] = {(int16_t)htole16((uint16_t)-1234)};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm_msgbuf_extract_effecter_value(
+                   ctx, PLDM_EFFECTER_DATA_SIZE_SINT16, &val) == 0);
+        expect(val == -1234);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        uint32_t val = 0;
+        uint32_t buf[1] = {htole32(UINT32_C(0x55667788))};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm_msgbuf_extract_effecter_value(
+                   ctx, PLDM_EFFECTER_DATA_SIZE_UINT32, &val) == 0);
+        expect(val == UINT32_C(0x55667788));
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        int32_t val = 0;
+        int32_t buf[1] = {(int32_t)htole32((uint32_t)-12345678)};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm_msgbuf_extract_effecter_value(
+                   ctx, PLDM_EFFECTER_DATA_SIZE_SINT32, &val) == 0);
+        expect(val == -12345678);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        uint64_t val = 0;
+        uint64_t buf[1] = {htole64(UINT64_C(0x1122334455667788))};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm_msgbuf_extract_effecter_value(
+                   ctx, PLDM_EFFECTER_DATA_SIZE_UINT64, &val) == 0);
+        expect(val == UINT64_C(0x1122334455667788));
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        int64_t val = 0;
+        int64_t src = -INT64_C(0x0102030405060708);
+        uint64_t buf[1] = {htole64((uint64_t)src)};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm_msgbuf_extract_effecter_value(
+                   ctx, PLDM_EFFECTER_DATA_SIZE_SINT64, &val) == 0);
+        expect(val == src);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        uint8_t val = 0;
+        uint8_t buf[1] = {0};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, 0) == 0);
+        expect(pldm_msgbuf_extract_effecter_value(
+                   ctx, (enum pldm_effecter_data_size)0xff, &val) ==
+               -PLDM_ERROR_INVALID_DATA);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+}
+
+static void test_msgbuf_platform_extract_effecter_data(void)
+{
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_effecter_data_size value = {0};
+        uint8_t buf[1] = {0x7f};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm__msgbuf_extract_effecter_data(
+                   ctx, PLDM_EFFECTER_DATA_SIZE_UINT8, &value) == 0);
+        expect(value.value_u8 == 0x7f);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_effecter_data_size value = {0};
+        int8_t buf[1] = {-1};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm__msgbuf_extract_effecter_data(
+                   ctx, PLDM_EFFECTER_DATA_SIZE_SINT8, &value) == 0);
+        expect(value.value_s8 == -1);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_effecter_data_size value = {0};
+        uint16_t buf[1] = {htole16(0x1234)};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm__msgbuf_extract_effecter_data(
+                   ctx, PLDM_EFFECTER_DATA_SIZE_UINT16, &value) == 0);
+        expect(value.value_u16 == 0x1234);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_effecter_data_size value = {0};
+        int16_t buf[1] = {(int16_t)htole16((uint16_t)-1234)};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm__msgbuf_extract_effecter_data(
+                   ctx, PLDM_EFFECTER_DATA_SIZE_SINT16, &value) == 0);
+        expect(value.value_s16 == -1234);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_effecter_data_size value = {0};
+        uint32_t buf[1] = {htole32(UINT32_C(0x55667788))};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm__msgbuf_extract_effecter_data(
+                   ctx, PLDM_EFFECTER_DATA_SIZE_UINT32, &value) == 0);
+        expect(value.value_u32 == UINT32_C(0x55667788));
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_effecter_data_size value = {0};
+        int32_t buf[1] = {(int32_t)htole32((uint32_t)-12345678)};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm__msgbuf_extract_effecter_data(
+                   ctx, PLDM_EFFECTER_DATA_SIZE_SINT32, &value) == 0);
+        expect(value.value_s32 == -12345678);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_effecter_data_size value = {0};
+        uint64_t buf[1] = {htole64(UINT64_C(0x1122334455667788))};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm__msgbuf_extract_effecter_data(
+                   ctx, PLDM_EFFECTER_DATA_SIZE_UINT64, &value) == 0);
+        expect(value.value_u64 == UINT64_C(0x1122334455667788));
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_effecter_data_size value = {0};
+        int64_t src = -INT64_C(0x0102030405060708);
+        uint64_t buf[1] = {htole64((uint64_t)src)};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+        expect(pldm__msgbuf_extract_effecter_data(
+                   ctx, PLDM_EFFECTER_DATA_SIZE_SINT64, &value) == 0);
+        expect(value.value_s64 == src);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+    {
+        struct pldm_msgbuf _ctx;
+        struct pldm_msgbuf* ctx = &_ctx;
+        union_effecter_data_size value = {0};
+        uint8_t buf[1] = {0};
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, 0) == 0);
+        expect(pldm__msgbuf_extract_effecter_data(
+                   ctx, (enum pldm_effecter_data_size)0xff, &value) ==
+               -PLDM_ERROR_INVALID_DATA);
+        expect(pldm_msgbuf_complete(ctx) == 0);
+    }
+}
+
 typedef void (*testfn)(void);
 
 static const testfn tests[] = {test_msgbuf_extract_generic_uint8,
@@ -299,6 +971,8 @@ static const testfn tests[] = {test_msgbuf_extract_generic_uint8,
                                test_msgbuf_extract_generic_int16,
                                test_msgbuf_extract_generic_uint32,
                                test_msgbuf_extract_generic_int32,
+                               test_msgbuf_extract_generic_uint64,
+                               test_msgbuf_extract_generic_int64,
                                test_msgbuf_extract_generic_real32,
                                test_msgbuf_extract_array_generic_uint8,
                                test_msgbuf_insert_generic_uint8,
@@ -307,7 +981,14 @@ static const testfn tests[] = {test_msgbuf_extract_generic_uint8,
                                test_msgbuf_insert_generic_int16,
                                test_msgbuf_insert_generic_uint32,
                                test_msgbuf_insert_generic_int32,
+                               test_msgbuf_insert_generic_uint64,
                                test_msgbuf_insert_array_generic_uint8,
+                               test_msgbuf_platform_extract_value_pdr_hdr,
+                               test_msgbuf_platform_extract_sensor_data,
+                               test_msgbuf_platform_extract_sensor_value,
+                               test_msgbuf_platform_extract_range_field_format,
+                               test_msgbuf_platform_extract_effecter_value,
+                               test_msgbuf_platform_extract_effecter_data,
                                NULL};
 
 int main(void)

@@ -925,3 +925,117 @@ TEST(SetFRURecordTable, testBadDecodeRequest)
         &retTransferHandle, &retTransferFlag, &table);
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
 }
+
+#ifdef LIBPLDM_API_DEPRECATED
+TEST(EncodeFruRecord, testGoodEncode)
+{
+    constexpr size_t totalSize = 256;
+    std::array<uint8_t, totalSize> fruTable{};
+    size_t currSize = 0;
+
+    uint8_t tlvData[] = {0x01, 0x02, 0x05, 'H', 'e', 'l', 'l', 'o'};
+    auto rc = encode_fru_record(
+        fruTable.data(), totalSize, &currSize, 1, PLDM_FRU_RECORD_TYPE_GENERAL,
+        1, PLDM_FRU_ENCODING_ASCII, tlvData, sizeof(tlvData));
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_GT(currSize, 0);
+}
+
+TEST(EncodeFruRecord, testBadNullTable)
+{
+    size_t currSize = 0;
+    uint8_t tlvData[] = {0x01};
+    EXPECT_EQ(encode_fru_record(nullptr, 10, &currSize, 1, 1, 1, 1, tlvData,
+                                sizeof(tlvData)),
+              PLDM_ERROR_INVALID_DATA);
+}
+
+TEST(EncodeFruRecord, testBadNullCurrSize)
+{
+    std::array<uint8_t, 64> table{};
+    uint8_t tlvData[] = {0x01};
+    EXPECT_EQ(
+        encode_fru_record(table.data(), 64, nullptr, 1, 1, 1, 1, tlvData, 1),
+        PLDM_ERROR_INVALID_DATA);
+}
+
+TEST(EncodeFruRecord, testBadZeroTlvSize)
+{
+    std::array<uint8_t, 64> table{};
+    size_t curr = 0;
+    uint8_t tlvData[] = {0x01};
+    EXPECT_EQ(
+        encode_fru_record(table.data(), 64, &curr, 1, 1, 1, 1, tlvData, 0),
+        PLDM_ERROR_INVALID_DATA);
+}
+
+TEST(EncodeFruRecord, testBadInsufficientSpace)
+{
+    std::array<uint8_t, 4> table{};
+    size_t curr = 0;
+    uint8_t tlvData[] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
+                         0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C};
+    EXPECT_EQ(encode_fru_record(table.data(), 4, &curr, 1, 1, 1, 1, tlvData,
+                                sizeof(tlvData)),
+              PLDM_ERROR_INVALID_LENGTH);
+}
+#endif
+
+TEST(GetFruRecordByOption, testGoodPath)
+{
+    constexpr size_t recordHdrSize =
+        sizeof(pldm_fru_record_data_format) - sizeof(pldm_fru_record_tlv);
+    constexpr uint8_t tlvLen = 3;
+
+    std::vector<uint8_t> table(recordHdrSize + sizeof(pldm_fru_record_tlv) - 1 +
+                               tlvLen);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto* record = reinterpret_cast<pldm_fru_record_data_format*>(table.data());
+    record->record_set_id = htole16(1);
+    record->record_type = PLDM_FRU_RECORD_TYPE_GENERAL;
+    record->num_fru_fields = 1;
+    record->encoding_type = PLDM_FRU_ENCODING_ASCII;
+
+    auto* tlv = record->tlvs;
+    tlv->type = 1;
+    tlv->length = tlvLen;
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    memset(reinterpret_cast<uint8_t*>(tlv) + sizeof(*tlv) - 1, 'A', tlvLen);
+
+    std::array<uint8_t, 256> outputTable{};
+    size_t outputSize = outputTable.size();
+
+    auto rc = get_fru_record_by_option(
+        table.data(), table.size(), outputTable.data(), &outputSize, 0, 0, 0);
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_GT(outputSize, 0);
+}
+
+TEST(GetFruRecordByOption, testFilterByRsi)
+{
+    constexpr size_t recordHdrSize =
+        sizeof(pldm_fru_record_data_format) - sizeof(pldm_fru_record_tlv);
+    constexpr uint8_t tlvLen = 2;
+
+    std::vector<uint8_t> table(recordHdrSize + sizeof(pldm_fru_record_tlv) - 1 +
+                               tlvLen);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto* record = reinterpret_cast<pldm_fru_record_data_format*>(table.data());
+    record->record_set_id = htole16(5);
+    record->record_type = PLDM_FRU_RECORD_TYPE_GENERAL;
+    record->num_fru_fields = 1;
+    record->encoding_type = PLDM_FRU_ENCODING_ASCII;
+    auto* tlv = record->tlvs;
+    tlv->type = 1;
+    tlv->length = tlvLen;
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    memset(reinterpret_cast<uint8_t*>(tlv) + sizeof(*tlv) - 1, 'B', tlvLen);
+
+    std::array<uint8_t, 256> outputTable{};
+    size_t outputSize = outputTable.size();
+
+    auto rc = get_fru_record_by_option(
+        table.data(), table.size(), outputTable.data(), &outputSize, 999, 0, 0);
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(outputSize, 0);
+}
