@@ -3186,7 +3186,7 @@ int decode_numeric_effecter_pdr_data(
 	if (rc) {
 		return pldm_xlate_errno(pldm_msgbuf_discard(buf, rc));
 	}
-	if (pdr_value->effecter_data_size > PLDM_SENSOR_DATA_SIZE_MAX) {
+	if (pdr_value->effecter_data_size > PLDM_EFFECTER_DATA_SIZE_MAX) {
 		return pldm_msgbuf_discard(buf, PLDM_ERROR_INVALID_DATA);
 	}
 
