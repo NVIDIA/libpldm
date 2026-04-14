@@ -3135,7 +3135,7 @@ int decode_poll_for_platform_event_message_resp(
 	return PLDM_SUCCESS;
 }
 
-LIBPLDM_ABI_TESTING
+LIBPLDM_ABI_STABLE
 int decode_numeric_effecter_pdr_data(
 	const void *pdr_data, size_t pdr_data_length,
 	struct pldm_numeric_effecter_value_pdr *pdr_value)
@@ -3186,7 +3186,7 @@ int decode_numeric_effecter_pdr_data(
 	if (rc) {
 		return pldm_xlate_errno(pldm_msgbuf_discard(buf, rc));
 	}
-	if (pdr_value->effecter_data_size > PLDM_SENSOR_DATA_SIZE_MAX) {
+	if (pdr_value->effecter_data_size > PLDM_EFFECTER_DATA_SIZE_MAX) {
 		return pldm_msgbuf_discard(buf, PLDM_ERROR_INVALID_DATA);
 	}
 
