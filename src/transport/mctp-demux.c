@@ -5,11 +5,13 @@
 #include "socket.h"
 #include "transport.h"
 
-#include <errno.h>
+#include <libpldm/api.h>
 #include <libpldm/base.h>
 #include <libpldm/pldm.h>
 #include <libpldm/transport.h>
 #include <libpldm/transport/mctp-demux.h>
+
+#include <errno.h>
 #include <limits.h>
 #include <poll.h>
 #include <stdlib.h>
@@ -26,7 +28,7 @@ struct pldm_transport_mctp_demux {
 	struct pldm_transport transport;
 	int socket;
 	/* In the future this probably needs to move to a tid-eid-uuid/network
-     * id mapping for multi mctp networks */
+	 * id mapping for multi mctp networks */
 	pldm_tid_t tid_eid_map[MCTP_MAX_NUM_EID];
 	struct pldm_socket_sndbuf socket_send_buf;
 };
@@ -294,8 +296,8 @@ pldm_transport_mctp_demux_init_with_fd(int mctp_fd)
 	demux->transport.send = pldm_transport_mctp_demux_send;
 	demux->transport.init_pollfd = pldm_transport_mctp_demux_init_pollfd;
 	/* dup is so we can call pldm_transport_mctp_demux_destroy which closes
-     * the socket, without closing the fd that is being used by the consumer
-     */
+	 * the socket, without closing the fd that is being used by the consumer
+	 */
 	demux->socket = dup(mctp_fd);
 	if (demux->socket == -1) {
 		free(demux);

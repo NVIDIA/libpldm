@@ -29,8 +29,8 @@
 
 static void test_msgbuf_extract_generic_uint8(void)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_ro _ctx;
+    struct pldm_msgbuf_ro* ctx = &_ctx;
     uint8_t buf[1] = {0xa5};
     uint8_t val;
 
@@ -42,8 +42,8 @@ static void test_msgbuf_extract_generic_uint8(void)
 
 static void test_msgbuf_extract_generic_int8(void)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_ro _ctx;
+    struct pldm_msgbuf_ro* ctx = &_ctx;
     int8_t buf[1] = {-1};
     int8_t val;
 
@@ -55,8 +55,8 @@ static void test_msgbuf_extract_generic_int8(void)
 
 static void test_msgbuf_extract_generic_uint16(void)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_ro _ctx;
+    struct pldm_msgbuf_ro* ctx = &_ctx;
     uint16_t buf[1] = {0x5aa5};
     uint16_t val;
 
@@ -68,8 +68,8 @@ static void test_msgbuf_extract_generic_uint16(void)
 
 static void test_msgbuf_extract_generic_int16(void)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_ro _ctx;
+    struct pldm_msgbuf_ro* ctx = &_ctx;
     int16_t buf[1] = {(int16_t)(htole16((uint16_t)INT16_MIN))};
     int16_t val;
 
@@ -81,8 +81,8 @@ static void test_msgbuf_extract_generic_int16(void)
 
 static void test_msgbuf_extract_generic_uint32(void)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_ro _ctx;
+    struct pldm_msgbuf_ro* ctx = &_ctx;
     uint32_t buf[1] = {0x5a00ffa5};
     uint32_t val;
 
@@ -94,8 +94,8 @@ static void test_msgbuf_extract_generic_uint32(void)
 
 static void test_msgbuf_extract_generic_int32(void)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_ro _ctx;
+    struct pldm_msgbuf_ro* ctx = &_ctx;
     int32_t buf[1] = {(int32_t)(htole32((uint32_t)INT32_MIN))};
     int32_t val;
 
@@ -107,8 +107,8 @@ static void test_msgbuf_extract_generic_int32(void)
 
 static void test_msgbuf_extract_generic_real32(void)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_ro _ctx;
+    struct pldm_msgbuf_ro* ctx = &_ctx;
     uint32_t buf[1];
     uint32_t xform;
     real32_t val;
@@ -126,8 +126,8 @@ static void test_msgbuf_extract_generic_real32(void)
 
 static void test_msgbuf_extract_array_generic_uint8(void)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_ro _ctx;
+    struct pldm_msgbuf_ro* ctx = &_ctx;
     uint32_t buf[1] = {0};
     uint8_t arr[1];
 
@@ -137,10 +137,32 @@ static void test_msgbuf_extract_array_generic_uint8(void)
     expect(pldm_msgbuf_complete(ctx) == 0);
 }
 
+static void test_msgbuf_insert_generic_real32(void)
+{
+    struct pldm_msgbuf_rw _ctx;
+    struct pldm_msgbuf_rw* ctx = &_ctx;
+    real32_t src = 2.5f;
+    real32_t checkVal = 0;
+    uint8_t buf[sizeof(real32_t)] = {0};
+
+    expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
+    expect(pldm_msgbuf_insert(ctx, src) == 0);
+
+    struct pldm_msgbuf_ro _ctxExtract;
+    struct pldm_msgbuf_ro* ctxExtract = &_ctxExtract;
+
+    expect(pldm_msgbuf_init_errno(ctxExtract, 0, buf, sizeof(buf)) == 0);
+    expect(pldm_msgbuf_extract(ctxExtract, checkVal) == 0);
+
+    expect(src == checkVal);
+    expect(pldm_msgbuf_complete(ctxExtract) == 0);
+    expect(pldm_msgbuf_complete(ctx) == 0);
+}
+
 static void test_msgbuf_insert_generic_int32(void)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_rw _ctx;
+    struct pldm_msgbuf_rw* ctx = &_ctx;
     int32_t src = -12345;
     int32_t checkVal = 0;
     uint8_t buf[sizeof(int32_t)] = {0};
@@ -148,8 +170,8 @@ static void test_msgbuf_insert_generic_int32(void)
     expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
     expect(pldm_msgbuf_insert(ctx, src) == 0);
 
-    struct pldm_msgbuf _ctxExtract;
-    struct pldm_msgbuf* ctxExtract = &_ctxExtract;
+    struct pldm_msgbuf_ro _ctxExtract;
+    struct pldm_msgbuf_ro* ctxExtract = &_ctxExtract;
 
     expect(pldm_msgbuf_init_errno(ctxExtract, 0, buf, sizeof(buf)) == 0);
     expect(pldm_msgbuf_extract(ctxExtract, checkVal) == 0);
@@ -161,8 +183,8 @@ static void test_msgbuf_insert_generic_int32(void)
 
 static void test_msgbuf_insert_generic_uint32(void)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_rw _ctx;
+    struct pldm_msgbuf_rw* ctx = &_ctx;
     uint32_t src = 0xf1223344;
     uint32_t checkVal = 0;
     uint8_t buf[sizeof(uint32_t)] = {0};
@@ -170,8 +192,8 @@ static void test_msgbuf_insert_generic_uint32(void)
     expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
     expect(pldm_msgbuf_insert(ctx, src) == 0);
 
-    struct pldm_msgbuf _ctxExtract;
-    struct pldm_msgbuf* ctxExtract = &_ctxExtract;
+    struct pldm_msgbuf_ro _ctxExtract;
+    struct pldm_msgbuf_ro* ctxExtract = &_ctxExtract;
 
     expect(pldm_msgbuf_init_errno(ctxExtract, 0, buf, sizeof(buf)) == 0);
     expect(pldm_msgbuf_extract(ctxExtract, checkVal) == 0);
@@ -183,8 +205,8 @@ static void test_msgbuf_insert_generic_uint32(void)
 
 static void test_msgbuf_insert_generic_uint16(void)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_rw _ctx;
+    struct pldm_msgbuf_rw* ctx = &_ctx;
     uint16_t src = 0xf344;
     uint16_t checkVal = 0;
     uint8_t buf[sizeof(uint16_t)] = {0};
@@ -192,8 +214,8 @@ static void test_msgbuf_insert_generic_uint16(void)
     expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(uint16_t)) == 0);
     expect(pldm_msgbuf_insert(ctx, src) == 0);
 
-    struct pldm_msgbuf _ctxExtract;
-    struct pldm_msgbuf* ctxExtract = &_ctxExtract;
+    struct pldm_msgbuf_ro _ctxExtract;
+    struct pldm_msgbuf_ro* ctxExtract = &_ctxExtract;
 
     expect(pldm_msgbuf_init_errno(ctxExtract, 0, buf, sizeof(buf)) == 0);
     expect(pldm_msgbuf_extract(ctxExtract, checkVal) == 0);
@@ -205,8 +227,8 @@ static void test_msgbuf_insert_generic_uint16(void)
 
 static void test_msgbuf_insert_generic_int16(void)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_rw _ctx;
+    struct pldm_msgbuf_rw* ctx = &_ctx;
     int16_t src = -12;
     int16_t checkVal = 0;
     uint8_t buf[sizeof(int16_t)] = {0};
@@ -214,8 +236,8 @@ static void test_msgbuf_insert_generic_int16(void)
     expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(uint16_t)) == 0);
     expect(pldm_msgbuf_insert(ctx, src) == 0);
 
-    struct pldm_msgbuf _ctxExtract;
-    struct pldm_msgbuf* ctxExtract = &_ctxExtract;
+    struct pldm_msgbuf_ro _ctxExtract;
+    struct pldm_msgbuf_ro* ctxExtract = &_ctxExtract;
 
     expect(pldm_msgbuf_init_errno(ctxExtract, 0, buf, sizeof(buf)) == 0);
     expect(pldm_msgbuf_extract(ctxExtract, checkVal) == 0);
@@ -227,8 +249,8 @@ static void test_msgbuf_insert_generic_int16(void)
 
 static void test_msgbuf_insert_generic_uint8(void)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_rw _ctx;
+    struct pldm_msgbuf_rw* ctx = &_ctx;
     uint8_t src = 0xf4;
     uint8_t checkVal = 0;
     uint8_t buf[sizeof(uint8_t)] = {0};
@@ -236,8 +258,8 @@ static void test_msgbuf_insert_generic_uint8(void)
     expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
     expect(pldm_msgbuf_insert(ctx, src) == 0);
 
-    struct pldm_msgbuf _ctxExtract;
-    struct pldm_msgbuf* ctxExtract = &_ctxExtract;
+    struct pldm_msgbuf_ro _ctxExtract;
+    struct pldm_msgbuf_ro* ctxExtract = &_ctxExtract;
 
     expect(pldm_msgbuf_init_errno(ctxExtract, 0, buf, sizeof(buf)) == 0);
     expect(pldm_msgbuf_extract(ctxExtract, checkVal) == 0);
@@ -249,8 +271,8 @@ static void test_msgbuf_insert_generic_uint8(void)
 
 static void test_msgbuf_insert_generic_int8(void)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_rw _ctx;
+    struct pldm_msgbuf_rw* ctx = &_ctx;
     int8_t src = -4;
     int8_t checkVal = 0;
     uint8_t buf[sizeof(int8_t)] = {0};
@@ -258,8 +280,8 @@ static void test_msgbuf_insert_generic_int8(void)
     expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
     expect(pldm_msgbuf_insert(ctx, src) == 0);
 
-    struct pldm_msgbuf _ctxExtract;
-    struct pldm_msgbuf* ctxExtract = &_ctxExtract;
+    struct pldm_msgbuf_ro _ctxExtract;
+    struct pldm_msgbuf_ro* ctxExtract = &_ctxExtract;
 
     expect(pldm_msgbuf_init_errno(ctxExtract, 0, buf, sizeof(buf)) == 0);
     expect(pldm_msgbuf_extract(ctxExtract, checkVal) == 0);
@@ -271,8 +293,8 @@ static void test_msgbuf_insert_generic_int8(void)
 
 static void test_msgbuf_insert_array_generic_uint8(void)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_rw _ctx;
+    struct pldm_msgbuf_rw* ctx = &_ctx;
     uint8_t src[6] = {0x11, 0x22, 0x44, 0x55, 0x66, 0x77};
     uint8_t buf[6] = {0};
     uint8_t retBuff[6] = {0};
@@ -280,8 +302,8 @@ static void test_msgbuf_insert_array_generic_uint8(void)
     expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
     expect(pldm_msgbuf_insert_array(ctx, sizeof(src), src, sizeof(src)) == 0);
 
-    struct pldm_msgbuf _ctxExtract;
-    struct pldm_msgbuf* ctxExtract = &_ctxExtract;
+    struct pldm_msgbuf_ro _ctxExtract;
+    struct pldm_msgbuf_ro* ctxExtract = &_ctxExtract;
 
     expect(pldm_msgbuf_init_errno(ctxExtract, 0, buf, sizeof(buf)) == 0);
     expect(pldm_msgbuf_extract_array(ctxExtract, sizeof(retBuff), retBuff,
@@ -294,8 +316,8 @@ static void test_msgbuf_insert_array_generic_uint8(void)
 
 static void test_msgbuf_extract_generic_uint64(void)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_ro _ctx;
+    struct pldm_msgbuf_ro* ctx = &_ctx;
     uint64_t buf[1] = {htole64(UINT64_C(0x1122334455667788))};
     uint64_t val = 0;
 
@@ -307,8 +329,8 @@ static void test_msgbuf_extract_generic_uint64(void)
 
 static void test_msgbuf_extract_generic_int64(void)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_ro _ctx;
+    struct pldm_msgbuf_ro* ctx = &_ctx;
     int64_t src = -INT64_C(0x0102030405060708);
     uint64_t buf[1] = {htole64((uint64_t)src)};
     int64_t val = 0;
@@ -321,8 +343,8 @@ static void test_msgbuf_extract_generic_int64(void)
 
 static void test_msgbuf_insert_generic_uint64(void)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_rw _ctx;
+    struct pldm_msgbuf_rw* ctx = &_ctx;
     uint64_t src = UINT64_C(0x1122334455667788);
     uint64_t checkVal = 0;
     uint8_t buf[sizeof(uint64_t)] = {0};
@@ -330,8 +352,8 @@ static void test_msgbuf_insert_generic_uint64(void)
     expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
     expect(pldm_msgbuf_insert(ctx, src) == 0);
 
-    struct pldm_msgbuf _ctxExtract;
-    struct pldm_msgbuf* ctxExtract = &_ctxExtract;
+    struct pldm_msgbuf_ro _ctxExtract;
+    struct pldm_msgbuf_ro* ctxExtract = &_ctxExtract;
     expect(pldm_msgbuf_init_errno(ctxExtract, 0, buf, sizeof(buf)) == 0);
     expect(pldm_msgbuf_extract(ctxExtract, checkVal) == 0);
     expect(checkVal == src);
@@ -343,10 +365,10 @@ static void test_msgbuf_platform_extract_value_pdr_hdr(void)
 {
     {
         uint8_t wire[sizeof(struct pldm_value_pdr_hdr)] = {0};
-        struct pldm_msgbuf _enc;
-        struct pldm_msgbuf* enc = &_enc;
-        struct pldm_msgbuf _dec;
-        struct pldm_msgbuf* dec = &_dec;
+        struct pldm_msgbuf_rw _enc;
+        struct pldm_msgbuf_rw* enc = &_enc;
+        struct pldm_msgbuf_ro _dec;
+        struct pldm_msgbuf_ro* dec = &_dec;
         struct pldm_value_pdr_hdr hdr = {0};
 
         expect(pldm_msgbuf_init_errno(enc, 0, wire, sizeof(wire)) == 0);
@@ -359,7 +381,7 @@ static void test_msgbuf_platform_extract_value_pdr_hdr(void)
 
         expect(pldm_msgbuf_init_errno(dec, 0, wire, sizeof(wire)) == 0);
         expect(pldm_msgbuf_extract_value_pdr_hdr(
-                   dec, &hdr, sizeof(struct pldm_msgbuf) + 0x0010, 0x0010) ==
+                   dec, &hdr, sizeof(struct pldm_msgbuf_rw) + 0x0010, 0x0010) ==
                0);
         expect(hdr.record_handle == UINT32_C(0x10203040));
         expect(hdr.version == 0x22);
@@ -371,8 +393,8 @@ static void test_msgbuf_platform_extract_value_pdr_hdr(void)
 
     {
         uint8_t wire[5] = {0};
-        struct pldm_msgbuf _dec;
-        struct pldm_msgbuf* dec = &_dec;
+        struct pldm_msgbuf_ro _dec;
+        struct pldm_msgbuf_ro* dec = &_dec;
         struct pldm_value_pdr_hdr hdr = {0};
 
         expect(pldm_msgbuf_init_errno(dec, 0, wire, sizeof(wire)) == 0);
@@ -383,10 +405,10 @@ static void test_msgbuf_platform_extract_value_pdr_hdr(void)
 
     {
         uint8_t wire[sizeof(struct pldm_value_pdr_hdr)] = {0};
-        struct pldm_msgbuf _enc;
-        struct pldm_msgbuf* enc = &_enc;
-        struct pldm_msgbuf _dec;
-        struct pldm_msgbuf* dec = &_dec;
+        struct pldm_msgbuf_rw _enc;
+        struct pldm_msgbuf_rw* enc = &_enc;
+        struct pldm_msgbuf_ro _dec;
+        struct pldm_msgbuf_ro* dec = &_dec;
         struct pldm_value_pdr_hdr hdr = {0};
 
         expect(pldm_msgbuf_init_errno(enc, 0, wire, sizeof(wire)) == 0);
@@ -399,17 +421,17 @@ static void test_msgbuf_platform_extract_value_pdr_hdr(void)
 
         expect(pldm_msgbuf_init_errno(dec, 0, wire, sizeof(wire)) == 0);
         expect(pldm_msgbuf_extract_value_pdr_hdr(
-                   dec, &hdr, sizeof(struct pldm_msgbuf) + 0x0002, 0x0010) ==
+                   dec, &hdr, sizeof(struct pldm_msgbuf_rw) + 0x0002, 0x0010) ==
                -EOVERFLOW);
         expect(pldm_msgbuf_complete(dec) == 0);
     }
 
     {
         uint8_t wire[sizeof(struct pldm_value_pdr_hdr)] = {0};
-        struct pldm_msgbuf _enc;
-        struct pldm_msgbuf* enc = &_enc;
-        struct pldm_msgbuf _dec;
-        struct pldm_msgbuf* dec = &_dec;
+        struct pldm_msgbuf_rw _enc;
+        struct pldm_msgbuf_rw* enc = &_enc;
+        struct pldm_msgbuf_ro _dec;
+        struct pldm_msgbuf_ro* dec = &_dec;
         struct pldm_value_pdr_hdr hdr = {0};
 
         expect(pldm_msgbuf_init_errno(enc, 0, wire, sizeof(wire)) == 0);
@@ -430,8 +452,8 @@ static void test_msgbuf_platform_extract_value_pdr_hdr(void)
 static void test_msgbuf_platform_extract_sensor_data(void)
 {
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_sensor_data_size value = {0};
         uint8_t buf[1] = {0x7f};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -441,8 +463,8 @@ static void test_msgbuf_platform_extract_sensor_data(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_sensor_data_size value = {0};
         int8_t buf[1] = {-1};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -452,8 +474,8 @@ static void test_msgbuf_platform_extract_sensor_data(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_sensor_data_size value = {0};
         uint16_t buf[1] = {htole16(0x1234)};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -463,8 +485,8 @@ static void test_msgbuf_platform_extract_sensor_data(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_sensor_data_size value = {0};
         int16_t buf[1] = {(int16_t)htole16((uint16_t)-1234)};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -474,8 +496,8 @@ static void test_msgbuf_platform_extract_sensor_data(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_sensor_data_size value = {0};
         uint32_t buf[1] = {htole32(UINT32_C(0x55667788))};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -485,8 +507,8 @@ static void test_msgbuf_platform_extract_sensor_data(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_sensor_data_size value = {0};
         int32_t buf[1] = {(int32_t)htole32((uint32_t)-12345678)};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -496,8 +518,8 @@ static void test_msgbuf_platform_extract_sensor_data(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_sensor_data_size value = {0};
         uint64_t buf[1] = {htole64(UINT64_C(0x1122334455667788))};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -507,8 +529,8 @@ static void test_msgbuf_platform_extract_sensor_data(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_sensor_data_size value = {0};
         int64_t src = -INT64_C(0x0102030405060708);
         uint64_t buf[1] = {htole64((uint64_t)src)};
@@ -519,8 +541,8 @@ static void test_msgbuf_platform_extract_sensor_data(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_sensor_data_size value = {0};
         uint8_t buf[1] = {0};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, 0) == 0);
@@ -534,8 +556,8 @@ static void test_msgbuf_platform_extract_sensor_data(void)
 static void test_msgbuf_platform_extract_sensor_value(void)
 {
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         uint8_t val = 0;
         uint8_t buf[1] = {0x7f};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -545,8 +567,8 @@ static void test_msgbuf_platform_extract_sensor_value(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         int8_t val = 0;
         int8_t buf[1] = {-1};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -556,8 +578,8 @@ static void test_msgbuf_platform_extract_sensor_value(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         uint16_t val = 0;
         uint16_t buf[1] = {htole16(0x1234)};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -567,8 +589,8 @@ static void test_msgbuf_platform_extract_sensor_value(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         int16_t val = 0;
         int16_t buf[1] = {(int16_t)htole16((uint16_t)-1234)};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -578,8 +600,8 @@ static void test_msgbuf_platform_extract_sensor_value(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         uint32_t val = 0;
         uint32_t buf[1] = {htole32(UINT32_C(0x55667788))};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -589,8 +611,8 @@ static void test_msgbuf_platform_extract_sensor_value(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         int32_t val = 0;
         int32_t buf[1] = {(int32_t)htole32((uint32_t)-12345678)};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -600,8 +622,8 @@ static void test_msgbuf_platform_extract_sensor_value(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         uint64_t val = 0;
         uint64_t buf[1] = {htole64(UINT64_C(0x1122334455667788))};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -611,8 +633,8 @@ static void test_msgbuf_platform_extract_sensor_value(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         int64_t val = 0;
         int64_t src = -INT64_C(0x0102030405060708);
         uint64_t buf[1] = {htole64((uint64_t)src)};
@@ -623,8 +645,8 @@ static void test_msgbuf_platform_extract_sensor_value(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         uint8_t val = 0;
         uint8_t buf[1] = {0};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, 0) == 0);
@@ -638,8 +660,8 @@ static void test_msgbuf_platform_extract_sensor_value(void)
 static void test_msgbuf_platform_extract_range_field_format(void)
 {
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_range_field_format value = {0};
         uint8_t buf[1] = {0x7f};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -649,8 +671,8 @@ static void test_msgbuf_platform_extract_range_field_format(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_range_field_format value = {0};
         int8_t buf[1] = {-1};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -660,8 +682,8 @@ static void test_msgbuf_platform_extract_range_field_format(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_range_field_format value = {0};
         uint16_t buf[1] = {htole16(0x1234)};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -671,8 +693,8 @@ static void test_msgbuf_platform_extract_range_field_format(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_range_field_format value = {0};
         int16_t buf[1] = {(int16_t)htole16((uint16_t)-1234)};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -682,8 +704,8 @@ static void test_msgbuf_platform_extract_range_field_format(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_range_field_format value = {0};
         uint32_t buf[1] = {htole32(UINT32_C(0x55667788))};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -693,8 +715,8 @@ static void test_msgbuf_platform_extract_range_field_format(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_range_field_format value = {0};
         int32_t buf[1] = {(int32_t)htole32((uint32_t)-12345678)};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -706,8 +728,8 @@ static void test_msgbuf_platform_extract_range_field_format(void)
     {
         real32_t src = FLT_MAX;
         uint32_t raw = 0;
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_range_field_format value = {0};
         uint32_t buf[1] = {0};
         memcpy(&raw, &src, sizeof(raw));
@@ -720,8 +742,8 @@ static void test_msgbuf_platform_extract_range_field_format(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_range_field_format value = {0};
         uint64_t buf[1] = {htole64(UINT64_C(0x1122334455667788))};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -731,8 +753,8 @@ static void test_msgbuf_platform_extract_range_field_format(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_range_field_format value = {0};
         int64_t src = -INT64_C(0x0102030405060708);
         uint64_t buf[1] = {htole64((uint64_t)src)};
@@ -743,8 +765,8 @@ static void test_msgbuf_platform_extract_range_field_format(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_range_field_format value = {0};
         uint8_t buf[1] = {0};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, 0) == 0);
@@ -758,8 +780,8 @@ static void test_msgbuf_platform_extract_range_field_format(void)
 static void test_msgbuf_platform_extract_effecter_value(void)
 {
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         uint8_t val = 0;
         uint8_t buf[1] = {0x7f};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -769,8 +791,8 @@ static void test_msgbuf_platform_extract_effecter_value(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         int8_t val = 0;
         int8_t buf[1] = {-1};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -780,8 +802,8 @@ static void test_msgbuf_platform_extract_effecter_value(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         uint16_t val = 0;
         uint16_t buf[1] = {htole16(0x1234)};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -791,8 +813,8 @@ static void test_msgbuf_platform_extract_effecter_value(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         int16_t val = 0;
         int16_t buf[1] = {(int16_t)htole16((uint16_t)-1234)};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -802,8 +824,8 @@ static void test_msgbuf_platform_extract_effecter_value(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         uint32_t val = 0;
         uint32_t buf[1] = {htole32(UINT32_C(0x55667788))};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -813,8 +835,8 @@ static void test_msgbuf_platform_extract_effecter_value(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         int32_t val = 0;
         int32_t buf[1] = {(int32_t)htole32((uint32_t)-12345678)};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -824,8 +846,8 @@ static void test_msgbuf_platform_extract_effecter_value(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         uint64_t val = 0;
         uint64_t buf[1] = {htole64(UINT64_C(0x1122334455667788))};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -835,8 +857,8 @@ static void test_msgbuf_platform_extract_effecter_value(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         int64_t val = 0;
         int64_t src = -INT64_C(0x0102030405060708);
         uint64_t buf[1] = {htole64((uint64_t)src)};
@@ -847,8 +869,8 @@ static void test_msgbuf_platform_extract_effecter_value(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         uint8_t val = 0;
         uint8_t buf[1] = {0};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, 0) == 0);
@@ -862,8 +884,8 @@ static void test_msgbuf_platform_extract_effecter_value(void)
 static void test_msgbuf_platform_extract_effecter_data(void)
 {
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_effecter_data_size value = {0};
         uint8_t buf[1] = {0x7f};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -873,8 +895,8 @@ static void test_msgbuf_platform_extract_effecter_data(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_effecter_data_size value = {0};
         int8_t buf[1] = {-1};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -884,8 +906,8 @@ static void test_msgbuf_platform_extract_effecter_data(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_effecter_data_size value = {0};
         uint16_t buf[1] = {htole16(0x1234)};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -895,8 +917,8 @@ static void test_msgbuf_platform_extract_effecter_data(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_effecter_data_size value = {0};
         int16_t buf[1] = {(int16_t)htole16((uint16_t)-1234)};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -906,8 +928,8 @@ static void test_msgbuf_platform_extract_effecter_data(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_effecter_data_size value = {0};
         uint32_t buf[1] = {htole32(UINT32_C(0x55667788))};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -917,8 +939,8 @@ static void test_msgbuf_platform_extract_effecter_data(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_effecter_data_size value = {0};
         int32_t buf[1] = {(int32_t)htole32((uint32_t)-12345678)};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -928,8 +950,8 @@ static void test_msgbuf_platform_extract_effecter_data(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_effecter_data_size value = {0};
         uint64_t buf[1] = {htole64(UINT64_C(0x1122334455667788))};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)) == 0);
@@ -939,8 +961,8 @@ static void test_msgbuf_platform_extract_effecter_data(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_effecter_data_size value = {0};
         int64_t src = -INT64_C(0x0102030405060708);
         uint64_t buf[1] = {htole64((uint64_t)src)};
@@ -951,8 +973,8 @@ static void test_msgbuf_platform_extract_effecter_data(void)
         expect(pldm_msgbuf_complete(ctx) == 0);
     }
     {
-        struct pldm_msgbuf _ctx;
-        struct pldm_msgbuf* ctx = &_ctx;
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
         union_effecter_data_size value = {0};
         uint8_t buf[1] = {0};
         expect(pldm_msgbuf_init_errno(ctx, 0, buf, 0) == 0);
@@ -982,6 +1004,7 @@ static const testfn tests[] = {test_msgbuf_extract_generic_uint8,
                                test_msgbuf_insert_generic_uint32,
                                test_msgbuf_insert_generic_int32,
                                test_msgbuf_insert_generic_uint64,
+                               test_msgbuf_insert_generic_real32,
                                test_msgbuf_insert_array_generic_uint8,
                                test_msgbuf_platform_extract_value_pdr_hdr,
                                test_msgbuf_platform_extract_sensor_data,

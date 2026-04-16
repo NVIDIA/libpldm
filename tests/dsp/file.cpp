@@ -1,17 +1,17 @@
+#include "msgbuf.hpp"
+
+#include <libpldm/base.h>
 #include <libpldm/file.h>
 #include <libpldm/pldm_types.h>
 
 #include <array>
 #include <cstdint>
 #include <cstring>
-#include <vector>
-
-#include "msgbuf.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(EncodeDfOpenReq, GoodTest)
 {
     uint8_t instance_id = 0;
@@ -37,7 +37,7 @@ TEST(EncodeDfOpenReq, GoodTest)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(EncodeDfOpenReq, BadTestUnAllocatedPtrParams)
 {
     uint8_t instance_id = 0;
@@ -63,7 +63,7 @@ TEST(EncodeDfOpenReq, BadTestUnAllocatedPtrParams)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(EncodeDfOpenReq, BadTestInvalidExpectedOutputMsgLength)
 {
     uint8_t instance_id = 0;
@@ -85,7 +85,7 @@ TEST(EncodeDfOpenReq, BadTestInvalidExpectedOutputMsgLength)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(DecodeDfOpenResp, GoodTest)
 {
     uint8_t completion_code = PLDM_SUCCESS;
@@ -93,7 +93,7 @@ TEST(DecodeDfOpenResp, GoodTest)
 
     struct pldm_file_df_open_resp resp_data = {};
 
-    PLDM_MSGBUF_DEFINE_P(buf);
+    PLDM_MSGBUF_RW_DEFINE_P(buf);
     int rc;
 
     static constexpr const size_t payload_length = PLDM_DF_OPEN_RESP_BYTES;
@@ -116,7 +116,7 @@ TEST(DecodeDfOpenResp, GoodTest)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(DecodeDfOpenResp, BadTestUnAllocatedPtrParams)
 {
     uint8_t completion_code = PLDM_SUCCESS;
@@ -124,7 +124,7 @@ TEST(DecodeDfOpenResp, BadTestUnAllocatedPtrParams)
 
     struct pldm_file_df_open_resp resp_data = {};
 
-    PLDM_MSGBUF_DEFINE_P(buf);
+    PLDM_MSGBUF_RW_DEFINE_P(buf);
     int rc;
 
     static constexpr const size_t payload_length = PLDM_DF_OPEN_RESP_BYTES;
@@ -147,7 +147,7 @@ TEST(DecodeDfOpenResp, BadTestUnAllocatedPtrParams)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(DecodeDfOpenResp, BadTestInvalidExpectedInputMsgLength)
 {
     uint8_t completion_code = PLDM_SUCCESS;
@@ -155,7 +155,7 @@ TEST(DecodeDfOpenResp, BadTestInvalidExpectedInputMsgLength)
 
     struct pldm_file_df_open_resp resp_data = {};
 
-    PLDM_MSGBUF_DEFINE_P(buf);
+    PLDM_MSGBUF_RW_DEFINE_P(buf);
     int rc;
 
     static constexpr const size_t payload_length = PLDM_DF_OPEN_RESP_BYTES;
@@ -175,7 +175,7 @@ TEST(DecodeDfOpenResp, BadTestInvalidExpectedInputMsgLength)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(EncodeDfCloseReq, GoodTest)
 {
     uint8_t instance_id = 0;
@@ -201,7 +201,7 @@ TEST(EncodeDfCloseReq, GoodTest)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(EncodeDfCloseReq, BadTestUnAllocatedPtrParams)
 {
     uint8_t instance_id = 0;
@@ -227,7 +227,7 @@ TEST(EncodeDfCloseReq, BadTestUnAllocatedPtrParams)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(EncodeDfCloseReq, BadTestInvalidExpectedOutputMsgLength)
 {
     uint8_t instance_id = 0;
@@ -249,14 +249,14 @@ TEST(EncodeDfCloseReq, BadTestInvalidExpectedOutputMsgLength)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(DecodeDfCloseResp, GoodTest)
 {
     uint8_t completion_code = PLDM_SUCCESS;
 
     struct pldm_file_df_close_resp resp_data = {};
 
-    PLDM_MSGBUF_DEFINE_P(buf);
+    PLDM_MSGBUF_RW_DEFINE_P(buf);
     int rc;
 
     static constexpr const size_t payload_length = PLDM_DF_CLOSE_RESP_BYTES;
@@ -278,14 +278,14 @@ TEST(DecodeDfCloseResp, GoodTest)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(DecodeDfCloseResp, BadTestUnAllocatedPtrParams)
 {
     uint8_t completion_code = PLDM_SUCCESS;
 
     struct pldm_file_df_close_resp resp_data = {};
 
-    PLDM_MSGBUF_DEFINE_P(buf);
+    PLDM_MSGBUF_RW_DEFINE_P(buf);
     int rc;
 
     static constexpr const size_t payload_length = PLDM_DF_CLOSE_RESP_BYTES;
@@ -307,7 +307,7 @@ TEST(DecodeDfCloseResp, BadTestUnAllocatedPtrParams)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(EncodeDfHeartbeatReq, GoodTest)
 {
     uint8_t instance_id = 0;
@@ -334,7 +334,7 @@ TEST(EncodeDfHeartbeatReq, GoodTest)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(EncodeDfHeartbeatReq, BadTestUnAllocatedPtrParams)
 {
     uint8_t instance_id = 0;
@@ -360,7 +360,7 @@ TEST(EncodeDfHeartbeatReq, BadTestUnAllocatedPtrParams)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(EncodeDfHeartbeatReq, BadTestInvalidExpectedOutputMsgLength)
 {
     uint8_t instance_id = 0;
@@ -382,7 +382,7 @@ TEST(EncodeDfHeartbeatReq, BadTestInvalidExpectedOutputMsgLength)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(DecodeDfHeartbeatResp, GoodTest)
 {
     uint8_t completion_code = PLDM_SUCCESS;
@@ -390,7 +390,7 @@ TEST(DecodeDfHeartbeatResp, GoodTest)
 
     struct pldm_file_df_heartbeat_resp resp_data = {};
 
-    PLDM_MSGBUF_DEFINE_P(buf);
+    PLDM_MSGBUF_RW_DEFINE_P(buf);
     int rc;
 
     static constexpr const size_t payload_length = PLDM_DF_HEARTBEAT_RESP_BYTES;
@@ -414,7 +414,7 @@ TEST(DecodeDfHeartbeatResp, GoodTest)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(DecodeDfHeartbeatResp, BadTestUnAllocatedPtrParams)
 {
     uint8_t completion_code = PLDM_SUCCESS;
@@ -422,7 +422,7 @@ TEST(DecodeDfHeartbeatResp, BadTestUnAllocatedPtrParams)
 
     struct pldm_file_df_heartbeat_resp resp_data = {};
 
-    PLDM_MSGBUF_DEFINE_P(buf);
+    PLDM_MSGBUF_RW_DEFINE_P(buf);
     int rc;
 
     static constexpr const size_t payload_length = PLDM_DF_HEARTBEAT_RESP_BYTES;
@@ -447,7 +447,7 @@ TEST(DecodeDfHeartbeatResp, BadTestUnAllocatedPtrParams)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(DecodeDfHeartbeatResp, BadTestInvalidExpectedInputMsgLength)
 {
     uint8_t completion_code = PLDM_SUCCESS;
@@ -455,7 +455,7 @@ TEST(DecodeDfHeartbeatResp, BadTestInvalidExpectedInputMsgLength)
 
     struct pldm_file_df_heartbeat_resp resp_data = {};
 
-    PLDM_MSGBUF_DEFINE_P(buf);
+    PLDM_MSGBUF_RW_DEFINE_P(buf);
     int rc;
 
     static constexpr const size_t payload_length = PLDM_DF_HEARTBEAT_RESP_BYTES;
@@ -475,7 +475,7 @@ TEST(DecodeDfHeartbeatResp, BadTestInvalidExpectedInputMsgLength)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(EncodeDfOpenResp, GoodTest)
 {
     uint8_t instance_id = 0;
@@ -499,7 +499,7 @@ TEST(EncodeDfOpenResp, GoodTest)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(EncodeDfOpenResp, BadTestUnAllocatedPtrParams)
 {
     uint8_t instance_id = 0;
@@ -521,7 +521,7 @@ TEST(EncodeDfOpenResp, BadTestUnAllocatedPtrParams)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(EncodeDfOpenResp, BadTestInvalidExpectedOutputMsgLength)
 {
     uint8_t instance_id = 0;
@@ -540,7 +540,7 @@ TEST(EncodeDfOpenResp, BadTestInvalidExpectedOutputMsgLength)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(EncodeDfOpenResp, GoodTestCompletionCode)
 {
     uint8_t instance_id = 0;
@@ -555,11 +555,11 @@ TEST(EncodeDfOpenResp, GoodTestCompletionCode)
     auto rc = encode_pldm_file_df_open_resp(instance_id, &resp_data,
                                             responsePtr, &payload_length);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(payload_length, 1); // Completion code only
+    EXPECT_EQ(payload_length, 1ul); // Completion code only
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(DecodeDfOpenReq, GoodTest)
 {
     uint16_t file_identifier = 0x0100;
@@ -568,7 +568,7 @@ TEST(DecodeDfOpenReq, GoodTest)
 
     struct pldm_file_df_open_req req_data = {};
 
-    PLDM_MSGBUF_DEFINE_P(buf);
+    PLDM_MSGBUF_RW_DEFINE_P(buf);
     int rc;
 
     static constexpr const size_t payload_length = PLDM_DF_OPEN_REQ_BYTES;
@@ -591,7 +591,7 @@ TEST(DecodeDfOpenReq, GoodTest)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(DecodeDfOpenReq, BadTestUnAllocatedPtrParams)
 {
     uint16_t file_identifier = 0x0100;
@@ -600,7 +600,7 @@ TEST(DecodeDfOpenReq, BadTestUnAllocatedPtrParams)
 
     struct pldm_file_df_open_req req_data = {};
 
-    PLDM_MSGBUF_DEFINE_P(buf);
+    PLDM_MSGBUF_RW_DEFINE_P(buf);
     int rc;
 
     static constexpr const size_t payload_length = PLDM_DF_OPEN_REQ_BYTES;
@@ -623,7 +623,7 @@ TEST(DecodeDfOpenReq, BadTestUnAllocatedPtrParams)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(DecodeDfOpenReq, BadTestInvalidExpectedInputMsgLength)
 {
     uint16_t file_identifier = 0x0100;
@@ -632,7 +632,7 @@ TEST(DecodeDfOpenReq, BadTestInvalidExpectedInputMsgLength)
 
     struct pldm_file_df_open_req req_data = {};
 
-    PLDM_MSGBUF_DEFINE_P(buf);
+    PLDM_MSGBUF_RW_DEFINE_P(buf);
     int rc;
 
     static constexpr const size_t payload_length = PLDM_DF_OPEN_REQ_BYTES;
@@ -652,7 +652,7 @@ TEST(DecodeDfOpenReq, BadTestInvalidExpectedInputMsgLength)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(EncodeDfCloseResp, GoodTest)
 {
     uint8_t instance_id = 0;
@@ -672,7 +672,7 @@ TEST(EncodeDfCloseResp, GoodTest)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(EncodeDfCloseResp, BadTestUnAllocatedPtrParams)
 {
     uint8_t instance_id = 0;
@@ -692,7 +692,7 @@ TEST(EncodeDfCloseResp, BadTestUnAllocatedPtrParams)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(DecodeDfCloseReq, GoodTest)
 {
     uint16_t file_descriptor = 0x1000;
@@ -701,7 +701,7 @@ TEST(DecodeDfCloseReq, GoodTest)
 
     struct pldm_file_df_close_req req_data = {};
 
-    PLDM_MSGBUF_DEFINE_P(buf);
+    PLDM_MSGBUF_RW_DEFINE_P(buf);
     int rc;
 
     static constexpr const size_t payload_length = PLDM_DF_CLOSE_REQ_BYTES;
@@ -724,7 +724,7 @@ TEST(DecodeDfCloseReq, GoodTest)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(DecodeDfCloseReq, BadTestUnAllocatedPtrParams)
 {
     uint16_t file_descriptor = 0x1000;
@@ -733,7 +733,7 @@ TEST(DecodeDfCloseReq, BadTestUnAllocatedPtrParams)
 
     struct pldm_file_df_close_req req_data = {};
 
-    PLDM_MSGBUF_DEFINE_P(buf);
+    PLDM_MSGBUF_RW_DEFINE_P(buf);
     int rc;
 
     static constexpr const size_t payload_length = PLDM_DF_CLOSE_REQ_BYTES;

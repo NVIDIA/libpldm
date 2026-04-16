@@ -139,9 +139,9 @@ static void* mock_memmem_fn(const void* haystack, size_t haystacklen,
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define memmem mock_memmem_fn
 
-/* Now include msgbuf.h - strnlen/memmem calls resolve to our mocks */
+/* Now include msgbuf/core.h - strnlen/memmem calls resolve to our mocks */
 #include "compiler.h"
-#include "msgbuf.h"
+#include "msgbuf/core.h"
 
 #undef strnlen
 #undef memmem
@@ -150,50 +150,51 @@ static void* mock_memmem_fn(const void* haystack, size_t haystacklen,
 
 TEST(MsgbufSpanOverflow, AsciiHappyPath)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_ro _ctx;
+    struct pldm_msgbuf_ro* ctx = &_ctx;
     uint8_t buf[] = "hello";
-    void* cursor = nullptr;
+    const void* cursor = nullptr;
     size_t len = 0;
 
-    ASSERT_EQ(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)), 0);
-    EXPECT_EQ(pldm_msgbuf_span_string_ascii(ctx, &cursor, &len), 0);
+    ASSERT_EQ(pldm_msgbuf_ro_init_errno(ctx, 0, buf, sizeof(buf)), 0);
+    EXPECT_EQ(pldm_msgbuf_ro_span_string_ascii(ctx, &cursor, &len), 0);
     EXPECT_EQ(len, 6U);
-    EXPECT_EQ(pldm_msgbuf_complete_consumed(ctx), 0);
+    EXPECT_EQ(pldm_msgbuf_ro_complete_consumed(ctx), 0);
 }
 
 TEST(MsgbufSpanOverflow, AsciiOverflowGuard)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_ro _ctx;
+    struct pldm_msgbuf_ro* ctx = &_ctx;
     uint8_t buf[] = "test";
 
-    ASSERT_EQ(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)), 0);
+    ASSERT_EQ(pldm_msgbuf_ro_init_errno(ctx, 0, buf, sizeof(buf)), 0);
 
     mock_strnlen_armed = 1;
-    EXPECT_EQ(pldm_msgbuf_span_string_ascii(ctx, nullptr, nullptr), -EOVERFLOW);
+    EXPECT_EQ(pldm_msgbuf_ro_span_string_ascii(ctx, nullptr, nullptr),
+              -EOVERFLOW);
     mock_strnlen_armed = 0;
 }
 
 TEST(MsgbufSpanOverflow, Utf16HappyPath)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_ro _ctx;
+    struct pldm_msgbuf_ro* ctx = &_ctx;
     /* "Hi" in UTF-16LE followed by NUL terminator */
     uint8_t buf[] = {'H', 0, 'i', 0, 0, 0};
-    void* cursor = nullptr;
+    const void* cursor = nullptr;
     size_t len = 0;
 
-    ASSERT_EQ(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)), 0);
-    EXPECT_EQ(pldm_msgbuf_span_string_utf16(ctx, &cursor, &len), 0);
+    ASSERT_EQ(pldm_msgbuf_ro_init_errno(ctx, 0, buf, sizeof(buf)), 0);
+    EXPECT_EQ(pldm_msgbuf_ro_span_string_utf16(ctx, &cursor, &len), 0);
     EXPECT_EQ(len, 6U);
-    EXPECT_EQ(pldm_msgbuf_complete_consumed(ctx), 0);
+    EXPECT_EQ(pldm_msgbuf_ro_complete_consumed(ctx), 0);
 }
 
 TEST(MsgbufSpanOverflow, Utf16OverflowGuard)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_ro _ctx;
+    struct pldm_msgbuf_ro* ctx = &_ctx;
     /*
      * Buffer must have odd length so the mocked memmem return value has the
      * same alignment parity as the cursor, causing the alignment loop to
@@ -201,21 +202,22 @@ TEST(MsgbufSpanOverflow, Utf16OverflowGuard)
      */
     uint8_t buf[] = {'H', 0, 'i', 0, 0, 0, 0};
 
-    ASSERT_EQ(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)), 0);
+    ASSERT_EQ(pldm_msgbuf_ro_init_errno(ctx, 0, buf, sizeof(buf)), 0);
 
     mock_memmem_armed = 1;
-    EXPECT_EQ(pldm_msgbuf_span_string_utf16(ctx, nullptr, nullptr), -EOVERFLOW);
+    EXPECT_EQ(pldm_msgbuf_ro_span_string_utf16(ctx, nullptr, nullptr),
+              -EOVERFLOW);
     mock_memmem_armed = 0;
 }
 
 TEST(MsgbufSpanOverflow, ConsumedNotExhausted)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_ro _ctx;
+    struct pldm_msgbuf_ro* ctx = &_ctx;
     uint8_t buf[] = {0, 1, 2, 3};
 
-    ASSERT_EQ(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)), 0);
-    EXPECT_EQ(pldm_msgbuf_complete_consumed(ctx), -EBADMSG);
+    ASSERT_EQ(pldm_msgbuf_ro_init_errno(ctx, 0, buf, sizeof(buf)), 0);
+    EXPECT_EQ(pldm_msgbuf_ro_complete_consumed(ctx), -EBADMSG);
 }
 
 /*
@@ -234,15 +236,16 @@ TEST(MsgbufSpanOverflow, ConsumedNotExhausted)
  */
 TEST(MsgbufSpanOverflow, AsciiInvalidateFallthrough)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_ro _ctx;
+    struct pldm_msgbuf_ro* ctx = &_ctx;
     uint8_t buf[] = "test";
 
-    ASSERT_EQ(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)), 0);
+    ASSERT_EQ(pldm_msgbuf_ro_init_errno(ctx, 0, buf, sizeof(buf)), 0);
 
     mock_remaining = &ctx->remaining;
     mock_strnlen_armed = 2;
-    EXPECT_EQ(pldm_msgbuf_span_string_ascii(ctx, nullptr, nullptr), -EOVERFLOW);
+    EXPECT_EQ(pldm_msgbuf_ro_span_string_ascii(ctx, nullptr, nullptr),
+              -EOVERFLOW);
     mock_strnlen_armed = 0;
     mock_remaining = nullptr;
 }
@@ -259,15 +262,16 @@ TEST(MsgbufSpanOverflow, AsciiInvalidateFallthrough)
  */
 TEST(MsgbufSpanOverflow, Utf16InvalidateFallthrough)
 {
-    struct pldm_msgbuf _ctx;
-    struct pldm_msgbuf* ctx = &_ctx;
+    struct pldm_msgbuf_ro _ctx;
+    struct pldm_msgbuf_ro* ctx = &_ctx;
     uint8_t buf[] = {'H', 0, 'i', 0, 0, 0};
 
-    ASSERT_EQ(pldm_msgbuf_init_errno(ctx, 0, buf, sizeof(buf)), 0);
+    ASSERT_EQ(pldm_msgbuf_ro_init_errno(ctx, 0, buf, sizeof(buf)), 0);
 
     mock_remaining = &ctx->remaining;
     mock_memmem_armed = 2;
-    EXPECT_EQ(pldm_msgbuf_span_string_utf16(ctx, nullptr, nullptr), -EOVERFLOW);
+    EXPECT_EQ(pldm_msgbuf_ro_span_string_utf16(ctx, nullptr, nullptr),
+              -EOVERFLOW);
     mock_memmem_armed = 0;
     mock_remaining = nullptr;
 }

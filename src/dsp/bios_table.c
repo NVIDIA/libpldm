@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
 #include "array.h"
 
-#include <assert.h>
-#include <endian.h>
 #include <libpldm/base.h>
 #include <libpldm/bios.h>
 #include <libpldm/bios_table.h>
-#include <libpldm/utils.h>
+#include <libpldm/edac.h>
+
+#include <assert.h>
+#include <endian.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -1026,8 +1027,7 @@ void pldm_bios_table_iter_next(struct pldm_bios_table_iter *iter)
 	}
 	const void *entry = iter->table_data + iter->current_pos;
 	ssize_t rc = iter->entry_length_handler(entry);
-	/* Prevent bad behaviour by acting as if we've hit the end of the iterator
-     */
+	/* Prevent bad behaviour by acting as if we've hit the end of the iterator */
 	if (rc < 0) {
 		return;
 	}
@@ -1193,8 +1193,8 @@ int pldm_bios_table_attr_value_copy_and_update(
 		length = attr_value_table_entry_length(tmp);
 
 		/* we need the tmp's entry_length here, iter_next will calculate
-         * it too, use current_pos directly to avoid calculating it
-         * twice */
+		 * it too, use current_pos directly to avoid calculating it
+		 * twice */
 		iter->current_pos += length;
 		if (tmp->attr_handle == to_update->attr_handle) {
 			if (tmp->attr_type != to_update->attr_type) {

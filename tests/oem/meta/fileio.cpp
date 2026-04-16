@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
+
+#include "msgbuf.hpp"
+
 #include <endian.h>
+#include <libpldm/base.h>
 #include <libpldm/oem/meta/file_io.h>
 
 #include <cstdlib>
 #include <new>
-
-#include "msgbuf.h"
 
 #include "gmock/gmock.h"
 #include <gtest/gtest.h>
@@ -13,7 +15,7 @@
 TEST(DecodeOemMetaFileIoWriteReq, testGoodDecodeRequest)
 {
     constexpr const uint8_t postCode[4] = {0x93, 0xe0, 0x00, 0xea};
-    PLDM_MSGBUF_DEFINE_P(ctx);
+    PLDM_MSGBUF_RW_DEFINE_P(ctx);
     int rc;
 
     constexpr size_t encodedPayloadLen =
@@ -82,7 +84,7 @@ TEST(DecodeOemMetaFileIoWriteReq, testInvalidDataRequest)
 
 TEST(DecodeOemMetaFileIoReadReq, testGoodDecodeRequest)
 {
-    PLDM_MSGBUF_DEFINE_P(ctx);
+    PLDM_MSGBUF_RW_DEFINE_P(ctx);
     int rc;
 
     constexpr size_t payloadLen = PLDM_OEM_META_FILE_IO_READ_REQ_MIN_LENGTH +
@@ -250,7 +252,7 @@ TEST(DecodeOemMetaFileIoReq, testGoodDecodeRequest)
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto request = reinterpret_cast<pldm_msg*>(requestMsg.data());
 
-    PLDM_MSGBUF_DEFINE_P(ctx);
+    PLDM_MSGBUF_RW_DEFINE_P(ctx);
     auto rc = pldm_msgbuf_init_errno(ctx, 0, request->payload, payloadLen);
     ASSERT_EQ(rc, 0);
     pldm_msgbuf_insert_uint8(ctx, fileHandle);

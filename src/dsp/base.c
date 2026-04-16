@@ -9,6 +9,7 @@
 
 #include <endian.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -122,6 +123,64 @@ bool pldm_msg_hdr_correlate_response(const struct pldm_msg_hdr *req,
 	return req->instance_id == resp->instance_id && req->request &&
 	       !resp->request && req->type == resp->type &&
 	       req->command == resp->command;
+}
+
+#define BCD_H(v)       (((v) >> 4) & 0xf)
+#define BCD_L(v)       ((v) & 0xf)
+#define AS_CHAR(digit) ((digit) + '0')
+#define INSERT_CHAR(c, b, n)                                                   \
+	{                                                                      \
+		if ((n) > 1) {                                                 \
+			*(b)++ = (c);                                          \
+			(n)--;                                                 \
+		}                                                              \
+	}
+#define INSERT_INT(i, b, n) INSERT_CHAR(AS_CHAR(i), (b), (n))
+
+LIBPLDM_ABI_STABLE
+ssize_t pldm_base_ver2str(const ver32_t *version, char *buffer,
+			  size_t buffer_size)
+{
+	ssize_t remaining;
+	char *cursor;
+
+	if (!version || !buffer) {
+		return -1;
+	}
+
+	if (!buffer_size) {
+		return -1;
+	}
+
+	if (buffer_size > SSIZE_MAX) {
+		return -1;
+	}
+
+	cursor = buffer;
+	remaining = (ssize_t)buffer_size;
+
+	if (version->major < 0xf0)
+		INSERT_INT(BCD_H(version->major), cursor, remaining)
+	INSERT_INT(BCD_L(version->major), cursor, remaining);
+	INSERT_CHAR('.', cursor, remaining);
+
+	if (version->minor < 0xf0)
+		INSERT_INT(BCD_H(version->minor), cursor, remaining);
+	INSERT_INT(BCD_L(version->minor), cursor, remaining);
+
+	if (version->update < 0xff) {
+		INSERT_CHAR('.', cursor, remaining);
+		if (version->update < 0xf0)
+			INSERT_INT(BCD_H(version->update), cursor, remaining);
+		INSERT_INT(BCD_L(version->update), cursor, remaining);
+	}
+
+	if (version->alpha)
+		INSERT_CHAR(version->alpha, cursor, remaining);
+
+	*cursor = '\0';
+
+	return (ssize_t)buffer_size - remaining;
 }
 
 LIBPLDM_ABI_STABLE
@@ -506,7 +565,7 @@ LIBPLDM_ABI_TESTING
 int decode_set_tid_req(const struct pldm_msg *msg, size_t payload_length,
 		       uint8_t *tid)
 {
-	PLDM_MSGBUF_DEFINE_P(buf);
+	PLDM_MSGBUF_RO_DEFINE_P(buf);
 	int rc;
 
 	if (!msg || !tid) {
@@ -533,7 +592,7 @@ int decode_multipart_receive_req(const struct pldm_msg *msg,
 				 uint32_t *section_offset,
 				 uint32_t *section_length)
 {
-	PLDM_MSGBUF_DEFINE_P(buf);
+	PLDM_MSGBUF_RO_DEFINE_P(buf);
 	int rc;
 
 	if (msg == NULL || pldm_type == NULL || transfer_opflag == NULL ||
@@ -569,13 +628,14 @@ int decode_multipart_receive_req(const struct pldm_msg *msg,
 		return PLDM_ERROR_UNEXPECTED_TRANSFER_FLAG_OPERATION;
 	}
 
-	// A section offset of 0 is only valid on FIRST_PART or COMPLETE Xfers.
-	if (*section_offset == 0 && (*transfer_opflag != PLDM_XFER_FIRST_PART &&
-				     *transfer_opflag != PLDM_XFER_COMPLETE)) {
-		return PLDM_ERROR_INVALID_DATA;
-	}
-
-	if (*transfer_handle == 0 && *transfer_opflag != PLDM_XFER_COMPLETE) {
+	// By DSP0240 v1.2.0, section 9.6.5, Table 17, transfer handle can be 0 only
+	// if the transfer flag is one of XFER_FIRST_PART, XFER_COMPLETE or
+	// XFER_ABORT. In addition, it must be allowed in PLDM_XFER_CURRENT_PART as
+	// this may be used to retry the first part, in which case the transfer handle
+	// must again be 0. Therefore, the only operation for which it cannot be 0 is
+	// PLDM_XFER_NEXT_PART.
+	if ((*transfer_handle == 0) &&
+	    (*transfer_opflag == PLDM_XFER_NEXT_PART)) {
 		return PLDM_ERROR_INVALID_DATA;
 	}
 
@@ -587,7 +647,7 @@ int encode_pldm_base_multipart_receive_req(
 	uint8_t instance_id, const struct pldm_base_multipart_receive_req *req,
 	struct pldm_msg *msg, size_t *payload_length)
 {
-	PLDM_MSGBUF_DEFINE_P(buf);
+	PLDM_MSGBUF_RW_DEFINE_P(buf);
 	int rc;
 
 	if (req == NULL || msg == NULL || payload_length == NULL) {
@@ -627,7 +687,7 @@ int decode_pldm_base_multipart_receive_resp(
 	struct pldm_base_multipart_receive_resp *resp,
 	uint32_t *data_integrity_checksum)
 {
-	PLDM_MSGBUF_DEFINE_P(buf);
+	PLDM_MSGBUF_RO_DEFINE_P(buf);
 	int rc;
 
 	if (msg == NULL || resp == NULL || data_integrity_checksum == NULL) {
@@ -663,13 +723,11 @@ int decode_pldm_base_multipart_receive_resp(
 	if (resp->data.length > 0) {
 		resp->data.ptr = NULL;
 		pldm_msgbuf_span_required(buf, resp->data.length,
-					  (void **)&resp->data.ptr);
+					  (const void **)&resp->data.ptr);
 	}
 
-	if (resp->transfer_flag ==
-		    PLDM_BASE_MULTIPART_RECEIVE_TRANSFER_FLAG_END ||
-	    resp->transfer_flag ==
-		    PLDM_BASE_MULTIPART_RECEIVE_TRANSFER_FLAG_START_AND_END) {
+	if (resp->transfer_flag !=
+	    PLDM_BASE_MULTIPART_RECEIVE_TRANSFER_FLAG_ACK_COMPLETION) {
 		pldm_msgbuf_extract_p(buf, data_integrity_checksum);
 	}
 
@@ -682,10 +740,14 @@ int encode_base_multipart_receive_resp(
 	const struct pldm_base_multipart_receive_resp *resp, uint32_t checksum,
 	struct pldm_msg *msg, size_t *payload_length)
 {
-	PLDM_MSGBUF_DEFINE_P(buf);
+	PLDM_MSGBUF_RW_DEFINE_P(buf);
 	int rc;
 
-	if (!msg || !resp || !payload_length || !resp->data.ptr) {
+	if (!msg || !resp || !payload_length) {
+		return -EINVAL;
+	}
+
+	if ((resp->data.length > 0) && !resp->data.ptr) {
 		return -EINVAL;
 	}
 
@@ -730,8 +792,10 @@ int encode_base_multipart_receive_resp(
 		return pldm_msgbuf_discard(buf, rc);
 	}
 
-	if (resp->transfer_flag == PLDM_END ||
-	    resp->transfer_flag == PLDM_START_AND_END) {
+	// Checksum is present for all data parts except when response transfer flag is
+	// ACKNOWLEDGE_COMPLETION
+	if (resp->transfer_flag !=
+	    PLDM_BASE_MULTIPART_RECEIVE_TRANSFER_FLAG_ACK_COMPLETION) {
 		pldm_msgbuf_insert(buf, checksum);
 	}
 
@@ -797,7 +861,7 @@ int encode_pldm_base_negotiate_transfer_params_req(
 	const struct pldm_base_negotiate_transfer_params_req *req,
 	struct pldm_msg *msg, size_t *payload_length)
 {
-	PLDM_MSGBUF_DEFINE_P(buf);
+	PLDM_MSGBUF_RW_DEFINE_P(buf);
 	int rc;
 
 	if (req == NULL || msg == NULL || payload_length == NULL) {
@@ -834,12 +898,94 @@ int encode_pldm_base_negotiate_transfer_params_req(
 	return pldm_msgbuf_complete_used(buf, *payload_length, payload_length);
 }
 
+#define PLDM_BASE_MIN_PART_SIZE 256
+
+LIBPLDM_ABI_TESTING
+int encode_pldm_base_negotiate_transfer_params_resp(
+	uint8_t instance_id,
+	const struct pldm_base_negotiate_transfer_params_resp *resp,
+	struct pldm_msg *msg, size_t *payload_length)
+{
+	PLDM_MSGBUF_RW_DEFINE_P(buf);
+	int rc;
+
+	if (resp == NULL || msg == NULL) {
+		return -EINVAL;
+	}
+
+	if (resp->responder_part_size < PLDM_BASE_MIN_PART_SIZE) {
+		return -EINVAL;
+	}
+
+	struct pldm_header_info header = { 0 };
+	header.instance = instance_id;
+	header.msg_type = PLDM_RESPONSE;
+	header.pldm_type = PLDM_BASE;
+	header.command = PLDM_NEGOTIATE_TRANSFER_PARAMETERS;
+
+	rc = pack_pldm_header_errno(&header, &msg->hdr);
+	if (rc) {
+		return rc;
+	}
+
+	rc = pldm_msgbuf_init_errno(
+		buf, PLDM_BASE_NEGOTIATE_TRANSFER_PARAMETERS_RESP_BYTES,
+		msg->payload, *payload_length);
+	if (rc) {
+		return rc;
+	}
+
+	pldm_msgbuf_insert(buf, resp->completion_code);
+	pldm_msgbuf_insert(buf, resp->responder_part_size);
+	rc = pldm_msgbuf_insert_array(
+		buf, sizeof(resp->responder_protocol_support),
+		(uint8_t *)resp->responder_protocol_support,
+		sizeof(resp->responder_protocol_support));
+	if (rc) {
+		return pldm_msgbuf_discard(buf, rc);
+	}
+
+	return pldm_msgbuf_complete_used(buf, *payload_length, payload_length);
+}
+
+LIBPLDM_ABI_TESTING
+int decode_pldm_base_negotiate_transfer_params_req(
+	const struct pldm_msg *msg, size_t payload_length,
+	struct pldm_base_negotiate_transfer_params_req *req)
+{
+	PLDM_MSGBUF_RO_DEFINE_P(buf);
+	int rc;
+
+	if (msg == NULL || req == NULL) {
+		return -EINVAL;
+	}
+
+	rc = pldm_msgbuf_init_errno(
+		buf, PLDM_BASE_NEGOTIATE_TRANSFER_PARAMETERS_REQ_BYTES,
+		msg->payload, payload_length);
+	if (rc) {
+		return rc;
+	}
+
+	pldm_msgbuf_extract(buf, req->requester_part_size);
+
+	rc = pldm_msgbuf_extract_array(
+		buf, sizeof(req->requester_protocol_support),
+		(uint8_t *)req->requester_protocol_support,
+		sizeof(req->requester_protocol_support));
+	if (rc) {
+		return pldm_msgbuf_discard(buf, rc);
+	}
+
+	return pldm_msgbuf_complete_consumed(buf);
+}
+
 LIBPLDM_ABI_STABLE
 int decode_pldm_base_negotiate_transfer_params_resp(
 	const struct pldm_msg *msg, size_t payload_length,
 	struct pldm_base_negotiate_transfer_params_resp *resp)
 {
-	PLDM_MSGBUF_DEFINE_P(buf);
+	PLDM_MSGBUF_RO_DEFINE_P(buf);
 	int rc;
 
 	if (msg == NULL || resp == NULL) {

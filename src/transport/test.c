@@ -5,6 +5,8 @@
 #include "transport.h"
 #include "test.h"
 
+#include <libpldm/api.h>
+
 #include <errno.h>
 #include <poll.h>
 #include <stdlib.h>
@@ -28,8 +30,6 @@ struct pldm_transport *pldm_transport_test_core(struct pldm_transport_test *ctx)
 	return &ctx->transport;
 }
 
-#ifdef PLDM_HAS_POLL
-#include <poll.h>
 LIBPLDM_ABI_TESTING
 int pldm_transport_test_init_pollfd(struct pldm_transport *ctx,
 				    struct pollfd *pollfd)
@@ -95,7 +95,6 @@ int pldm_transport_test_init_pollfd(struct pldm_transport *ctx,
 
 	return 0;
 }
-#endif
 
 static pldm_requester_rc_t pldm_transport_test_recv(struct pldm_transport *ctx,
 						    pldm_tid_t *tid,

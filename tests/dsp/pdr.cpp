@@ -1,7 +1,8 @@
+#include "msgbuf.hpp"
+
 #include <endian.h>
 #include <libpldm/pdr.h>
 #include <libpldm/platform.h>
-#include <msgbuf.h>
 
 #include <array>
 #include <cstdint>
@@ -46,7 +47,7 @@ typedef struct pldm_entity_test
     }
 } pldm_entity_test;
 
-static void getEntity(struct pldm_msgbuf* buf, pldm_entity_test& entity)
+static void getEntity(struct pldm_msgbuf_ro* buf, pldm_entity_test& entity)
 {
     pldm_msgbuf_extract_uint16(buf, entity.entity_type);
     pldm_msgbuf_extract_uint16(buf, entity.entity_instance_num);
@@ -54,7 +55,7 @@ static void getEntity(struct pldm_msgbuf* buf, pldm_entity_test& entity)
 }
 
 static void
-    getAssociationPdrDetails(struct pldm_msgbuf* buf,
+    getAssociationPdrDetails(struct pldm_msgbuf_ro* buf,
                              pldm_association_pdr_test& association_pdr_test)
 {
     pldm_msgbuf_extract_uint32(buf, association_pdr_test.record_handle);
@@ -68,7 +69,7 @@ static void
 }
 
 static void
-    verifyEntityAssociationPdr(struct pldm_msgbuf* buf,
+    verifyEntityAssociationPdr(struct pldm_msgbuf_ro* buf,
                                const pldm_association_pdr_test& association_pdr,
                                const pldm_entity_test& container_entity1,
                                const pldm_entity_test& child_entity1)
@@ -683,7 +684,7 @@ TEST(PDRUpdate, tesFindtFruRecordSet)
     pldm_pdr_destroy(repo);
 }
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(PDRUpdate, testFindLastInRange)
 {
     auto repo = pldm_pdr_init();
@@ -719,7 +720,6 @@ TEST(PDRUpdate, testFindLastInRange)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
 TEST(PDRAccess, testRemoveBySensorIDDecodeFailure)
 {
     auto repo = pldm_pdr_init();
@@ -748,9 +748,7 @@ TEST(PDRAccess, testRemoveBySensorIDDecodeFailure)
 
     pldm_pdr_destroy(repo);
 }
-#endif
 
-#ifdef LIBPLDM_API_TESTING
 TEST(PDRAccess, testRemoveBySensorID)
 {
     auto repo = pldm_pdr_init();
@@ -791,26 +789,25 @@ TEST(PDRAccess, testRemoveBySensorID)
     int rc =
         pldm_pdr_delete_by_sensor_id(repo, 1, false, &removed_record_handle);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(removed_record_handle, 1);
+    EXPECT_EQ(removed_record_handle, 1u);
     EXPECT_EQ(pldm_pdr_get_record_count(repo), 3u);
 
     // Error case where the effceter ID is not present in the repo
     uint32_t removed_rec_handle{};
     rc = pldm_pdr_delete_by_sensor_id(repo, 15, false, &removed_rec_handle);
     EXPECT_EQ(rc, -ENOENT);
-    EXPECT_EQ(removed_rec_handle, 0);
+    EXPECT_EQ(removed_rec_handle, 0u);
     EXPECT_EQ(pldm_pdr_get_record_count(repo), 3u);
 
     rc = pldm_pdr_delete_by_sensor_id(repo, 10, false, &removed_record_handle);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(removed_record_handle, 3);
+    EXPECT_EQ(removed_record_handle, 3u);
     EXPECT_EQ(pldm_pdr_get_record_count(repo), 2u);
 
     pldm_pdr_destroy(repo);
 }
-#endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(PDRAccess, testGetTerminusHandle)
 {
 
@@ -894,7 +891,6 @@ TEST(PDRAccess, testRemoveByRecordHandle)
     pldm_pdr_destroy(repo);
 }
 
-#ifdef LIBPLDM_API_TESTING
 TEST(PDRAccess, testRemoveByEffecterIDDecodeFailure)
 {
     auto repo = pldm_pdr_init();
@@ -923,9 +919,7 @@ TEST(PDRAccess, testRemoveByEffecterIDDecodeFailure)
               1u); // Record remains in the repo
     pldm_pdr_destroy(repo);
 }
-#endif
 
-#ifdef LIBPLDM_API_TESTING
 TEST(PDRAccess, testRemoveByEffecterID)
 {
     auto repo = pldm_pdr_init();
@@ -966,25 +960,24 @@ TEST(PDRAccess, testRemoveByEffecterID)
     int rc =
         pldm_pdr_delete_by_effecter_id(repo, 1, false, &removed_record_handle);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(removed_record_handle, 1);
+    EXPECT_EQ(removed_record_handle, 1u);
     EXPECT_EQ(pldm_pdr_get_record_count(repo), 3u);
 
     // Error case where the effceter ID is not present in the repo
     uint32_t removed_rec_handle{};
     rc = pldm_pdr_delete_by_effecter_id(repo, 15, false, &removed_rec_handle);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(removed_rec_handle, 0);
+    EXPECT_EQ(removed_rec_handle, 0u);
     EXPECT_EQ(pldm_pdr_get_record_count(repo), 3u);
 
     rc =
         pldm_pdr_delete_by_effecter_id(repo, 20, false, &removed_record_handle);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(removed_record_handle, 4);
+    EXPECT_EQ(removed_record_handle, 4u);
     EXPECT_EQ(pldm_pdr_get_record_count(repo), 2u);
 
     pldm_pdr_destroy(repo);
 }
-#endif
 
 TEST(EntityAssociationPDR, testInit)
 {
@@ -1187,7 +1180,7 @@ TEST(EntityAssociationPDR, testBuild)
     pldm_entity_association_tree_destroy(tree);
 }
 
-#if LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(EntityAssociationPDR, findAndAddRemotePDR)
 {
     //         Tree - 1
@@ -1766,8 +1759,8 @@ TEST(EntityAssociationPDR, testPDRWithRecordHandle)
 
     pldm_pdr_find_record(repo, currRecHandle, &data, &size, &nextRecHandle);
 
-    struct pldm_msgbuf _buf;
-    struct pldm_msgbuf* buf = &_buf;
+    struct pldm_msgbuf_ro _buf;
+    struct pldm_msgbuf_ro* buf = &_buf;
 
     auto rc =
         pldm_msgbuf_init_errno(buf,
@@ -1899,7 +1892,7 @@ TEST(EntityAssociationPDR, testFind)
     pldm_entity_association_tree_destroy(tree);
 }
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(EntityAssociationPDR, testCopyTree)
 {
     pldm_entity entities[4]{};
@@ -2207,7 +2200,7 @@ TEST(EntityAssociationPDR, testEntityInstanceNumber)
     pldm_entity_association_tree_destroy(tree);
 }
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(EntityAssociationPDR, testFindChildContainerID)
 {
     pldm_entity entities[3]{};
@@ -2308,14 +2301,14 @@ TEST(EntityAssociationPDR, testNodeAddCheck)
     EXPECT_NE(hdl1, nullptr);
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     pldm_pdr_hdr* hdr = reinterpret_cast<pldm_pdr_hdr*>(outData);
-    EXPECT_EQ(hdr->record_handle, 2);
+    EXPECT_EQ(hdr->record_handle, 2u);
 
     outData = nullptr;
     auto hdl2 = pldm_pdr_find_record(repo, 23, &outData, &size, &nextRecHdl);
     EXPECT_NE(hdl2, nullptr);
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     pldm_pdr_hdr* hdr1 = reinterpret_cast<pldm_pdr_hdr*>(outData);
-    EXPECT_EQ(hdr1->record_handle, 23);
+    EXPECT_EQ(hdr1->record_handle, 23u);
 
     outData = nullptr;
     auto hdl3 = pldm_pdr_find_record(repo, 3, &outData, &size, &nextRecHdl);
@@ -2326,7 +2319,7 @@ TEST(EntityAssociationPDR, testNodeAddCheck)
     pldm_entity_association_tree_destroy(tree);
 }
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(EntityAssociationPDR, testAddContainedEntityRemotePDR)
 {
     // pldm_entity entities[5]{};
@@ -2385,7 +2378,7 @@ TEST(EntityAssociationPDR, testAddContainedEntityRemotePDR)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_API_TESTING
 TEST(EntityAssociationPDR, testAddContainedEntityNew)
 {
     // pldm_entity entities[5]{};
@@ -2443,7 +2436,7 @@ TEST(EntityAssociationPDR, testAddContainedEntityNew)
                   repo, 34, &entity2[0], &entity3[0], &updated_record_handle),
               0);
 
-    EXPECT_EQ(updated_record_handle, 35);
+    EXPECT_EQ(updated_record_handle, 35u);
 
     free(entities);
     pldm_pdr_destroy(repo);
@@ -2451,7 +2444,6 @@ TEST(EntityAssociationPDR, testAddContainedEntityNew)
 }
 #endif
 
-#ifdef LIBPLDM_API_TESTING
 TEST(EntityAssociationPDR, testRemoveContainedEntity)
 {
     struct pldm_entity entities[4] = {
@@ -2499,21 +2491,21 @@ TEST(EntityAssociationPDR, testRemoveContainedEntity)
     EXPECT_EQ(pldm_entity_association_pdr_remove_contained_entity(
                   repo, entity, false, &removed_record_handle),
               0);
-    EXPECT_EQ(removed_record_handle, 3);
+    EXPECT_EQ(removed_record_handle, 3u);
 
     // Remove second contained entity from the entity association PDR
     removed_record_handle = 0;
     EXPECT_EQ(pldm_entity_association_pdr_remove_contained_entity(
                   repo, &entities[1], false, &removed_record_handle),
               0);
-    EXPECT_EQ(removed_record_handle, 3);
+    EXPECT_EQ(removed_record_handle, 3u);
 
     // Remove third contained entity from the entity association PDR
     removed_record_handle = 0;
     EXPECT_EQ(pldm_entity_association_pdr_remove_contained_entity(
                   repo, &entities[2], false, &removed_record_handle),
               0);
-    EXPECT_EQ(removed_record_handle, 3);
+    EXPECT_EQ(removed_record_handle, 3u);
 
     // As all the contained entities are removed the entity association PDR
     // also gets deleted
@@ -2522,14 +2514,12 @@ TEST(EntityAssociationPDR, testRemoveContainedEntity)
     pldm_pdr_destroy(repo);
     pldm_entity_association_tree_destroy(tree);
 }
-#endif
 
-#ifdef LIBPLDM_API_TESTING
 TEST(PDRUpdate, testRemoveFruRecord)
 {
     auto repo = pldm_pdr_init();
 
-    uint32_t record_handle = 1;
+    uint32_t record_handle = 1u;
     int rc = pldm_pdr_add_fru_record_set(repo, 1, 1, 1, 0, 100, &record_handle);
     EXPECT_EQ(rc, 0);
     record_handle = 2;
@@ -2538,14 +2528,14 @@ TEST(PDRUpdate, testRemoveFruRecord)
     record_handle = 3;
     rc = pldm_pdr_add_fru_record_set(repo, 1, 3, 1, 2, 100, &record_handle);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(pldm_pdr_get_record_count(repo), 3);
+    EXPECT_EQ(pldm_pdr_get_record_count(repo), 3u);
 
     uint32_t removed_record_handle{};
     rc = pldm_pdr_remove_fru_record_set_by_rsi(repo, 2, false,
                                                &removed_record_handle);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(removed_record_handle, 2);
-    EXPECT_EQ(pldm_pdr_get_record_count(repo), 2);
+    EXPECT_EQ(removed_record_handle, 2u);
+    EXPECT_EQ(pldm_pdr_get_record_count(repo), 2u);
 
     uint16_t terminusHdl{};
     uint16_t entityType{};
@@ -2555,13 +2545,13 @@ TEST(PDRUpdate, testRemoveFruRecord)
         repo, 1, &terminusHdl, &entityType, &entityInstanceNum, &containerId);
     EXPECT_NE(record, nullptr);
     record_handle = pldm_pdr_get_record_handle(repo, record);
-    EXPECT_EQ(record_handle, 1);
+    EXPECT_EQ(record_handle, 1u);
 
     record = pldm_pdr_fru_record_set_find_by_rsi(
         repo, 3, &terminusHdl, &entityType, &entityInstanceNum, &containerId);
     EXPECT_NE(record, nullptr);
     record_handle = pldm_pdr_get_record_handle(repo, record);
-    EXPECT_EQ(record_handle, 3);
+    EXPECT_EQ(record_handle, 3u);
 
     record = pldm_pdr_fru_record_set_find_by_rsi(
         repo, 2, &terminusHdl, &entityType, &entityInstanceNum, &containerId);
@@ -2570,28 +2560,26 @@ TEST(PDRUpdate, testRemoveFruRecord)
     rc = pldm_pdr_remove_fru_record_set_by_rsi(repo, 1, false,
                                                &removed_record_handle);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(removed_record_handle, 1);
+    EXPECT_EQ(removed_record_handle, 1u);
 
     // remove the same record again
     removed_record_handle = 5;
     rc = pldm_pdr_remove_fru_record_set_by_rsi(repo, 1, false,
                                                &removed_record_handle);
     EXPECT_EQ(rc, 0);
-    EXPECT_NE(removed_record_handle, 1);
-    EXPECT_EQ(removed_record_handle, 5);
+    EXPECT_NE(removed_record_handle, 1u);
+    EXPECT_EQ(removed_record_handle, 5u);
 
     rc = pldm_pdr_remove_fru_record_set_by_rsi(repo, 3, false,
                                                &removed_record_handle);
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(removed_record_handle, 3);
+    EXPECT_EQ(removed_record_handle, 3u);
 
-    EXPECT_EQ(pldm_pdr_get_record_count(repo), 0);
+    EXPECT_EQ(pldm_pdr_get_record_count(repo), 0u);
 
     pldm_pdr_destroy(repo);
 }
-#endif
 
-#ifdef LIBPLDM_API_TESTING
 TEST(EntityAssociationPDR, testDeleteNode)
 {
     std::unique_ptr<pldm_entity, decltype(&free)> entities(
@@ -2657,7 +2645,6 @@ TEST(EntityAssociationPDR, testDeleteNode)
 
     pldm_entity_association_tree_destroy(tree);
 }
-#endif
 
 TEST(IsEmptyEntityAssocTree, testEmptyTree)
 {

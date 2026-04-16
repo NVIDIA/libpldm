@@ -22,12 +22,10 @@ void pldm_transport_af_mctp_destroy(struct pldm_transport_af_mctp *ctx);
 struct pldm_transport *
 pldm_transport_af_mctp_core(struct pldm_transport_af_mctp *ctx);
 
-#ifdef PLDM_HAS_POLL
 struct pollfd;
 /* Init pollfd for async calls */
 int pldm_transport_af_mctp_init_pollfd(struct pldm_transport *t,
 				       struct pollfd *pollfd);
-#endif
 
 /* Inserts a TID-to-EID mapping into the transport's device map */
 int pldm_transport_af_mctp_map_tid(struct pldm_transport_af_mctp *ctx,
@@ -36,6 +34,15 @@ int pldm_transport_af_mctp_map_tid(struct pldm_transport_af_mctp *ctx,
 /* Removes a TID-to-EID mapping from the transport's device map */
 int pldm_transport_af_mctp_unmap_tid(struct pldm_transport_af_mctp *ctx,
 				     pldm_tid_t tid, mctp_eid_t eid);
+
+/* Maps TID-to-<Network, EID> (fully qualified endpoint) */
+int pldm_transport_af_mctp_map_tid_fqe(struct pldm_transport_af_mctp *ctx,
+				       pldm_tid_t tid, uint32_t network,
+				       mctp_eid_t eid);
+
+/* Removes a TID-to-<Network, EID> (fully qualified endpoint) mapping */
+int pldm_transport_af_mctp_unmap_tid_fqe(struct pldm_transport_af_mctp *ctx,
+					 pldm_tid_t tid);
 
 /**
  * @brief Allow the transport to receive requests from remote endpoints

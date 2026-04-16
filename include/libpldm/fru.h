@@ -6,9 +6,9 @@
 extern "C" {
 #endif
 
-#include <asm/byteorder.h>
 #include <libpldm/base.h>
-#include <libpldm/utils.h>
+
+#include <asm/byteorder.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -35,7 +35,11 @@ enum pldm_fru_commands {
 	PLDM_GET_FRU_RECORD_TABLE_METADATA = 0x01,
 	PLDM_GET_FRU_RECORD_TABLE = 0x02,
 	PLDM_SET_FRU_RECORD_TABLE = 0x03,
-	PLDM_GET_FRU_RECORD_BY_OPTION = 0x04
+	PLDM_GET_FRU_RECORD_BY_OPTION = 0x04,
+	PLDM_READ_FRU_DATA_ITEM = 0x10,
+	PLDM_WRITE_FRU_DATA_ITEM = 0x11,
+	PLDM_FIND_FRU_FILES = 0x18,
+	PLDM_GET_FRU_FILE_METADATA = 0x19,
 };
 
 /** @brief FRU record types
@@ -461,8 +465,8 @@ int decode_get_fru_record_by_option_resp(
  *  @param[in] rt - FRU record type
  *  @param[in] ft - FRU field type
  *
- *  @return PLDM_SUCCESS if no error occurs. PLDM_ERROR_INVALID_LENGTH if
- * record_size lacks capacity to encode the relevant records.
+ *  @return PLDM_SUCCESS if no error occurs. PLDM_ERROR_INVALID_LENGTH if record_size lacks capacity
+ *  	    to encode the relevant records.
  */
 int get_fru_record_by_option(const uint8_t *table, size_t table_size,
 			     uint8_t *record_table, size_t *record_size,

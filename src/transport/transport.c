@@ -1,35 +1,21 @@
 /* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
 #include "compiler.h"
 #include "transport.h"
+#include "environ/time.h"
 
 #include <errno.h>
 #include <libpldm/base.h>
 #include <libpldm/pldm.h>
 #include <libpldm/transport.h>
 #include <limits.h>
-#ifdef PLDM_HAS_POLL
+
 #include <poll.h>
-#endif
+
 #include <stdbool.h>
 #include <stdlib.h>
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
-
-#ifndef PLDM_HAS_POLL
-struct pollfd {
-	int fd;	       /* file descriptor */
-	short events;  /* requested events */
-	short revents; /* returned events */
-};
-
-static inline int poll(struct pollfd *fds LIBPLDM_CC_UNUSED,
-		       int nfds LIBPLDM_CC_UNUSED,
-		       int timeout LIBPLDM_CC_UNUSED)
-{
-	return 0;
-}
-#endif
 
 LIBPLDM_ABI_STABLE
 int pldm_transport_poll(struct pldm_transport *transport, int timeout)
@@ -114,13 +100,15 @@ static long timeval_to_msec(const struct timeval *tv)
 /* If calculations on `tv` don't overflow then operations on derived
  * intervals can't either.
  */
-static bool timeval_is_valid(const struct timeval *tv)
+static bool timeval_validate_for_msec(const struct timeval *tv)
 {
+	/* Must be a normalised, positive interval */
 	if (tv->tv_sec < 0 || tv->tv_usec < 0 || tv->tv_usec >= 1000000) {
 		return false;
 	}
 
-	if (tv->tv_sec > (LONG_MAX - tv->tv_usec / 1000) / 1000) {
+	/* Components must safely convert to msec */
+	if (tv->tv_sec > ((LONG_MAX - 1000) / 1000)) {
 		return false;
 	}
 
@@ -132,7 +120,7 @@ static int clock_gettimeval(clockid_t clockid, struct timeval *tv)
 	struct timespec now;
 	int rc;
 
-	rc = clock_gettime(clockid, &now);
+	rc = libpldm_clock_gettime(clockid, &now);
 	if (rc < 0) {
 		return rc;
 	}
@@ -201,14 +189,15 @@ pldm_transport_send_recv_msg(struct pldm_transport *transport, pldm_tid_t tid,
 	}
 
 	timeradd(&now, &max_response_interval, &end);
-	if (!timeval_is_valid(&end)) {
-		return PLDM_REQUESTER_POLL_FAIL;
-	}
 
 	while (timercmp(&now, &end, <)) {
 		pldm_tid_t src_tid;
 
 		timersub(&end, &now, &remaining);
+
+		if (!timeval_validate_for_msec(&remaining)) {
+			return PLDM_REQUESTER_POLL_FAIL;
+		}
 
 		/* 0 <= `timeval_to_msec()` <= 4800, and 4800 < INT_MAX */
 		ret = pldm_transport_poll(transport,

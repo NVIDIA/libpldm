@@ -11,74 +11,77 @@ project(
         'b_ndebug': 'if-release',
         'tests': not meson.is_subproject(),
     },
-    version: '0.14.0',
+    version: '0.15.0',
     meson_version: '>=1.4.0',
 )
 
-if get_option('tests')
+if get_option('bindings').contains('cpp') or get_option('tests')
     add_languages('cpp', native: false)
 endif
 
 # For memmem() in src/msgbuf.h
 add_project_arguments('-D_GNU_SOURCE', language: ['c'])
 
-compiler = meson.get_compiler('c')
-if compiler.has_argument('-Wvla')
+cc = meson.get_compiler('c')
+if cc.has_argument('-Wvla')
     add_project_arguments('-Wvla', language: ['c'])
 endif
 
+if get_option('bindings').contains('cpp') or get_option('tests')
+    cpp = meson.get_compiler('cpp')
+endif
+
+# avoid using different compilers across C/C++
+if get_option('bindings').contains('cpp')
+    if (cc.get_id() != cpp.get_id())
+        error(
+            'unsupported combination: C compiler: ' + cc.get_id() + ' C++ compiler: ' + cpp.get_id(),
+        )
+    endif
+
+    if get_option('tests') and cpp.get_id() == 'gcc'
+        # when building tests, also dump class layout for inspection
+        add_project_arguments('-fdump-lang-class', language: ['cpp'])
+    endif
+endif
+
+
 conf = configuration_data()
-if compiler.has_header('poll.h')
-    conf.set('PLDM_HAS_POLL', 1)
-endif
-
-# ABI control
-compiler.has_function_attribute('visibility:default', required: true)
-entrypoint = '__attribute__((visibility("default")))'
-
-## Compile test until meson supports it via compiler.has_function_attribute()
-have_tainted_args_test = '#if !__has_attribute(tainted_args)\n#error\n#endif'
-if compiler.compiles(
-    have_tainted_args_test,
-    args: '-E',
-    name: 'compiler supports function attribute tainted_args',
+conf.set10(
+    'HAVE_LIBPLDM_ABI_DEPRECATED',
+    get_option('abi').contains('deprecated'),
 )
-    entrypoint += ' __attribute__((tainted_args))'
+conf.set10('HAVE_LIBPLDM_ABI_TESTING', get_option('abi').contains('testing'))
+if cc.has_header('linux/mctp.h')
+    conf.set10(
+        'HAVE_STRUCT_MCTP_FQ_ADDR',
+        cc.has_type('struct mctp_fq_addr', prefix: '#include <linux/mctp.h>'),
+        description: 'Is struct mctp_fq_addr available?',
+    )
 endif
+config = configure_file(
+    input: 'config.h.in',
+    output: 'config.h',
+    configuration: conf,
+)
+add_project_arguments('-include', config.full_path(), language: ['c', 'cpp'])
 
 libpldm_deprecated_aliases = []
-if get_option('abi').contains('deprecated')
-    conf.set('LIBPLDM_ABI_DEPRECATED', entrypoint)
-    conf.set(
-        'LIBPLDM_ABI_DEPRECATED_UNSAFE',
-        '__attribute__((visibility("default")))',
-    )
-    add_project_arguments('-DLIBPLDM_API_DEPRECATED', language: ['c', 'cpp'])
-else
-    conf.set('LIBPLDM_ABI_DEPRECATED', '')
-    conf.set('LIBPLDM_ABI_DEPRECATED_UNSAFE', '')
-endif
-conf.set('LIBPLDM_ABI_STABLE', entrypoint)  # Always expose the stable symbols
-if get_option('abi').contains('testing')
-    conf.set('LIBPLDM_ABI_TESTING', entrypoint)
-    add_project_arguments('-DLIBPLDM_API_TESTING', language: ['c', 'cpp'])
-else
-    conf.set('LIBPLDM_ABI_TESTING', '')
-endif
 
 # OEM feature control
 if get_option('oem').contains('nvidia')
     add_project_arguments('-DLIBPLDM_OEM_NVIDIA', language: ['c', 'cpp'])
 endif
 
-config = configure_file(output: 'config.h', configuration: conf)
-
-add_project_arguments('-include', config.full_path(), language: 'c')
-
-libpldm_include_dir = include_directories('include', is_system: true)
+include_root = include_directories('include', is_system: true)
 
 subdir('include')
 subdir('src')
+
+if get_option('bindings').contains('cpp')
+    subdir('bindings/cpp')
+endif
+
 subdir('tools')
 
 doxygen = find_program('doxygen', required: false)

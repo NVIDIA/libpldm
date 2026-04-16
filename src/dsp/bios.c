@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
-#include <endian.h>
+#include "utils.h"
+
 #include <libpldm/base.h>
+#include <libpldm/bcd.h>
 #include <libpldm/bios.h>
-#include <libpldm/utils.h>
+
+#include <endian.h>
 #include <string.h>
 
 LIBPLDM_ABI_STABLE
@@ -120,12 +123,12 @@ int encode_set_date_time_req(uint8_t instance_id, uint8_t seconds,
 
 	struct pldm_set_date_time_req *request =
 		(struct pldm_set_date_time_req *)msg->payload;
-	request->seconds = dec2bcd8(seconds);
-	request->minutes = dec2bcd8(minutes);
-	request->hours = dec2bcd8(hours);
-	request->day = dec2bcd8(day);
-	request->month = dec2bcd8(month);
-	request->year = htole16(dec2bcd16(year));
+	request->seconds = pldm_bcd_dec2bcd8(seconds);
+	request->minutes = pldm_bcd_dec2bcd8(minutes);
+	request->hours = pldm_bcd_dec2bcd8(hours);
+	request->day = pldm_bcd_dec2bcd8(day);
+	request->month = pldm_bcd_dec2bcd8(month);
+	request->year = htole16(pldm_bcd_dec2bcd16(year));
 
 	return PLDM_SUCCESS;
 }
@@ -146,12 +149,12 @@ int decode_set_date_time_req(const struct pldm_msg *msg, size_t payload_length,
 	const struct pldm_set_date_time_req *request =
 		(struct pldm_set_date_time_req *)msg->payload;
 
-	*seconds = bcd2dec8(request->seconds);
-	*minutes = bcd2dec8(request->minutes);
-	*hours = bcd2dec8(request->hours);
-	*day = bcd2dec8(request->day);
-	*month = bcd2dec8(request->month);
-	*year = bcd2dec16(le16toh(request->year));
+	*seconds = pldm_bcd_bcd2dec8(request->seconds);
+	*minutes = pldm_bcd_bcd2dec8(request->minutes);
+	*hours = pldm_bcd_bcd2dec8(request->hours);
+	*day = pldm_bcd_bcd2dec8(request->day);
+	*month = pldm_bcd_bcd2dec8(request->month);
+	*year = pldm_bcd_bcd2dec16(le16toh(request->year));
 
 	if (!is_time_legal(*seconds, *minutes, *hours, *day, *month, *year)) {
 		return PLDM_ERROR_INVALID_DATA;

@@ -38,19 +38,32 @@ reviewers:
 - manojkiran.eda@gmail.com
 - rushtotom@gmail.com
 - pavithrabarithaya07@gmail.com
+- chaul@amperecomputing.com
 
 matchers:
+- partial_regex: /dsp/(file|base)\.
+  reviewers:
+  - chaul@amperecomputing.com
 
 openbmc:
+- name: Alexander Hansen
+  email: alexander.hansen@9elements.com
+  discord: Alexander
 - name: Andrew Jeffery
   email: andrew@codeconstruct.com.au
   discord: arj
+- name: Chau Ly
+  email: chaul@amperecomputing.com
+  discord: T.Chau Ly
 - name: Manojkiran Eda
   email: manojkiran.eda@gmail.com
   discord: manojkiran
-- name: Tom Joseph
-  email: rushtotom@gmail.com
-  discord: tomjose
+- name: Marc Olberding
+  email: molberding@nvidia.com
+  discord: molbear
 - name: Pavithra Barithaya
   email: pavithrabarithaya07@gmail.com
   discord: Pavithra B
+- name: Tom Joseph
+  email: rushtotom@gmail.com
+  discord: tomjose

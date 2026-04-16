@@ -9,6 +9,7 @@ option(
     'abi-compliance-check',
     type: 'boolean',
     description: 'Detect public ABI/API changes',
+    value: false,
 )
 option(
     'oem',
@@ -29,4 +30,11 @@ option(
     description: 'Tools to build with the library',
     choices: ['pd'],
     value: ['pd'],
+)
+option(
+    'bindings',
+    type: 'array',
+    description: 'Language bindings for libpldm',
+    choices: ['cpp'],
+    value: ['cpp'],
 )
