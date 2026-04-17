@@ -99,6 +99,12 @@ Change categories:
   sensor data size validation. This bug could cause sensor readings to fail
   validation when using 64-bit sensor values.
 
+- platform: Corrected `enum pldm_effecter_data_size` and
+  `enum pldm_range_field_format` ordinal values to match DSP0248 v1.3.0
+  Table 88. The `UINT64` (6) and `SINT64` (7) entries were missing from the
+  sequential encoding, causing uint64 effecter fields (e.g. maxSettable,
+  minSettable) to be decoded as uint32, producing truncated values.
+
 ### Security
 
 ## [0.14.0] 2025-08-11
