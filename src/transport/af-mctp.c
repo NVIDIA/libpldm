@@ -17,6 +17,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
@@ -35,6 +36,7 @@ struct pldm_transport_af_mctp {
 	struct pldm_transport transport;
 	int socket;
 	pldm_tid_t tid_eid_map[MCTP_MAX_NUM_EID];
+	uint8_t tag_cache[MCTP_MAX_NUM_EID];
 	struct pldm_socket_sndbuf socket_send_buf;
 	bool bound;
 	struct pldm_responder_cookie cookie_jar;
@@ -84,11 +86,46 @@ static int pldm_transport_af_mctp_get_tid(struct pldm_transport_af_mctp *ctx,
 	return -1;
 }
 
+static void pldm_transport_af_mctp_alloc_tag(struct pldm_transport_af_mctp *ctx,
+					     mctp_eid_t eid)
+{
+	struct mctp_ioc_tag_ctl ctl = { 0 };
+
+	if (ctx->tag_cache[eid]) {
+		return;
+	}
+
+	ctl.peer_addr = eid;
+
+	if (!ioctl(ctx->socket, SIOCMCTPALLOCTAG, &ctl)) {
+		ctx->tag_cache[eid] = ctl.tag;
+	}
+}
+
+static void pldm_transport_af_mctp_drop_tag(struct pldm_transport_af_mctp *ctx,
+					    mctp_eid_t eid)
+{
+	struct mctp_ioc_tag_ctl ctl = { 0 };
+
+	if (!ctx->tag_cache[eid]) {
+		return;
+	}
+
+	ctl.peer_addr = eid;
+	ctl.tag = ctx->tag_cache[eid];
+
+	if (!ioctl(ctx->socket, SIOCMCTPDROPTAG, &ctl)) {
+		ctx->tag_cache[eid] = 0;
+	}
+}
+
 LIBPLDM_ABI_STABLE
 int pldm_transport_af_mctp_map_tid(struct pldm_transport_af_mctp *ctx,
 				   pldm_tid_t tid, mctp_eid_t eid)
 {
 	ctx->tid_eid_map[eid] = tid;
+
+	pldm_transport_af_mctp_alloc_tag(ctx, eid);
 
 	return 0;
 }
@@ -98,6 +135,7 @@ int pldm_transport_af_mctp_unmap_tid(struct pldm_transport_af_mctp *ctx,
 				     LIBPLDM_CC_UNUSED pldm_tid_t tid,
 				     mctp_eid_t eid)
 {
+	pldm_transport_af_mctp_drop_tag(ctx, eid);
 	ctx->tid_eid_map[eid] = 0;
 
 	return 0;
@@ -217,7 +255,11 @@ static pldm_requester_rc_t pldm_transport_af_mctp_send(struct pldm_transport *t,
 		addr.smctp_family = AF_MCTP;
 		addr.smctp_addr.s_addr = eid;
 		addr.smctp_type = MCTP_MSG_TYPE_PLDM;
-		addr.smctp_tag = MCTP_TAG_OWNER;
+
+		pldm_transport_af_mctp_alloc_tag(af_mctp, eid);
+		addr.smctp_tag = af_mctp->tag_cache[eid] ?
+					 af_mctp->tag_cache[eid] :
+					 MCTP_TAG_OWNER;
 	}
 
 	if (msg_len > INT_MAX ||
