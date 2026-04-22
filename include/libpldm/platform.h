@@ -181,6 +181,10 @@ enum pldm_platform_transfer_flag {
 /* Minumum length of pldm cper event data */
 #define PLDM_CPER_EVENT_DATA_MIN_LENGTH 4
 
+/** @note DSP0248 v1.3.0 Table 88 defines effecterDataSize as a sequential
+ *  enum: uint8=0, sint8=1, uint16=2, sint16=3, uint32=4, sint32=5,
+ *  uint64=6, sint64=7.
+ */
 enum pldm_effecter_data_size {
 	PLDM_EFFECTER_DATA_SIZE_UINT8,
 	PLDM_EFFECTER_DATA_SIZE_SINT8,
@@ -188,11 +192,15 @@ enum pldm_effecter_data_size {
 	PLDM_EFFECTER_DATA_SIZE_SINT16,
 	PLDM_EFFECTER_DATA_SIZE_UINT32,
 	PLDM_EFFECTER_DATA_SIZE_SINT32,
-	PLDM_EFFECTER_DATA_SIZE_UINT64 = 10,
+	PLDM_EFFECTER_DATA_SIZE_UINT64,
 	PLDM_EFFECTER_DATA_SIZE_SINT64
 };
 #define PLDM_EFFECTER_DATA_SIZE_MAX PLDM_EFFECTER_DATA_SIZE_SINT64
 
+/** @note DSP0248 v1.3.0 Table 88 defines rangeFieldFormat as a sequential
+ *  enum: uint8=0, sint8=1, uint16=2, sint16=3, uint32=4, sint32=5,
+ *  real32=6, uint64=7, sint64=8.
+ */
 enum pldm_range_field_format {
 	PLDM_RANGE_FIELD_FORMAT_UINT8,
 	PLDM_RANGE_FIELD_FORMAT_SINT8,
@@ -201,7 +209,7 @@ enum pldm_range_field_format {
 	PLDM_RANGE_FIELD_FORMAT_UINT32,
 	PLDM_RANGE_FIELD_FORMAT_SINT32,
 	PLDM_RANGE_FIELD_FORMAT_REAL32,
-	PLDM_RANGE_FIELD_FORMAT_UINT64 = 10,
+	PLDM_RANGE_FIELD_FORMAT_UINT64,
 	PLDM_RANGE_FIELD_FORMAT_SINT64
 };
 #define PLDM_RANGE_FIELD_FORMAT_MAX PLDM_RANGE_FIELD_FORMAT_SINT64
