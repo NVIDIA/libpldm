@@ -176,6 +176,7 @@ enum pldm_entity_id_codes {
 
 	/* OEM ranges */
 	PLDM_OEM_ENTITY_TYPE_START = 24576,
+	PLDM_OEM_ENTITY_TYPE_MIRROR = 24576,
 	PLDM_OEM_ENTITY_TYPE_END = 32767,
 };
 
