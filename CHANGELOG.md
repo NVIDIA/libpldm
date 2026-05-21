@@ -239,6 +239,12 @@ Deprecated since v0.13.0:
   validation when using 64-bit sensor values.
 - dsp: base: Don't extract MultipartReceive resp's CRC once complete
 
+- platform: Corrected `enum pldm_effecter_data_size` and
+  `enum pldm_range_field_format` ordinal values to match DSP0248 v1.3.0
+  Table 88. The `UINT64` (6) and `SINT64` (7) entries were missing from the
+  sequential encoding, causing uint64 effecter fields (e.g. maxSettable,
+  minSettable) to be decoded as uint32, producing truncated values.
+
 ### Security
 
 - base: Allocating struct pldm_msg with member initialization in

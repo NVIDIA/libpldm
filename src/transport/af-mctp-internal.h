@@ -2,6 +2,7 @@
 #ifndef LIBPLDM_TRANSPORT_AF_MCTP_INTERNAL_H
 #define LIBPLDM_TRANSPORT_AF_MCTP_INTERNAL_H
 
+#include "mctp-defines.h"
 #include "responder.h"
 #include "socket.h"
 #include "transport.h"
@@ -10,6 +11,7 @@
 
 #include <linux/mctp.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,6 +28,7 @@ struct pldm_transport_af_mctp {
 	struct pldm_transport transport;
 	int socket;
 	struct mctp_fq_addr tid_map[PLDM_MAX_TIDS];
+	uint8_t tag_cache[MCTP_MAX_NUM_EID];
 	struct pldm_socket_sndbuf socket_send_buf;
 	bool bound;
 	struct pldm_responder_cookie cookie_jar;
