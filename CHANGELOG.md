@@ -40,57 +40,196 @@ Change categories:
   - Added comprehensive test coverage for `decode_numeric_sensor_event_data()`
     with 18 test cases covering all data sizes (UINT8/SINT8/UINT16/SINT16/
     UINT32/SINT32/UINT64/SINT64), error conditions, and boundary values
+- transport: Add AF_MCTP fully qualified endpoint (FQE) mapping support
+  - Add `pldm_transport_af_mctp_map_tid_fqe()` to map TID to network and EID
+  - Add `pldm_transport_af_mctp_unmap_tid_fqe()` to remove TID-to-FQE mappings
+- entity: Added new entity types from DSP0249 v1.4.0
+- stateset: Added new state sets from DSP0249 v1.4.0
+- stateset: Added new enum pldm_state_set_presence_values from DSP0249 v1.4.0
+- state-set: Added new enums from DSP0249 v1.4.0
+  - enum pldm_state_set_predictive_condition_values
+  - enum pldm_state_set_configuration_state_values
+  - enum pldm_state_set_changed_configuration_values
+  - enum pldm_state_set_version_values
+  - enum pldm_state_set_communication_leash_status_values
+  - enum pldm_state_set_acpi_power_state_values
+- state-set: Added new values to the following enums
+  - enum pldm_state_set_availability_values
+  - enum pldm_state_set_boot_progress_state_values
+- entity: Added new entity types for cases of misspelling
+- platform: Added enum for Redfish Parallel Resource PDR
+- bios: Added all possible values to enum pldm_bios_commands from DSP0247 v1.0.0
+- fru: Added all possible values to enum pldm_fru_commands from DSP0257 v2.0.0
+- dsp: firmware_update: Add Update Security Revision from DSP0267 v1.3.0
+- include: Added header file for Redfish Device Enablement (DSP0218 v1.2.0)
+- include: Added header file for SMBIOS Data Transfer (DSP0246 v1.0.1)
+- bindings:
+  - Add libpldm++ library for the C++ binding
+- dsp: platform: Add pldm_platform_file_class enum
 
 ### Changed
 
-- base:
-  - Rename symbols:
-    - `encode_base_multipart_receive_req()` to
-      `encode_pldm_base_multipart_receive_req()`
-    - `decode_base_multipart_receive_resp()` to
-      `decode_pldm_base_multipart_receive_resp()`
-    - `struct pldm_multipart_receive_resp` to
-      `struct pldm_base_multipart_receive_resp`
-    - `struct pldm_multipart_receive_req` to
-      `struct pldm_base_multipart_receive_req`
-  - Remove `__attribute__((packed))` from
+- OWNERS: Tidy up throughout the tree
+- Rename `PLDM_HAS_POLL` test macro to `HAVE_POLL_H` and define it
+  unconditionally
+
+- Rework ABI control macros to also enable API control
+- transport: Eliminate poll guards from headers
+- dsp: firmware_update: Stabilise Update Security Revision APIs
+  - `decode_pldm_fwup_update_security_revision_resp`
+  - `encode_pldm_fwup_update_security_revision_req`
+- transport: af-mctp: Stabilize FQE TID mapping APIs
+  - `pldm_transport_af_mctp_map_tid_fqe()`
+  - `pldm_transport_af_mctp_unmap_tid_fqe()`
+
+### Deprecated
+
+- Misspelled PLDM_STATE_SET_BOOT_PROG_STATE_PCI_RESORUCE_CONFIG member of the
+  pldm_state_set_boot_progress_state_values enum
+- Misspelled PLDM_ENTITY_SOLID_STATE_SRIVE, PLDM_ENTITY_FIBRECHANEL,
+  PLDM_ENTITY_OMINIPATH members of the pldm_entity_id_codes enum
+
+### Removed
+
+- `PLDM_HAS_POLL` and `HAVE_POLL_H` configuration macros
+
+  These are unnecessary now that build targets are enabled by header tests
+
+#### Headers, declarations and definitions
+
+- `pldm_base_ver2str()` removed from `libpldm/utils.h` - users should include
+  `libpldm/base.h` instead.
+
+- `libpldm/utils.h` - users should include headers exposing the specific
+  features they require instead.
+
+#### Function symbols
+
+- `bcd2dec16()`
+- `bcd2dec32()`
+- `bcd2dec8()`
+- `dec2bcd16()`
+- `dec2bcd32()`
+- `dec2bcd8()`
+- `ver2str()`
+
+### Fixed
+
+- pdr: Fix NULL pointer dereference in `pldm_entity_association_tree_visit()`
+- pdr: Fix infinite loop in `pldm_pdr_delete_by_effecter_id()`
+- pdr: Fix infinite loop in `pldm_pdr_delete_by_sensor_id()`
+- dsp: firmware_update: Fix str_type encoding in
+  encode_get_firmware_parameters_resp()
+- state-set: Return the misspelled
+  PLDM_STATE_SET_BOOT_PROG_STATE_PCI_RESORUCE_CONFIG enum value to avoid client
+  breakage
+- abi: Refresh dumps to capture libpldm++ namespace rework
+- abi: Refresh stable C and C++ ABI dumps for the current public API surface
+- libpldm: Fix spelling mistakes using codespell
+- transport: af-mctp: Fix TID lookup with MCTP_NET_ANY
+
+### Security
+
+## [v0.15.0] - 2026-01-16
+
+### Added
+
+- platform: Added file descriptor PDR encoding support
+  - Added `encode_pldm_platform_file_descriptor_pdr()`
+- utils: Added `pldm_edac_crc32_extend()`
+- base: Added `decode_pldm_base_negotiate_transfer_params_req()`
+- base: Added `encode_pldm_base_negotiate_transfer_params_resp()`
+
+### Changed
+
+- Reworked the firmware update package parsing APIs to track parse state using a
+  run-time state machine
+- Add flags parameter to `decode_pldm_firmware_update_package()`
+- Add NOLINT to `pldm__package_header_information` to prevent clang-tidy errors.
+- Updated PLDM_PDR_FILE_DESCRIPTOR_PDR_MIN_LENGTH macro comment.
+- Added PLDM_ACKNOWLEDGE_COMPLETION flag to transfer_resp_flag list.
+
+- Split EDAC symbols into libpldm/edac.h from libpldm/utils.h
+- Split BCD symbols into libpldm/bcd.h from libpldm/utils.h
+- Move `pldm_base_ver2str()` to libpldm/base.h
+- Move `struct variable_field` definition to libpldm/pldm_types.h
+
+#### Base
+
+- Rename symbols
+  - `encode_base_multipart_receive_req()` to
+    `encode_pldm_base_multipart_receive_req()`
+  - `decode_base_multipart_receive_resp()` to
+    `decode_pldm_base_multipart_receive_resp()`
+  - `struct pldm_multipart_receive_resp` to
+    `struct pldm_base_multipart_receive_resp`
+  - `struct pldm_multipart_receive_req` to
     `struct pldm_base_multipart_receive_req`
 
-- platform: Rename symbols:
+- Remove `__attribute__((packed))` from `struct pldm_base_multipart_receive_req`
+
+- Let `payload_length` be an in/out buffer for:
+  - `encode_pldm_base_multipart_receive_req()`
+  - `encode_pldm_base_negotiate_transfer_params_req()`
+
+#### File
+
+- Let `payload_length` be an in/out buffer for:
+  - `encode_pldm_file_df_open_req()`
+  - `encode_pldm_file_df_close_req()`
+  - `encode_pldm_file_df_heartbeat_req()`
+
+#### Platform
+
+- Rename symbols
   - `struct pldm_file_descriptor_pdr` to
     `struct pldm_platform_file_descriptor_pdr`
   - `decode_pldm_file_descriptor_pdr()` to
     `decode_pldm_platform_file_descriptor_pdr()`
 
-- base: Let `payload_length` be an in/out buffer for:
-  - `encode_pldm_base_multipart_receive_req()`
-  - `encode_pldm_base_negotiate_transfer_params_req()`
+#### Stabilised
 
-- file: Let `payload_length` be an in/out buffer for:
-  - `encode_pldm_file_df_open_req()`
-  - `encode_pldm_file_df_close_req()`
-  - `encode_pldm_file_df_heartbeat_req()`
-
-- Stabilised:
-  - `decode_pldm_platform_file_descriptor_pdr()`
-  - `encode_pldm_base_multipart_receive_req()`
-  - `decode_pldm_base_multipart_receive_resp()`
-  - `encode_pldm_base_negotiate_transfer_params_req()`
-  - `decode_pldm_base_negotiate_transfer_params_resp()`
-  - `encode_pldm_file_df_open_req()`
-  - `decode_pldm_file_df_open_resp()`
-  - `encode_pldm_file_df_close_req()`
-  - `decode_pldm_file_df_close_resp()`
-  - `encode_pldm_file_df_heartbeat_req()`
-  - `decode_pldm_file_df_heartbeat_resp()`
-
-- Reworked the firmware update package parsing APIs to track parse state using a
-  run-time state machine
-- Add flags parameter to `decode_pldm_firmware_update_package()`
+- `decode_pldm_base_multipart_receive_resp()`
+- `decode_pldm_base_negotiate_transfer_params_resp()`
+- `decode_pldm_file_df_close_resp()`
+- `decode_pldm_file_df_heartbeat_resp()`
+- `decode_pldm_file_df_open_resp()`
+- `decode_pldm_firmware_update_package()`
+- `decode_pldm_package_component_image_information_from_iter()`
+- `decode_pldm_package_downstream_device_id_record_from_iter()`
+- `decode_pldm_package_firmware_device_id_record_from_iter()`
+- `decode_pldm_platform_file_descriptor_pdr()`
+- `encode_pldm_base_multipart_receive_req()`
+- `encode_pldm_base_negotiate_transfer_params_req()`
+- `encode_pldm_file_df_close_req()`
+- `encode_pldm_file_df_heartbeat_req()`
+- `encode_pldm_file_df_open_req()`
+- `pldm_entity_association_pdr_remove_contained_entity()`
+- `pldm_entity_association_tree_delete_node()`
+- `pldm_package_component_image_information_iter_init()`
+- `pldm_package_downstream_device_id_record_iter_init()`
+- `pldm_package_firmware_device_id_record_iter_init()`
+- `pldm_pdr_delete_by_effecter_id()`
+- `pldm_pdr_delete_by_sensor_id()`
+- `pldm_pdr_remove_fru_record_set_by_rsi()`
 
 ### Deprecated
 
+- The following have been renamed:
+  - `bcd2dec8()`: `pldm_bcd_bcd2dec8()`
+  - `dec2bcd8()`: `pldm_bcd_dec2bcd8()`
+  - `bcd2dec16()`: `pldm_bcd_bcd2dec16()`
+  - `dec2bcd16()`: `pldm_bcd_dec2bcd16()`
+  - `bcd2dec32()`: `pldm_bcd_bcd2dec32()`
+  - `dec2bcd32()`: `pldm_bcd_dec2bcd32()`
+  - `ver2str()`: `pldm_base_ver2str()`
+
 ### Removed
+
+Deprecated since v0.13.0:
+
+- `is_time_legal()`
+- `is_transfer_flag_valid()`
 
 ### Fixed
 
@@ -98,6 +237,7 @@ Change categories:
   `PLDM_EFFECTER_DATA_SIZE_*` constants instead of `PLDM_SENSOR_DATA_SIZE_*` for
   sensor data size validation. This bug could cause sensor readings to fail
   validation when using 64-bit sensor values.
+- dsp: base: Don't extract MultipartReceive resp's CRC once complete
 
 - platform: Corrected `enum pldm_effecter_data_size` and
   `enum pldm_range_field_format` ordinal values to match DSP0248 v1.3.0
@@ -107,7 +247,22 @@ Change categories:
 
 ### Security
 
-## [0.14.0] 2025-08-11
+- base: Allocating struct pldm_msg with member initialization in
+  PLDM_MSG_DEFINE_P.
+
+- include, tests: Address concerns from -Wsign-compare
+- dsp: base: decode_pldm_base_negotiate_transfer_params_resp() is stable
+- transport: Improve time validation in pldm_transport_send_recv_msg()
+
+- base:
+  - Removed RequestedSectionOffset check in decode_multipart_receive_req()
+  - Updated DataTransferHandle check in decode_multipart_receive_req()
+  - Updated encode_base_multipart_receive_resp() to insert checksum except when
+    TransferFlag is ACKNOWLEDGE_COMPLETION
+
+- msgbuf: Correct pldm_msgbuf_extract_effecter_data()'s child function
+
+## [0.14.0] - 2025-08-11
 
 ### Added
 
@@ -139,7 +294,7 @@ Change categories:
 
 - base: Remove `PLDM_INVALID_TRANSFER_OPERATION_FLAG` completion code
 
-## [0.13.0] 2025-06-15
+## [0.13.0] - 2025-06-15
 
 ### Added
 
@@ -209,7 +364,7 @@ Change categories:
 
 - meson: Define LIBPLDM_ABI_DEPRECATED_UNSAFE as empty as required
 
-## [0.12.0] 2025-04-05
+## [0.12.0] - 2025-04-05
 
 ### Added
 
@@ -266,6 +421,10 @@ Change categories:
 - pdr: Indicates success or failure depending on the outcome of the entity
   association PDR creation
 
+- Changed the bitfield structs in pldm_types.h to be named structs. This fixes
+  an issue with the abi-dumper mistakenly seeing those as 1 byte wide when
+  compiling with the C++ binding.
+
 - Register allocation changed for the following APIs:
   - `encode_get_downstream_firmware_parameters_req()`
   - `encode_get_state_effecter_states_resp()`
@@ -280,7 +439,7 @@ Change categories:
 - requester: add null check for instance db object in pldm_instance_id_alloc()
 - requester: add null check for instance db object in pldm_instance_id_free()
 
-## [0.11.0] 2024-12-12
+## [0.11.0] - 2024-12-12
 
 ### Added
 
@@ -320,7 +479,7 @@ Change categories:
 - dsp: platform: Fix location of closing paren in overflow detection
 - libpldm: Install api header, update changelog
 
-## [0.10.0] 2024-11-01
+## [0.10.0] - 2024-11-01
 
 ### Added
 

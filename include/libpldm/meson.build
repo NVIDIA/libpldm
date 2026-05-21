@@ -1,10 +1,11 @@
 libpldm_headers = files(
-    'api.h',
     'base.h',
+    'bcd.h',
     'bios.h',
     'bios_table.h',
     'compiler.h',
     'control.h',
+    'edac.h',
     'entity.h',
     'file.h',
     'firmware_fd.h',
@@ -15,12 +16,13 @@ libpldm_headers = files(
     'platform.h',
     'pldm.h',
     'pldm_types.h',
+    'rde.h',
+    'smbios.h',
     'state_set.h',
     'states.h',
     'transport.h',
     'transport/af-mctp.h',
     'transport/mctp-demux.h',
-    'utils.h',
 )
 
 if get_option('oem').contains('ibm')
@@ -45,20 +47,34 @@ if get_option('oem').contains('nvidia')
     )
 endif
 
+
 install_headers(libpldm_headers, subdir: 'libpldm', preserve_path: true)
+api = configuration_data()
+api.set10(
+    'HAVE_LIBPLDM_API_DEPRECATED',
+    get_option('abi').contains('deprecated'),
+)
+api.set10('HAVE_LIBPLDM_API_TESTING', get_option('abi').contains('testing'))
+configure_file(
+    input: 'api.h.in',
+    output: 'api.h',
+    configuration: api,
+    install: true,
+    install_dir: get_option('includedir') / 'libpldm',
+)
 
 # TODO: these should depend on the input headers so they rebuild
 # on changes, unclear how to do that.
 include_src = include_directories('../../src', is_system: true)
-sizeof_pldm_fd = compiler.sizeof(
+sizeof_pldm_fd = cc.sizeof(
     'struct pldm_fd',
     prefix: '#include "firmware_device/fd-internal.h"',
-    include_directories: [include_src, libpldm_include_dir],
+    include_directories: [include_src, include_root],
 )
-sizeof_pldm_control = compiler.sizeof(
+sizeof_pldm_control = cc.sizeof(
     'struct pldm_control',
     prefix: '#include "control-internal.h"',
-    include_directories: [include_src, libpldm_include_dir],
+    include_directories: [include_src, include_root],
 )
 sizes_h = configure_file(
     configuration: {

@@ -6,10 +6,11 @@
 
 #include <assert.h>
 #include <endian.h>
+#include <errno.h>
+#include <limits.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 
 #define PDR_ENTITY_ASSOCIATION_MIN_SIZE                                        \
 	(sizeof(struct pldm_pdr_hdr) +                                         \
@@ -407,7 +408,7 @@ LIBPLDM_CC_NONNULL
 static int decode_pldm_state_sensor_pdr(uint8_t *data, uint32_t size,
 					struct pldm_state_sensor_pdr *pdr)
 {
-	PLDM_MSGBUF_DEFINE_P(buf);
+	PLDM_MSGBUF_RO_DEFINE_P(buf);
 	int rc = 0;
 	rc = pldm_msgbuf_init_errno(buf, sizeof(struct pldm_state_sensor_pdr),
 				    (uint8_t *)data, size);
@@ -432,7 +433,7 @@ static int decode_pldm_state_sensor_pdr(uint8_t *data, uint32_t size,
 	return pldm_msgbuf_complete(buf);
 }
 
-LIBPLDM_ABI_TESTING
+LIBPLDM_ABI_STABLE
 int pldm_pdr_delete_by_sensor_id(pldm_pdr *repo, uint16_t sensor_id,
 				 bool is_remote, uint32_t *record_handle)
 {
@@ -450,6 +451,7 @@ int pldm_pdr_delete_by_sensor_id(pldm_pdr *repo, uint16_t sensor_id,
 
 	while (record != NULL) {
 		if (!record->data) {
+			record = record->next;
 			continue;
 		}
 
@@ -534,7 +536,7 @@ LIBPLDM_CC_NONNULL
 static int decode_pldm_state_effecter_pdr(uint8_t *data, uint32_t size,
 					  struct pldm_state_effecter_pdr *pdr)
 {
-	PLDM_MSGBUF_DEFINE_P(buf);
+	PLDM_MSGBUF_RO_DEFINE_P(buf);
 	int rc = 0;
 	rc = pldm_msgbuf_init_errno(buf, sizeof(struct pldm_state_effecter_pdr),
 				    (uint8_t *)data, size);
@@ -560,7 +562,7 @@ static int decode_pldm_state_effecter_pdr(uint8_t *data, uint32_t size,
 	return pldm_msgbuf_complete(buf);
 }
 
-LIBPLDM_ABI_TESTING
+LIBPLDM_ABI_STABLE
 int pldm_pdr_delete_by_effecter_id(pldm_pdr *repo, uint16_t effecter_id,
 				   bool is_remote, uint32_t *record_handle)
 {
@@ -577,6 +579,7 @@ int pldm_pdr_delete_by_effecter_id(pldm_pdr *repo, uint16_t effecter_id,
 
 	while (record != NULL) {
 		if (!record->data) {
+			record = record->next;
 			continue;
 		}
 
@@ -619,8 +622,8 @@ int pldm_pdr_delete_by_record_handle(pldm_pdr *repo, uint32_t record_handle,
 	record = repo->first;
 
 	while (record != NULL) {
-		struct pldm_msgbuf _buf;
-		struct pldm_msgbuf *buf = &_buf;
+		struct pldm_msgbuf_ro _buf;
+		struct pldm_msgbuf_ro *buf = &_buf;
 		rc = pldm_msgbuf_init_errno(buf, sizeof(struct pldm_pdr_hdr),
 					    record->data, record->size);
 
@@ -876,7 +879,8 @@ void pldm_entity_association_tree_visit(pldm_entity_association_tree *tree,
 
 	get_num_nodes(tree->root, size);
 	*entities = malloc(*size * sizeof(pldm_entity));
-	if (!entities) {
+	if (!*entities) {
+		*size = 0;
 		return;
 	}
 	size_t index = 0;
@@ -1701,8 +1705,8 @@ int pldm_entity_association_pdr_add_contained_entity_to_remote_pdr(
 	int rc = 0;
 	uint16_t header_length = 0;
 	uint8_t num_children = 0;
-	PLDM_MSGBUF_DEFINE_P(src);
-	PLDM_MSGBUF_DEFINE_P(dst);
+	PLDM_MSGBUF_RO_DEFINE_P(src);
+	PLDM_MSGBUF_RW_DEFINE_P(dst);
 
 	pldm_pdr_find_record_by_handle(&record, &prev, pdr_record_handle);
 
@@ -1851,9 +1855,9 @@ int pldm_entity_association_pdr_create_new(pldm_pdr *repo,
 	uint16_t new_pdr_size;
 	uint16_t container_id = 0;
 	void *container_id_addr;
-	PLDM_MSGBUF_DEFINE_P(dst);
-	PLDM_MSGBUF_DEFINE_P(src_p);
-	PLDM_MSGBUF_DEFINE_P(src_c);
+	PLDM_MSGBUF_RW_DEFINE_P(dst);
+	PLDM_MSGBUF_RO_DEFINE_P(src_p);
+	PLDM_MSGBUF_RO_DEFINE_P(src_c);
 	int rc = 0;
 
 	pldm_pdr_record *prev = repo->first;
@@ -1998,7 +2002,7 @@ static int pldm_entity_association_find_record_handle_by_entity(
 	pldm_pdr_record *record = repo->first;
 
 	while (record != NULL) {
-		PLDM_MSGBUF_DEFINE_P(dst);
+		PLDM_MSGBUF_RO_DEFINE_P(dst);
 
 		rc = pldm_msgbuf_init_errno(dst,
 					    PDR_ENTITY_ASSOCIATION_MIN_SIZE,
@@ -2050,15 +2054,15 @@ static int pldm_entity_association_find_record_handle_by_entity(
 	return 0;
 }
 
-LIBPLDM_ABI_TESTING
+LIBPLDM_ABI_STABLE
 int pldm_entity_association_pdr_remove_contained_entity(
 	pldm_pdr *repo, pldm_entity *entity, bool is_remote,
 	uint32_t *pdr_record_handle)
 {
 	uint16_t header_length = 0;
 	uint8_t num_children = 0;
-	PLDM_MSGBUF_DEFINE_P(src);
-	PLDM_MSGBUF_DEFINE_P(dst);
+	PLDM_MSGBUF_RO_DEFINE_P(src);
+	PLDM_MSGBUF_RW_DEFINE_P(dst);
 	int rc;
 	pldm_pdr_record *record;
 	pldm_pdr_record *prev;
@@ -2241,7 +2245,7 @@ static int pldm_pdr_record_matches_fru_rsi(const pldm_pdr_record *record,
 	uint16_t record_fru_rsi = 0;
 	uint8_t *skip_data = NULL;
 	uint8_t skip_data_size = 0;
-	PLDM_MSGBUF_DEFINE_P(dst);
+	PLDM_MSGBUF_RO_DEFINE_P(dst);
 	int rc = 0;
 
 	rc = pldm_msgbuf_init_errno(dst, PDR_FRU_RECORD_SET_MIN_SIZE,
@@ -2250,7 +2254,8 @@ static int pldm_pdr_record_matches_fru_rsi(const pldm_pdr_record *record,
 		return rc;
 	}
 	skip_data_size = sizeof(struct pldm_pdr_hdr) + sizeof(uint16_t);
-	pldm_msgbuf_span_required(dst, skip_data_size, (void **)&skip_data);
+	pldm_msgbuf_span_required(dst, skip_data_size,
+				  (const void **)&skip_data);
 	pldm_msgbuf_extract(dst, record_fru_rsi);
 
 	rc = pldm_msgbuf_complete(dst);
@@ -2297,7 +2302,7 @@ static int pldm_pdr_remove_record(pldm_pdr *repo, pldm_pdr_record *record,
 	return 0;
 }
 
-LIBPLDM_ABI_TESTING
+LIBPLDM_ABI_STABLE
 int pldm_pdr_remove_fru_record_set_by_rsi(pldm_pdr *repo, uint16_t fru_rsi,
 					  bool is_remote,
 					  uint32_t *record_handle)
@@ -2315,7 +2320,7 @@ int pldm_pdr_remove_fru_record_set_by_rsi(pldm_pdr *repo, uint16_t fru_rsi,
 	record = repo->first;
 
 	while (record != NULL) {
-		PLDM_MSGBUF_DEFINE_P(buf);
+		PLDM_MSGBUF_RO_DEFINE_P(buf);
 
 		rc = pldm_msgbuf_init_errno(buf, PDR_FRU_RECORD_SET_MIN_SIZE,
 					    record->data, record->size);
@@ -2347,7 +2352,7 @@ int pldm_pdr_remove_fru_record_set_by_rsi(pldm_pdr *repo, uint16_t fru_rsi,
 	return rc;
 }
 
-LIBPLDM_ABI_TESTING
+LIBPLDM_ABI_STABLE
 int pldm_entity_association_tree_delete_node(pldm_entity_association_tree *tree,
 					     const pldm_entity *entity)
 {

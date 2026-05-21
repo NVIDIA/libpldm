@@ -8,13 +8,13 @@ extern "C" {
 
 #include <libpldm/compiler.h>
 #include <libpldm/pldm_types.h>
-#include <libpldm/utils.h>
 
 #include <asm/byteorder.h>
 #include <stdalign.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <sys/types.h>
 
 typedef uint8_t pldm_tid_t;
 
@@ -108,6 +108,7 @@ enum transfer_resp_flag {
 	PLDM_MIDDLE = 0x02,
 	PLDM_END = 0x04,
 	PLDM_START_AND_END = 0x05,
+	PLDM_ACKNOWLEDGE_COMPLETION = 0x08,
 };
 
 /** @brief PLDM transport protocol type
@@ -257,7 +258,7 @@ struct pldm_msg {
 #ifdef __cplusplus
 #define PLDM_MSG_DEFINE_P(name, size)                                          \
 	PLDM_MSG_BUFFER(name##_buf, size);                                     \
-	auto *(name) = new (name##_buf) pldm_msg
+	auto *(name) = new (name##_buf) pldm_msg()
 #endif
 
 /**
@@ -275,6 +276,19 @@ struct pldm_msg {
  */
 bool pldm_msg_hdr_correlate_response(const struct pldm_msg_hdr *req,
 				     const struct pldm_msg_hdr *resp);
+
+/** @brief Convert ver32_t to string
+ *  @param[in] version - Pointer to ver32_t
+ *  @param[out] buffer - Pointer to the buffer
+ *  @param[in] buffer_size - Size of the buffer, up to SSIZE_MAX
+ *  @return The number of characters written to the buffer (excluding the null
+ * byte). The converted string may be truncated, and truncation is not
+ * considered an error. The result is negative if invalid arguments are supplied
+ * (NULL values for required pointers or the buffer size is beyond a
+ *  representable range).
+ */
+ssize_t pldm_base_ver2str(const ver32_t *version, char *buffer,
+			  size_t buffer_size);
 
 /** @struct pldm_header_info
  *
@@ -824,6 +838,41 @@ int encode_pldm_base_negotiate_transfer_params_req(
 	uint8_t instance_id,
 	const struct pldm_base_negotiate_transfer_params_req *req,
 	struct pldm_msg *msg, size_t *payload_length);
+
+/** @brief Encode a PLDM Negotiate Transfer Parameters response message
+ *
+ *  @param[in] instance_id - Message's instance id
+ *  @param[in] resp - The pointer to the response message to be encoded
+ *  @param[out] msg - Message will be written to this
+ *  @param[in,out] payload_length - length of response message payload
+ *  @return 0 on success
+ *          -EINVAL if the input parameters' memory are not allocated,
+ *          or message type or instance in request header is invalid
+ *          -ENOMSG if the PLDM type in the request header is invalid
+ *          -EOVERFLOW if the input message length is invalid
+ */
+int encode_pldm_base_negotiate_transfer_params_resp(
+	uint8_t instance_id,
+	const struct pldm_base_negotiate_transfer_params_resp *resp,
+	struct pldm_msg *msg, size_t *payload_length);
+
+/** @brief Decode a PLDM Negotiate Transfer Parameters request message
+ *
+ *  @param[in] msg - Request message
+ *  @param[in] payload_length - length of request message payload
+ *  @param[out] req - pointer to the decoded request message
+ *  @return 0 on success
+ *          -EINVAL if the input parameters' memory are not allocated
+ *          -EOVERFLOW if the input message buffer is too short for the output
+ *          request struct
+ *          -EBADMSG if the input message buffer is too large for the output
+ *          request struct
+ *  @note  Caller is responsible for memory alloc and dealloc of param
+ *         'msg.payload'
+ */
+int decode_pldm_base_negotiate_transfer_params_req(
+	const struct pldm_msg *msg, size_t payload_length,
+	struct pldm_base_negotiate_transfer_params_req *req);
 
 /** @brief Decode a PLDM Negotiate Transfer Parameters response message
  *

@@ -2,7 +2,6 @@
 #ifndef PLDM_MSGBUF_PLATFORM_H
 #define PLDM_MSGBUF_PLATFORM_H
 
-#include "../compiler.h"
 #include "../msgbuf.h"
 
 #include <libpldm/base.h>
@@ -10,7 +9,7 @@
 
 LIBPLDM_CC_NONNULL
 LIBPLDM_CC_ALWAYS_INLINE int
-pldm_msgbuf_extract_value_pdr_hdr(struct pldm_msgbuf *ctx,
+pldm_msgbuf_extract_value_pdr_hdr(struct pldm_msgbuf_ro *ctx,
 				  struct pldm_value_pdr_hdr *hdr, size_t lower,
 				  size_t upper)
 {
@@ -37,7 +36,7 @@ pldm_msgbuf_extract_value_pdr_hdr(struct pldm_msgbuf *ctx,
 }
 
 LIBPLDM_CC_ALWAYS_INLINE int
-pldm_msgbuf_extract_sensor_data(struct pldm_msgbuf *ctx,
+pldm_msgbuf_extract_sensor_data(struct pldm_msgbuf_ro *ctx,
 				enum pldm_sensor_readings_data_type tag,
 				union_sensor_data_size *dst)
 {
@@ -69,7 +68,7 @@ pldm_msgbuf_extract_sensor_data(struct pldm_msgbuf *ctx,
  * above
  */
 LIBPLDM_CC_ALWAYS_INLINE int
-pldm_msgbuf_extract_sensor_value(struct pldm_msgbuf *ctx,
+pldm_msgbuf_extract_sensor_value(struct pldm_msgbuf_ro *ctx,
 				 enum pldm_sensor_readings_data_type tag,
 				 void *val)
 {
@@ -100,7 +99,7 @@ pldm_msgbuf_extract_sensor_value(struct pldm_msgbuf *ctx,
 				      pldm__msgbuf_extract_range_field_format, \
 				      dst, ctx, tag, (void *)&(dst))
 LIBPLDM_CC_ALWAYS_INLINE int pldm__msgbuf_extract_range_field_format(
-	struct pldm_msgbuf *ctx, enum pldm_range_field_format tag, void *rff)
+	struct pldm_msgbuf_ro *ctx, enum pldm_range_field_format tag, void *rff)
 {
 	switch (tag) {
 	case PLDM_RANGE_FIELD_FORMAT_UINT8:
@@ -146,7 +145,7 @@ LIBPLDM_CC_ALWAYS_INLINE int pldm__msgbuf_extract_range_field_format(
 
 /* This API is bad, but it's because the caller's APIs are also bad */
 LIBPLDM_CC_ALWAYS_INLINE int
-pldm_msgbuf_extract_effecter_value(struct pldm_msgbuf *ctx,
+pldm_msgbuf_extract_effecter_value(struct pldm_msgbuf_ro *ctx,
 				   enum pldm_effecter_data_size tag, void *dst)
 {
 	switch (tag) {
@@ -173,10 +172,10 @@ pldm_msgbuf_extract_effecter_value(struct pldm_msgbuf *ctx,
 
 #define pldm_msgbuf_extract_effecter_data(ctx, tag, dst)                       \
 	pldm_msgbuf_extract_typecheck(union_effecter_data_size,                \
-				      pldm__msgbuf_extract_range_field_format, \
-				      dst, ctx, tag, (void *)&(dst))
+				      pldm__msgbuf_extract_effecter_data, dst, \
+				      ctx, tag, (void *)&(dst))
 LIBPLDM_CC_ALWAYS_INLINE int
-pldm__msgbuf_extract_effecter_data(struct pldm_msgbuf *ctx,
+pldm__msgbuf_extract_effecter_data(struct pldm_msgbuf_ro *ctx,
 				   enum pldm_effecter_data_size tag, void *ed)
 {
 	switch (tag) {
@@ -221,8 +220,10 @@ pldm__msgbuf_extract_effecter_data(struct pldm_msgbuf *ctx,
 #include <type_traits>
 
 template <typename T>
-static inline int pldm_msgbuf_typecheck_range_field_format(
-	struct pldm_msgbuf *ctx, enum pldm_range_field_format tag, void *_rff)
+static inline int
+pldm_msgbuf_typecheck_range_field_format(struct pldm_msgbuf_ro *ctx,
+					 enum pldm_range_field_format tag,
+					 void *_rff)
 {
 	static_assert(std::is_same<union_range_field_format, T>::value);
 	return pldm__msgbuf_extract_range_field_format(ctx, tag, _rff);

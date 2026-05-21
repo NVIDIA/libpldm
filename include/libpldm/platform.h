@@ -16,7 +16,6 @@ extern "C" {
 #include <libpldm/compiler.h>
 #include <libpldm/pdr.h>
 #include <libpldm/pldm_types.h>
-#include <libpldm/utils.h>
 
 /**
  * @brief PLDM response transfer flag for the Platform and control commands
@@ -139,6 +138,7 @@ enum pldm_platform_transfer_flag {
  * SuperiorDirectoryFileIdentifier, FileClassification, OemFileClassification,
  * FileCapabilities, FileVersion, FileMaximumSize, FileMaximumFileDescriptorCount,
  * FileNameLength in `Table 108 - File Descriptor PDR` of DSP0248 v1.3.0
+ * This also includes the size of the common PDR header 10 bytes.
  */
 #define PLDM_PDR_FILE_DESCRIPTOR_PDR_MIN_LENGTH 36
 
@@ -299,7 +299,7 @@ enum pldm_platform_commands {
 	PLDM_GET_PDR_REPOSITORY_SIGNATURE = 0x53,
 };
 
-/** @brief PLDM PDR types defined in DSP0248_1.2.0 section 28.2
+/** @brief PLDM PDR types defined in DSP0248_1.3.0 section 28.2
  */
 enum pldm_pdr_types {
 	PLDM_TERMINUS_LOCATOR_PDR = 1,
@@ -326,6 +326,7 @@ enum pldm_pdr_types {
 	PLDM_REDFISH_RESOURCE_PDR = 22,
 	PLDM_REDFISH_ENTITY_ASSOCIATION_PDR = 23,
 	PLDM_REDFISH_ACTION_PDR = 24,
+	PLDM_REDFISH_PARALLEL_RESOURCE_PDR = 25,
 	PLDM_FILE_DESCRIPTOR_PDR = 30,
 	PLDM_OEM_DEVICE_PDR = 126,
 	PLDM_OEM_PDR = 127,
@@ -675,6 +676,23 @@ enum pldm_stateset_link_state_values {
 enum pldm_stateset_boot_request_values {
 	PLDM_STATESET_BOOT_REQUEST_NORMAL = 1,
 	PLDM_STATESET_BOOT_REQUEST_REQUESTED = 2
+};
+
+/** @brief PLDM File Descriptor PDR's File Classification */
+enum pldm_platform_file_class {
+	PLDM_PLATFORM_FILE_CLASS_OEM = 0x00,
+	PLDM_PLATFORM_FILE_CLASS_BOOT_LOG = 0x01,
+	PLDM_PLATFORM_FILE_CLASS_SERIAL_TX_FIFO = 0x02,
+	PLDM_PLATFORM_FILE_CLASS_SERIAL_RX_FIFO = 0x03,
+	PLDM_PLATFORM_FILE_CLASS_DIAGNOSTIC_LOG = 0x04,
+	PLDM_PLATFORM_FILE_CLASS_CRASH_DUMP_FILE = 0x05,
+	PLDM_PLATFORM_FILE_CLASS_SECURITY_LOG = 0x06,
+	PLDM_PLATFORM_FILE_CLASS_FRU_DATA_FILE = 0x07,
+	PLDM_PLATFORM_FILE_CLASS_TELEMETRY_DATA_FILE = 0x08,
+	PLDM_PLATFORM_FILE_CLASS_TELEMETRY_DATA_LOG = 0x09,
+	PLDM_PLATFORM_FILE_CLASS_OTHER_LOG = 0xfd,
+	PLDM_PLATFORM_FILE_CLASS_OTHER_FILE = 0xfe,
+	PLDM_PLATFORM_FILE_CLASS_FILE_DIRECTORY = 0xff,
 };
 
 /** @struct pldm_pdr_hdr
@@ -1685,7 +1703,7 @@ int encode_set_state_effecter_states_resp(uint8_t instance_id,
  *  @param[in] payload_length - Length of request message payload
  *  @param[out] effecter_id - used to identify and access the effecter
  *  @param[out] comp_effecter_count - number of individual sets of effecter
- *         information. Upto eight sets of state effecter info can be accessed
+ *         information. Up to eight sets of state effecter info can be accessed
  *         for a given effecter.
  *  @param[out] field - each unit is an instance of the stateFileld structure
  *         that is used to set the requested state for a particular effecter
@@ -2045,7 +2063,7 @@ int decode_get_pdr_resp_safe(const struct pldm_msg *msg, size_t payload_length,
  *  @param[in] instance_id - Message's instance id
  *  @param[in] effecter_id - used to identify and access the effecter
  *  @param[in] comp_effecter_count - number of individual sets of effecter
- *         information. Upto eight sets of state effecter info can be accessed
+ *         information. Up to eight sets of state effecter info can be accessed
  *         for a given effecter.
  *  @param[in] field - each unit is an instance of the stateField structure
  *         that is used to set the requested state for a particular effecter
@@ -2784,7 +2802,7 @@ int decode_get_event_receiver_resp(const struct pldm_msg *msg,
  *  except those mentioned in the @note below, should be initialized by
  * the caller.
  *  @param[out] msg - Argument to capture the Message
- *  @param[in/out] payload_lenght - The lenght of the supplied buffer for
+ *  @param[in/out] payload_lenght - The length of the supplied buffer for
  payload
  * @return 0 on success
  *         -EINVAL if the input parameters' memory are not allocated,
@@ -2954,6 +2972,23 @@ int decode_pldm_platform_cper_event(const void *event_data,
  */
 uint8_t *
 pldm_platform_cper_event_event_data(struct pldm_platform_cper_event *event);
+
+/** @brief Encode data in to File Descriptor PDR
+ *
+ *  @param[in] pdr - Populated pldm_platform_file_descriptor_pdr struct
+ *  @param[out] data - Pointer to a buffer to save encoded PDR data
+ *  @param[in/out] data_len - Length of the response PDR buffer (data)
+ *
+ *  @return error code: 0 on success
+ *          -EINVAL if the input values are invalid
+ *          -EBADMSG if the original length of the data buffer is larger
+ *          than the target extract length
+ *          -EOVERFLOW if the original length of the data buffer is smaller
+ *          than the target extract length
+ */
+int encode_pldm_platform_file_descriptor_pdr(
+	const struct pldm_platform_file_descriptor_pdr *pdr, void *data,
+	size_t *data_len);
 
 /** @brief Decode date fields from File Descriptor PDR
  *

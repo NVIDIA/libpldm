@@ -11,7 +11,6 @@ extern "C" {
 #include <libpldm/api.h>
 #include <libpldm/base.h>
 #include <libpldm/pldm_types.h>
-#include <libpldm/utils.h>
 
 #include <assert.h>
 #include <stdbool.h>
@@ -143,7 +142,8 @@ enum pldm_firmware_update_commands {
 	PLDM_ACTIVATE_PENDING_COMPONENT_IMAGE = 0x1f,
 	PLDM_REQUEST_DOWNSTREAM_DEVICE_UPDATE = 0x20,
 	PLDM_GET_COMPONENT_OPAQUE_DATA = 0x21,
-	PLDM_UPTATE_SECURITY_REVISION = 0x22
+	PLDM_UPTATE_SECURITY_REVISION = 0x22,
+	PLDM_UPDATE_SECURITY_REVISION = 0x22
 };
 
 /** @brief PLDM Firmware update completion codes
@@ -1090,6 +1090,18 @@ struct pldm_cancel_update_resp {
 	bool8_t non_functioning_component_indication;
 	uint64_t non_functioning_component_bitmap;
 } __attribute__((packed));
+
+/** @struct pldm_update_security_revision_req
+ *
+ *  Structure representing UpdateSecurityRevision request.
+ */
+struct pldm_fwup_update_security_revision_req {
+	uint16_t component_classification;
+	uint16_t component_identifier;
+	uint8_t component_classification_index;
+};
+
+#define PLDM_FWUP_UPDATE_SECURITY_REVISION_REQ_BYTES 5
 
 /** @brief Decode the PLDM package header information
  *
@@ -2190,6 +2202,34 @@ int encode_cancel_update_resp(uint8_t instance_id,
 			      const struct pldm_cancel_update_resp *resp_data,
 			      struct pldm_msg *msg, size_t *payload_length);
 
+/** @brief Create PLDM request message for UpdateSecurityRevision
+ *
+ *  @param[in] instance_id - Message's instance id
+ *  @param[in] req - Pointer to the request data
+ *  @param[out] msg - Message will be written to this
+ *  @param[inout] payload_length - Length of msg payload buffer,
+ *				   will be updated with the written
+ * 				   length on success.
+ *
+ *  @return 0 on success, a negative errno value on failure.
+ */
+int encode_pldm_fwup_update_security_revision_req(
+	const uint8_t instance_id,
+	const struct pldm_fwup_update_security_revision_req *req,
+	struct pldm_msg *msg, size_t *payload_length);
+
+/** @brief Decode UpdateSecurityRevision response message
+ *
+ *  @param[in] msg - Response message
+ *  @param[in] payload_length - Length of response message payload
+ *  @param[out] completion_code - Pointer to the completion code
+ *
+ *  @return 0 on success, a negative errno value on failure.
+ */
+int decode_pldm_fwup_update_security_revision_resp(const struct pldm_msg *msg,
+						   size_t payload_length,
+						   uint8_t *completion_code);
+
 /** @brief Firmware update v1.0 package header identifier */
 #define PLDM_PACKAGE_HEADER_IDENTIFIER_V1_0                                    \
 	{ 0xF0, 0x18, 0x87, 0x8C, 0xCB, 0x7D, 0x49, 0x43,                      \
@@ -2306,6 +2346,7 @@ struct pldm_package_iter {
  *
  * The provided package data must out-live the header struct.
  */
+// NOLINTNEXTLINE(bugprone-reserved-identifier, cert-dcl37-c, cert-dcl51-cpp)
 struct pldm__package_header_information {
 	pldm_uuid package_header_identifier;
 	uint8_t package_header_format_revision;
@@ -2317,6 +2358,7 @@ struct pldm__package_header_information {
 	struct variable_field package_version_string;
 };
 /* TODO: Deprecate the other struct pldm_package_header_information, remove, drop typedef */
+// NOLINTNEXTLINE(bugprone-reserved-identifier, cert-dcl37-c, cert-dcl51-cpp)
 typedef struct pldm__package_header_information
 	pldm_package_header_information_pad;
 

@@ -10,7 +10,6 @@ extern "C" {
 
 #include <libpldm/pldm.h>
 #include <libpldm/base.h>
-#include <libpldm/utils.h>
 #include <libpldm/control.h>
 #include <libpldm/firmware_update.h>
 
@@ -332,7 +331,7 @@ int pldm_fd_set_update_idle_timeout(struct pldm_fd *fd, uint32_t time);
  *
  * @param[in] fd
  * @param[in] time - Time for retries of Request Firmware Data,
- *                   Verify, Apply commands, in miliseconds. FD_T2.
+ *                   Verify, Apply commands, in milliseconds. FD_T2.
  * 					 Should be 1000-5000, initial default is 1000.
  *
  * Will return a message to send to remote_address if out_len > 0

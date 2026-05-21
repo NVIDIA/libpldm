@@ -1,4 +1,4 @@
-libpldm_sources = files('control.c', 'responder.c', 'utils.c')
+libpldm_sources = files('bcd.c', 'control.c', 'edac.c', 'responder.c', 'utils.c')
 
 subdir('dsp')
 
@@ -20,6 +20,7 @@ if get_option('oem').contains('nvidia')
 endif
 
 subdir('firmware_device')
+subdir('environ')
 
 libpldm_link_args = []
 foreach alias : libpldm_deprecated_aliases
@@ -30,7 +31,7 @@ libpldm = library(
     'pldm',
     libpldm_sources,
     implicit_include_directories: false,
-    include_directories: [libpldm_include_dir, include_directories('.')],
+    include_directories: [include_root, include_directories('.')],
     link_args: libpldm_link_args,
     version: meson.project_version(),
     gnu_symbol_visibility: 'hidden',
@@ -38,13 +39,13 @@ libpldm = library(
 )
 
 libpldm_dep = declare_dependency(
-    include_directories: libpldm_include_dir,
+    include_directories: include_root,
     link_with: libpldm,
 )
 
 import('pkgconfig').generate(
     name: 'libpldm',
-    description: 'PLDM protocol encode/decode C lib',
+    description: 'C library to work with PLDM functionality and PLDM protocol encode/decode',
     version: meson.project_version(),
     libraries: libpldm,
 )
