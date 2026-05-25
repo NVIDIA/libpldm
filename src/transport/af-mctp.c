@@ -19,6 +19,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -27,6 +28,12 @@ struct pldm_responder_cookie_af_mctp {
 	struct pldm_responder_cookie req;
 	struct sockaddr_mctp smctp;
 };
+
+/* Maximum time the kernel may block a send while the socket buffer is
+ * full before returning EAGAIN. Applied via SO_SNDTIMEO at socket
+ * creation time.
+ */
+#define PLDM_AF_MCTP_SEND_TIMEOUT_SEC 5
 
 #define cookie_to_af_mctp(c)                                                   \
 	container_of((c), struct pldm_responder_cookie_af_mctp, req)
@@ -271,6 +278,9 @@ static pldm_requester_rc_t pldm_transport_af_mctp_send(struct pldm_transport *t,
 	ssize_t rc = sendto(af_mctp->socket, pldm_msg, msg_len, 0,
 			    (struct sockaddr *)&addr, sizeof(addr));
 	if (rc == -1) {
+		if (errno == EAGAIN || errno == EWOULDBLOCK) {
+			return PLDM_REQUESTER_TRANSPORT_BUSY;
+		}
 		return PLDM_REQUESTER_SEND_FAIL;
 	}
 
@@ -305,6 +315,17 @@ int pldm_transport_af_mctp_init(struct pldm_transport_af_mctp **ctx)
 
 	if (pldm_socket_sndbuf_init(&af_mctp->socket_send_buf,
 				    af_mctp->socket)) {
+		close(af_mctp->socket);
+		free(af_mctp);
+		return -1;
+	}
+
+	struct timeval send_timeout = {
+		.tv_sec = PLDM_AF_MCTP_SEND_TIMEOUT_SEC,
+		.tv_usec = 0,
+	};
+	if (setsockopt(af_mctp->socket, SOL_SOCKET, SO_SNDTIMEO, &send_timeout,
+		       sizeof(send_timeout)) == -1) {
 		close(af_mctp->socket);
 		free(af_mctp);
 		return -1;
