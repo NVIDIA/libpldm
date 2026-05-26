@@ -24,6 +24,7 @@ if not gtest_dep.found() or not gmock_dep.found()
 endif
 
 test_include_dirs = [include_root, include_directories('../src', '../tests')]
+test_cpp_args = ['-fno-exceptions']
 
 tests = ['bcd', 'edac', 'instance-id', 'msgbuf', 'responder', 'utils']
 
@@ -64,6 +65,7 @@ foreach t : tests
             implicit_include_directories: false,
             include_directories: test_include_dirs,
             dependencies: [libpldm_dep, gtest_dep, gmock_dep],
+            cpp_args: test_cpp_args,
         ),
         workdir: meson.current_source_dir(),
     )
@@ -90,7 +92,18 @@ test(
         implicit_include_directories: false,
         include_directories: test_include_dirs,
         dependencies: [libpldm_dep, gtest_dep],
-        cpp_args: ['-O0'],
+        cpp_args: test_cpp_args + ['-O0'],
+    ),
+)
+
+test(
+    'xlate_errno_c',
+    executable(
+        'xlate_errno_c',
+        'xlate_errno_c.c',
+        implicit_include_directories: false,
+        include_directories: test_include_dirs,
+        c_args: ['-O0'],
     ),
 )
 
@@ -105,6 +118,6 @@ test(
         implicit_include_directories: false,
         include_directories: test_include_dirs,
         dependencies: [libpldm_dep, gtest_dep],
-        cpp_args: ['-O0'],
+        cpp_args: test_cpp_args + ['-O0'],
     ),
 )

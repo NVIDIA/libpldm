@@ -1159,3 +1159,115 @@ TEST(SetBIOSTable, testBadDecodeRequest)
         &retTransferHandle, &retTransferFlag, &retTableType, &table);
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
 }
+
+#if HAVE_LIBPLDM_ABI_STABLE
+TEST(BiosStableAbiCoverage, testErrorBranches)
+{
+    std::array<uint8_t, hdrSize + PLDM_GET_DATE_TIME_RESP_BYTES + 4> storage{};
+    auto* msg =
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        reinterpret_cast<pldm_msg*>(storage.data());
+
+    EXPECT_EQ(encode_get_date_time_req(0, nullptr), PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(encode_get_date_time_req(32, msg), PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(encode_get_date_time_resp(0, PLDM_SUCCESS, 0, 0, 0, 1, 1, 2024,
+                                        nullptr),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(
+        encode_get_date_time_resp(32, PLDM_SUCCESS, 0, 0, 0, 1, 1, 2024, msg),
+        PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(
+        encode_get_date_time_resp(0, PLDM_ERROR, 0, 0, 0, 1, 1, 2024, msg),
+        PLDM_SUCCESS);
+
+    uint8_t completionCode = 0;
+    uint8_t seconds = 0;
+    uint8_t minutes = 0;
+    uint8_t hours = 0;
+    uint8_t day = 0;
+    uint8_t month = 0;
+    uint16_t year = 0;
+    EXPECT_EQ(decode_get_date_time_resp(nullptr, sizeof(completionCode),
+                                        &completionCode, &seconds, &minutes,
+                                        &hours, &day, &month, &year),
+              PLDM_ERROR_INVALID_DATA);
+    msg->payload[0] = PLDM_ERROR;
+    EXPECT_EQ(decode_get_date_time_resp(msg, sizeof(completionCode),
+                                        &completionCode, &seconds, &minutes,
+                                        &hours, &day, &month, &year),
+              PLDM_SUCCESS);
+    EXPECT_EQ(completionCode, PLDM_ERROR);
+    msg->payload[0] = PLDM_SUCCESS;
+    EXPECT_EQ(decode_get_date_time_resp(msg, PLDM_GET_DATE_TIME_RESP_BYTES - 1,
+                                        &completionCode, &seconds, &minutes,
+                                        &hours, &day, &month, &year),
+              PLDM_ERROR_INVALID_LENGTH);
+
+    EXPECT_EQ(encode_get_bios_table_resp(
+                  32, PLDM_SUCCESS, 0, PLDM_START_AND_END, nullptr,
+                  hdrSize + PLDM_GET_BIOS_TABLE_MIN_RESP_BYTES, msg),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(encode_get_bios_table_resp(
+                  0, PLDM_ERROR, 0, PLDM_START_AND_END, nullptr,
+                  hdrSize + PLDM_GET_BIOS_TABLE_MIN_RESP_BYTES, msg),
+              PLDM_SUCCESS);
+
+    uint32_t transferHandle = 0;
+    uint8_t transferFlag = 0;
+    uint8_t tableType = 0;
+    EXPECT_EQ(decode_get_bios_table_req(nullptr, PLDM_GET_BIOS_TABLE_REQ_BYTES,
+                                        &transferHandle, &transferFlag,
+                                        &tableType),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(decode_get_bios_table_req(msg, PLDM_GET_BIOS_TABLE_REQ_BYTES - 1,
+                                        &transferHandle, &transferFlag,
+                                        &tableType),
+              PLDM_ERROR_INVALID_LENGTH);
+
+    uint32_t nextTransferHandle = 0;
+    size_t tableOffset = 0;
+    EXPECT_EQ(decode_get_bios_table_resp(nullptr,
+                                         PLDM_GET_BIOS_TABLE_MIN_RESP_BYTES + 1,
+                                         &completionCode, &nextTransferHandle,
+                                         &transferFlag, &tableOffset),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(decode_get_bios_table_resp(
+                  msg, PLDM_GET_BIOS_TABLE_MIN_RESP_BYTES, &completionCode,
+                  &nextTransferHandle, &transferFlag, &tableOffset),
+              PLDM_ERROR_INVALID_LENGTH);
+    msg->payload[0] = PLDM_ERROR;
+    EXPECT_EQ(decode_get_bios_table_resp(
+                  msg, PLDM_GET_BIOS_TABLE_MIN_RESP_BYTES + 1, &completionCode,
+                  &nextTransferHandle, &transferFlag, &tableOffset),
+              PLDM_SUCCESS);
+    EXPECT_EQ(completionCode, PLDM_ERROR);
+
+    variable_field attributeData{};
+    EXPECT_EQ(decode_get_bios_attribute_current_value_by_handle_resp(
+                  nullptr, 1, &completionCode, &nextTransferHandle,
+                  &transferFlag, &attributeData),
+              PLDM_ERROR_INVALID_DATA);
+    msg->payload[0] = PLDM_ERROR;
+    EXPECT_EQ(decode_get_bios_attribute_current_value_by_handle_resp(
+                  msg, 1, &completionCode, &nextTransferHandle, &transferFlag,
+                  &attributeData),
+              PLDM_SUCCESS);
+    EXPECT_EQ(completionCode, PLDM_ERROR);
+    msg->payload[0] = PLDM_SUCCESS;
+    EXPECT_EQ(decode_get_bios_attribute_current_value_by_handle_resp(
+                  msg, PLDM_GET_BIOS_ATTR_CURR_VAL_BY_HANDLE_MIN_RESP_BYTES,
+                  &completionCode, &nextTransferHandle, &transferFlag,
+                  &attributeData),
+              PLDM_ERROR_INVALID_LENGTH);
+
+    variable_field table{};
+    EXPECT_EQ(decode_set_bios_table_req(
+                  nullptr, PLDM_SET_BIOS_TABLE_MIN_REQ_BYTES, &transferHandle,
+                  &transferFlag, &tableType, &table),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(decode_set_bios_table_req(
+                  msg, PLDM_SET_BIOS_TABLE_MIN_REQ_BYTES - 1, &transferHandle,
+                  &transferFlag, &tableType, &table),
+              PLDM_ERROR_INVALID_LENGTH);
+}
+#endif

@@ -2,14 +2,34 @@
 
 #include <endian.h>
 #include <libpldm/base.h>
+
+/*
+ * These tests exercise the firmware iterator helpers themselves. Emitting them
+ * as noinline test-local functions avoids per-call-site inline coverage
+ * artifacts while leaving the library build unchanged.
+ */
+#if defined(__clang__) || defined(__GNUC__) || defined(_MSC_VER)
+#pragma push_macro("LIBPLDM_CC_ALWAYS_INLINE")
+#define PLDM_FWUP_RESTORE_ALWAYS_INLINE
+#endif
+#undef LIBPLDM_CC_ALWAYS_INLINE
+#define LIBPLDM_CC_ALWAYS_INLINE static __attribute__((noinline, unused))
+
 #include <libpldm/firmware_update.h>
+
+#ifdef PLDM_FWUP_RESTORE_ALWAYS_INLINE
+#pragma pop_macro("LIBPLDM_CC_ALWAYS_INLINE")
+#endif
+
 #include <libpldm/pldm_types.h>
 
 #include <algorithm>
 #include <array>
 #include <bitset>
+#include <csignal>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <span>
 #include <string>
@@ -23,7 +43,7 @@ using testing::ElementsAreArray;
 
 constexpr auto hdrSize = sizeof(pldm_msg_hdr);
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 
 static const uint8_t FIXED_INSTANCE_ID = 31;
 
@@ -1102,7 +1122,7 @@ TEST(QueryDeviceIdentifiers, goodPathDecodeResponse)
                          responseMsg.end()));
 }
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(QueryDeviceIdentifiers, goodPathEncodeResponse)
 {
     int rc;
@@ -1514,7 +1534,7 @@ TEST(GetFirmwareParameters, errorPathdecodeResponse)
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
 }
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(GetFirmwareParameters, goodPathEncodeResponse)
 {
     int rc;
@@ -1603,7 +1623,7 @@ TEST(GetFirmwareParameters, goodPathEncodeResponse)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(GetFirmwareParameters, goodPathEncodeResponseNoPending)
 {
     int rc;
@@ -1631,7 +1651,7 @@ TEST(GetFirmwareParameters, goodPathEncodeResponseNoPending)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(GetFirmwareParameters, errorPathEncodeResponseNullRespData)
 {
     PLDM_MSG_DEFINE_P(enc, 1000);
@@ -1643,7 +1663,7 @@ TEST(GetFirmwareParameters, errorPathEncodeResponseNullRespData)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(GetFirmwareParameters, errorPathEncodeResponseInvalidActiveStrType)
 {
     PLDM_MSG_DEFINE_P(enc, 1000);
@@ -1664,7 +1684,7 @@ TEST(GetFirmwareParameters, errorPathEncodeResponseInvalidActiveStrType)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(GetFirmwareParameters, errorPathEncodeResponseActiveStrTypeUnknown)
 {
     PLDM_MSG_DEFINE_P(enc, 1000);
@@ -1684,7 +1704,7 @@ TEST(GetFirmwareParameters, errorPathEncodeResponseActiveStrTypeUnknown)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(GetFirmwareParameters, errorPathEncodeResponseActiveStrLenZero)
 {
     PLDM_MSG_DEFINE_P(enc, 1000);
@@ -1703,7 +1723,7 @@ TEST(GetFirmwareParameters, errorPathEncodeResponseActiveStrLenZero)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(GetFirmwareParameters, errorPathEncodeResponsePendingStrTypeNonUnknown)
 {
     PLDM_MSG_DEFINE_P(enc, 1000);
@@ -1816,7 +1836,7 @@ TEST(GetFirmwareParameters, goodPathDecodeComponentParameterEntry)
                         entry.data() + pendingCompVerStrPos,
                         outPendingCompVerStr.length));
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
     /* Check the roundtrip matches */
     std::vector<uint8_t> enc_data(1000);
     size_t enc_payload_len = enc_data.size();
@@ -3194,7 +3214,7 @@ TEST(RequestUpdate, goodPathDecodeResponse)
     EXPECT_EQ(outFdMetaDataLen, fdMetaDataLen);
     EXPECT_EQ(outFdWillSendPkgData, fdWillSendPkgData);
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
     /* Check the success roundtrip matches */
     PLDM_MSG_DEFINE_P(enc, 1000);
     size_t enc_payload_len = 1000;
@@ -3272,7 +3292,7 @@ TEST(RequestUpdate, errorPathDecodeResponse)
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
 }
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(RequestDownstreamDeviceUpdate, goodPathEncodeRequest)
 {
     constexpr uint8_t instanceId = 1;
@@ -3300,7 +3320,7 @@ TEST(RequestDownstreamDeviceUpdate, goodPathEncodeRequest)
 }
 #endif // LIBPLDM_API_TESTING
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(RequestDownstreamDeviceUpdate, errorPathEncodeRequest)
 {
     constexpr uint8_t instanceId = 1;
@@ -3367,7 +3387,7 @@ TEST(RequestDownstreamDeviceUpdate, errorPathEncodeRequest)
 }
 #endif // LIBPLDM_API_TESTING
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(RequestDownstreamDeviceUpdate, goodPathDecodeResponse)
 {
     /* Test a success completion code */
@@ -3417,7 +3437,7 @@ TEST(RequestDownstreamDeviceUpdate, goodPathDecodeResponse)
 }
 #endif // LIBPLDM_API_TESTING
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(RequestDownstreamDeviceUpdate, errorPathDecodeResponse)
 {
     std::array<uint8_t, hdrSize + PLDM_DOWNSTREAM_DEVICE_UPDATE_RESPONSE_BYTES>
@@ -3479,7 +3499,7 @@ TEST(PassComponentTable, goodPathEncodeRequest)
                    0x6e, 0x42, 0x6d, 0x63, 0x76, 0x31, 0x2e, 0x31};
     EXPECT_EQ(request, outRequest);
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
     /* Check the roundtrip */
     struct pldm_pass_component_table_req_full req;
     PLDM_MSG_DEFINE_P(dec, outRequest.size());
@@ -3858,7 +3878,7 @@ TEST(UpdateComponent, goodPathEncodeRequest)
                    0x6d, 0x63, 0x76, 0x32, 0x2e, 0x32};
     EXPECT_EQ(request, outRequest);
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
     /* Check the roundtrip */
     struct pldm_update_component_req_full req;
     PLDM_MSG_DEFINE_P(dec, outRequest.size());
@@ -4720,7 +4740,7 @@ TEST(GetStatus, goodPathDecodeResponse)
     EXPECT_EQ(reasonCode, PLDM_FD_TIMEOUT_DOWNLOAD);
     EXPECT_EQ(updateOptionFlagsEnabled.value, updateOptionFlagsEnabled2);
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
     /* Check the roundtrip */
     PLDM_MSG_DEFINE_P(enc, 1000);
     size_t enc_payload_len = 1000;
@@ -6604,7 +6624,7 @@ TEST(DecodePldmFirmwareUpdatePackage,
     EXPECT_NE(rc, 0);
 }
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 
 TEST(EncodeTransferCompleteReq, testGoodEncode)
 {
@@ -6968,4 +6988,784 @@ TEST(EncodeGetFirmwareParametersResp, testBadNullArgs)
               -EINVAL);
 }
 
+TEST(FirmwareUpdateTestingAbiCoverage, queryDeviceIdentifierEncodeErrors)
+{
+    uint8_t descriptorData[] = {1, 2, 3, 4};
+    pldm_descriptor descriptor{PLDM_FWUP_IANA_ENTERPRISE_ID,
+                               sizeof(descriptorData), descriptorData};
+    PLDM_MSG_DEFINE_P(msg, 32);
+    size_t payloadLen = 32;
+
+    EXPECT_EQ(encode_query_device_identifiers_resp(
+                  FIXED_INSTANCE_ID, 0, &descriptor, msg, &payloadLen),
+              -EINVAL);
+    EXPECT_EQ(encode_query_device_identifiers_resp(FIXED_INSTANCE_ID, 1,
+                                                   nullptr, msg, &payloadLen),
+              -EINVAL);
+    EXPECT_EQ(encode_query_device_identifiers_resp(
+                  FIXED_INSTANCE_ID, 1, &descriptor, nullptr, &payloadLen),
+              -EINVAL);
+    EXPECT_EQ(encode_query_device_identifiers_resp(FIXED_INSTANCE_ID, 1,
+                                                   &descriptor, msg, nullptr),
+              -EINVAL);
+    EXPECT_EQ(encode_query_device_identifiers_resp(32, 1, &descriptor, msg,
+                                                   &payloadLen),
+              -EINVAL);
+
+    pldm_descriptor nullDescriptor{PLDM_FWUP_IANA_ENTERPRISE_ID,
+                                   sizeof(descriptorData), nullptr};
+    payloadLen = 32;
+    EXPECT_EQ(encode_query_device_identifiers_resp(
+                  FIXED_INSTANCE_ID, 1, &nullDescriptor, msg, &payloadLen),
+              -EINVAL);
+
+    payloadLen = 1;
+    EXPECT_LT(encode_query_device_identifiers_resp(
+                  FIXED_INSTANCE_ID, 1, &descriptor, msg, &payloadLen),
+              0);
+}
+
+TEST(FirmwareUpdateTestingAbiCoverage, firmwareParameterEncodeErrors)
+{
+    pldm_get_firmware_parameters_resp_full response{};
+    response.completion_code = PLDM_SUCCESS;
+    response.active_comp_image_set_ver_str.str_type = PLDM_STR_TYPE_ASCII;
+    response.active_comp_image_set_ver_str.str_len = 1;
+    response.active_comp_image_set_ver_str.str_data[0] = 'a';
+    response.pending_comp_image_set_ver_str.str_type = PLDM_STR_TYPE_ASCII;
+    response.pending_comp_image_set_ver_str.str_len = 1;
+    response.pending_comp_image_set_ver_str.str_data[0] = 'b';
+
+    PLDM_MSG_DEFINE_P(msg, 64);
+    size_t payloadLen = 64;
+    EXPECT_EQ(
+        encode_get_firmware_parameters_resp(32, &response, msg, &payloadLen),
+        -EINVAL);
+
+    payloadLen = 1;
+    EXPECT_LT(encode_get_firmware_parameters_resp(FIXED_INSTANCE_ID, &response,
+                                                  msg, &payloadLen),
+              0);
+
+    pldm_component_parameter_entry_full component{};
+    component.active_ver.str.str_type = PLDM_STR_TYPE_ASCII;
+    component.active_ver.str.str_len = 1;
+    component.active_ver.str.str_data[0] = 'a';
+    component.pending_ver.str.str_type = PLDM_STR_TYPE_ASCII;
+    component.pending_ver.str.str_len = 1;
+    component.pending_ver.str.str_data[0] = 'b';
+    std::fill_n(component.active_ver.date, sizeof(component.active_ver.date),
+                0xaa);
+    std::fill_n(component.pending_ver.date, sizeof(component.pending_ver.date),
+                0xbb);
+
+    std::array<uint8_t, 64> payload{};
+    payloadLen = payload.size();
+    EXPECT_EQ(encode_get_firmware_parameters_resp_comp_entry(
+                  nullptr, payload.data(), &payloadLen),
+              -EINVAL);
+    EXPECT_EQ(encode_get_firmware_parameters_resp_comp_entry(
+                  &component, nullptr, &payloadLen),
+              -EINVAL);
+    EXPECT_EQ(encode_get_firmware_parameters_resp_comp_entry(
+                  &component, payload.data(), nullptr),
+              -EINVAL);
+
+    payloadLen = 1;
+    EXPECT_LT(encode_get_firmware_parameters_resp_comp_entry(
+                  &component, payload.data(), &payloadLen),
+              0);
+}
+
+TEST(FirmwareUpdateTestingAbiCoverage, requestAndStatusEncodeErrors)
+{
+    PLDM_MSG_DEFINE_P(msg, 32);
+    size_t payloadLen = 1;
+
+    pldm_request_update_resp requestUpdate{};
+    requestUpdate.completion_code = PLDM_SUCCESS;
+    requestUpdate.fd_meta_data_len = 1;
+    requestUpdate.fd_will_send_pkg_data = 1;
+
+    EXPECT_EQ(encode_request_update_resp(FIXED_INSTANCE_ID, &requestUpdate,
+                                         nullptr, &payloadLen),
+              -EINVAL);
+    EXPECT_EQ(encode_request_update_resp(FIXED_INSTANCE_ID, &requestUpdate, msg,
+                                         nullptr),
+              -EINVAL);
+    EXPECT_EQ(encode_request_update_resp(32, &requestUpdate, msg, &payloadLen),
+              -EINVAL);
+    EXPECT_LT(encode_request_update_resp(FIXED_INSTANCE_ID, &requestUpdate, msg,
+                                         &payloadLen),
+              0);
+
+    pldm_get_status_resp status{};
+    status.completion_code = PLDM_ERROR;
+
+    payloadLen = 32;
+    EXPECT_EQ(
+        encode_get_status_resp(FIXED_INSTANCE_ID, nullptr, msg, &payloadLen),
+        -EINVAL);
+    EXPECT_EQ(
+        encode_get_status_resp(FIXED_INSTANCE_ID, &status, msg, &payloadLen),
+        -EINVAL);
+
+    status.completion_code = PLDM_SUCCESS;
+    EXPECT_EQ(encode_get_status_resp(32, &status, msg, &payloadLen), -EINVAL);
+
+    payloadLen = 1;
+    EXPECT_LT(
+        encode_get_status_resp(FIXED_INSTANCE_ID, &status, msg, &payloadLen),
+        0);
+}
+
+TEST(FirmwareUpdateTestingAbiCoverage, requestDecoderErrors)
+{
+    pldm_pass_component_table_req_full passComponent{};
+    pldm_update_component_req_full updateComponent{};
+    PLDM_MSG_DEFINE_P(msg, 128);
+
+    EXPECT_EQ(decode_pass_component_table_req(nullptr, 1, &passComponent),
+              -EINVAL);
+    EXPECT_EQ(decode_pass_component_table_req(msg, 1, nullptr), -EINVAL);
+    EXPECT_LT(decode_pass_component_table_req(msg, 0, &passComponent), 0);
+
+    std::fill_n(msg->payload, 128, 0);
+    auto* passReq =
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        reinterpret_cast<pldm_pass_component_table_req*>(msg->payload);
+    passReq->comp_ver_str_type = 0xff;
+    passReq->comp_ver_str_len = 1;
+    EXPECT_EQ(
+        decode_pass_component_table_req(
+            msg, sizeof(pldm_pass_component_table_req) + 1, &passComponent),
+        -EBADMSG);
+
+    passReq->comp_ver_str_type = PLDM_STR_TYPE_ASCII;
+    passReq->comp_ver_str_len = PLDM_FIRMWARE_MAX_STRING + 1;
+    EXPECT_LT(
+        decode_pass_component_table_req(msg, sizeof(*passReq), &passComponent),
+        0);
+
+    EXPECT_EQ(decode_update_component_req(nullptr, 1, &updateComponent),
+              -EINVAL);
+    EXPECT_EQ(decode_update_component_req(msg, 1, nullptr), -EINVAL);
+    EXPECT_LT(decode_update_component_req(msg, 0, &updateComponent), 0);
+
+    std::fill_n(msg->payload, 128, 0);
+    auto* updateReq =
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        reinterpret_cast<pldm_update_component_req*>(msg->payload);
+    updateReq->comp_ver_str_type = 0xff;
+    updateReq->comp_ver_str_len = 1;
+    EXPECT_EQ(decode_update_component_req(
+                  msg, sizeof(pldm_update_component_req) + 1, &updateComponent),
+              -EBADMSG);
+
+    updateReq->comp_ver_str_type = PLDM_STR_TYPE_ASCII;
+    updateReq->comp_ver_str_len = PLDM_FIRMWARE_MAX_STRING + 1;
+    EXPECT_LT(
+        decode_update_component_req(msg, sizeof(*updateReq), &updateComponent),
+        0);
+}
+
+#endif
+
+#if HAVE_LIBPLDM_ABI_STABLE
+namespace
+{
+
+bool downstreamDeviceIterEndForCoverage(pldm_downstream_device_iter* iter)
+{
+    return pldm_downstream_device_iter_end(iter);
+}
+
+bool downstreamDeviceIterNextForCoverage(pldm_downstream_device_iter* iter)
+{
+    return pldm_downstream_device_iter_next(iter);
+}
+
+bool descriptorIterEndForCoverage(pldm_descriptor_iter* iter)
+{
+    return pldm_descriptor_iter_end(iter);
+}
+
+bool descriptorIterNextForCoverage(pldm_descriptor_iter* iter)
+{
+    return pldm_descriptor_iter_next(iter);
+}
+
+bool downstreamDeviceParametersIterEndForCoverage(
+    pldm_downstream_device_parameters_iter* iter)
+{
+    return pldm_downstream_device_parameters_iter_end(iter);
+}
+
+bool downstreamDeviceParametersIterNextForCoverage(
+    pldm_downstream_device_parameters_iter* iter)
+{
+    return pldm_downstream_device_parameters_iter_next(iter);
+}
+
+bool packageFirmwareDeviceIdRecordIterEndForCoverage(pldm_package* package)
+{
+    return pldm_package_firmware_device_id_record_iter_end(package);
+}
+
+bool packageFirmwareDeviceIdRecordIterNextForCoverage(pldm_package* package)
+{
+    return pldm_package_firmware_device_id_record_iter_next(package);
+}
+
+pldm_descriptor_iter packageFirmwareDeviceIdRecordDescriptorIterInitForCoverage(
+    pldm_package* package, pldm_package_firmware_device_id_record* record)
+{
+    return pldm_package_firmware_device_id_record_descriptor_iter_init(package,
+                                                                       record);
+}
+
+bool packageDownstreamDeviceIdRecordIterEndForCoverage(pldm_package* package)
+{
+    return pldm_package_downstream_device_id_record_iter_end(package);
+}
+
+bool packageDownstreamDeviceIdRecordIterNextForCoverage(pldm_package* package)
+{
+    return pldm_package_downstream_device_id_record_iter_next(package);
+}
+
+bool packageComponentImageInformationIterEndForCoverage(pldm_package* package)
+{
+    return pldm_package_component_image_information_iter_end(package);
+}
+
+bool packageComponentImageInformationIterNextForCoverage(pldm_package* package)
+{
+    return pldm_package_component_image_information_iter_next(package);
+}
+
+#ifndef NDEBUG
+[[noreturn]] void exitFromAbort(int signal)
+{
+    std::exit(128 + signal);
+}
+
+void installGcovAbortHandler()
+{
+    struct sigaction action{};
+    action.sa_handler = exitFromAbort;
+    sigemptyset(&action.sa_mask);
+    sigaction(SIGABRT, &action, nullptr);
+}
+
+#define EXPECT_FIRMWARE_UPDATE_GCOV_ABORT(statement)                           \
+    EXPECT_EXIT(                                                               \
+        {                                                                      \
+            installGcovAbortHandler();                                         \
+            statement;                                                         \
+            std::exit(EXIT_SUCCESS);                                           \
+        },                                                                     \
+        testing::ExitedWithCode(128 + SIGABRT), ".*")
+#endif
+
+} // namespace
+
+TEST(FirmwareUpdateStableAbiCoverage, iteratorBoundaryBranches)
+{
+    pldm_downstream_device_iter devIter{{nullptr, 0}, 0};
+    EXPECT_TRUE(downstreamDeviceIterEndForCoverage(&devIter));
+    EXPECT_FALSE(downstreamDeviceIterNextForCoverage(&devIter));
+    devIter.devs = 1;
+    EXPECT_FALSE(downstreamDeviceIterEndForCoverage(&devIter));
+    EXPECT_TRUE(downstreamDeviceIterNextForCoverage(&devIter));
+    EXPECT_EQ(devIter.devs, 0u);
+
+    pldm_descriptor_iter descIter{nullptr, 0};
+    EXPECT_TRUE(descriptorIterEndForCoverage(&descIter));
+    EXPECT_FALSE(descriptorIterNextForCoverage(&descIter));
+    variable_field field{};
+    descIter = {&field, 1};
+    EXPECT_FALSE(descriptorIterEndForCoverage(&descIter));
+    EXPECT_TRUE(descriptorIterNextForCoverage(&descIter));
+    EXPECT_EQ(descIter.count, 0u);
+
+    pldm_downstream_device_parameters_iter paramIter{{nullptr, 0}, 0};
+    EXPECT_TRUE(downstreamDeviceParametersIterEndForCoverage(&paramIter));
+    EXPECT_FALSE(downstreamDeviceParametersIterNextForCoverage(&paramIter));
+    paramIter.entries = 1;
+    EXPECT_FALSE(downstreamDeviceParametersIterEndForCoverage(&paramIter));
+    EXPECT_TRUE(downstreamDeviceParametersIterNextForCoverage(&paramIter));
+    EXPECT_EQ(paramIter.entries, 0u);
+
+    pldm_package package{};
+    package.state = PLDM_PACKAGE_PARSE_FIRMWARE_DEVICES;
+    EXPECT_TRUE(packageFirmwareDeviceIdRecordIterEndForCoverage(&package));
+    EXPECT_FALSE(packageFirmwareDeviceIdRecordIterNextForCoverage(&package));
+    package.iter.entries = 1;
+    EXPECT_FALSE(packageFirmwareDeviceIdRecordIterEndForCoverage(&package));
+    EXPECT_TRUE(packageFirmwareDeviceIdRecordIterNextForCoverage(&package));
+    pldm_package_firmware_device_id_record record{};
+    auto recordDescriptorIter =
+        packageFirmwareDeviceIdRecordDescriptorIterInitForCoverage(&package,
+                                                                   &record);
+    EXPECT_EQ(recordDescriptorIter.count, 0u);
+
+    package = {};
+    package.state = PLDM_PACKAGE_PARSE_DOWNSTREAM_DEVICES;
+    EXPECT_TRUE(packageDownstreamDeviceIdRecordIterEndForCoverage(&package));
+    EXPECT_FALSE(packageDownstreamDeviceIdRecordIterNextForCoverage(&package));
+    package.iter.entries = 1;
+    EXPECT_FALSE(packageDownstreamDeviceIdRecordIterEndForCoverage(&package));
+    EXPECT_TRUE(packageDownstreamDeviceIdRecordIterNextForCoverage(&package));
+
+    package = {};
+    package.state = PLDM_PACKAGE_PARSE_COMPLETE;
+    EXPECT_TRUE(packageComponentImageInformationIterEndForCoverage(&package));
+    EXPECT_FALSE(packageComponentImageInformationIterNextForCoverage(&package));
+
+    package = {};
+    package.state = PLDM_PACKAGE_PARSE_COMPONENT_IMAGE_INFORMATION;
+    package.iter.entries = 2;
+    EXPECT_FALSE(packageComponentImageInformationIterEndForCoverage(&package));
+    EXPECT_TRUE(packageComponentImageInformationIterNextForCoverage(&package));
+    EXPECT_EQ(package.iter.entries, 1u);
+    EXPECT_FALSE(packageComponentImageInformationIterNextForCoverage(&package));
+    EXPECT_EQ(package.state, PLDM_PACKAGE_PARSE_COMPLETE);
+}
+
+#ifndef NDEBUG
+TEST(FirmwareUpdateStableAbiCoverage, iteratorAssertionsAbortOnInvalidState)
+{
+    pldm_package package{};
+    pldm_package_firmware_device_id_record record{};
+
+    EXPECT_FIRMWARE_UPDATE_GCOV_ABORT(
+        (void)packageFirmwareDeviceIdRecordIterEndForCoverage(&package));
+    EXPECT_FIRMWARE_UPDATE_GCOV_ABORT(
+        (void)packageFirmwareDeviceIdRecordIterNextForCoverage(&package));
+    EXPECT_FIRMWARE_UPDATE_GCOV_ABORT(
+        (void)packageFirmwareDeviceIdRecordDescriptorIterInitForCoverage(
+            &package, &record));
+    EXPECT_FIRMWARE_UPDATE_GCOV_ABORT(
+        (void)packageDownstreamDeviceIdRecordIterEndForCoverage(&package));
+    EXPECT_FIRMWARE_UPDATE_GCOV_ABORT(
+        (void)packageDownstreamDeviceIdRecordIterNextForCoverage(&package));
+    EXPECT_FIRMWARE_UPDATE_GCOV_ABORT(
+        (void)packageComponentImageInformationIterEndForCoverage(&package));
+    EXPECT_FIRMWARE_UPDATE_GCOV_ABORT(
+        (void)packageComponentImageInformationIterNextForCoverage(&package));
+}
+#endif
+
+TEST(FirmwareUpdateStableAbiCoverage, packageIteratorRejectsInvalidInputs)
+{
+    pldm_package package{};
+    pldm_package_firmware_device_id_record firmwareRecord{};
+    pldm_package_downstream_device_id_record downstreamRecord{};
+    pldm_package_component_image_information componentInfo{};
+
+    EXPECT_EQ(pldm_package_firmware_device_id_record_iter_init(nullptr),
+              -EINVAL);
+    EXPECT_EQ(decode_pldm_package_firmware_device_id_record_from_iter(
+                  nullptr, &firmwareRecord),
+              -EINVAL);
+    EXPECT_EQ(decode_pldm_package_firmware_device_id_record_from_iter(
+                  &package, &firmwareRecord),
+              -EPROTO);
+
+    EXPECT_EQ(pldm_package_downstream_device_id_record_iter_init(nullptr),
+              -EINVAL);
+    EXPECT_EQ(decode_pldm_package_downstream_device_id_record_from_iter(
+                  nullptr, &downstreamRecord),
+              -EINVAL);
+    EXPECT_EQ(decode_pldm_package_downstream_device_id_record_from_iter(
+                  &package, &downstreamRecord),
+              -EINVAL);
+
+    EXPECT_EQ(pldm_package_component_image_information_iter_init(nullptr),
+              -EINVAL);
+    EXPECT_EQ(decode_pldm_package_component_image_information_from_iter(
+                  nullptr, &componentInfo),
+              -EINVAL);
+    EXPECT_EQ(decode_pldm_package_component_image_information_from_iter(
+                  &package, &componentInfo),
+              -EPROTO);
+}
+
+TEST(FirmwareUpdateStableAbiCoverage,
+     downstreamDescriptorForeachNextCoversEmptyMutation)
+{
+    constexpr uint32_t downstreamDevicesLen = 19;
+    constexpr size_t payloadLen =
+        PLDM_QUERY_DOWNSTREAM_IDENTIFIERS_RESP_MIN_LEN + downstreamDevicesLen;
+
+    PLDM_MSG_DEFINE_P(response, payloadLen);
+    PLDM_MSGBUF_RW_DEFINE_P(buf);
+    struct pldm_query_downstream_identifiers_resp resp{};
+    struct pldm_downstream_device_iter devs;
+    struct pldm_downstream_device dev;
+    int rc = pldm_msgbuf_init_errno(buf, 0, response->payload, payloadLen);
+    ASSERT_EQ(rc, 0);
+
+    pldm_msgbuf_insert_uint8(buf, PLDM_SUCCESS);
+    pldm_msgbuf_insert_uint32(buf, 0);
+    pldm_msgbuf_insert_uint8(buf, PLDM_START_AND_END);
+    pldm_msgbuf_insert_uint32(buf, htole32(downstreamDevicesLen));
+    pldm_msgbuf_insert_uint16(buf, 1);
+
+    pldm_msgbuf_insert_uint16(buf, 1);
+    pldm_msgbuf_insert_uint8(buf, 2);
+
+    pldm_msgbuf_insert_uint16(buf, descriptor_id_type_iana_pen);
+    pldm_msgbuf_insert_uint16(buf, descriptor_id_len_iana_pen);
+    pldm_msgbuf_insert_uint32(buf, iana_pen_dmtf);
+
+    pldm_msgbuf_insert_uint16(buf, descriptor_id_type_iana_pen);
+    pldm_msgbuf_insert_uint16(buf, descriptor_id_len_iana_pen);
+    pldm_msgbuf_insert_uint32(buf, iana_pen_openbmc);
+
+    ASSERT_EQ(pldm_msgbuf_complete_consumed(buf), 0);
+
+    rc = decode_query_downstream_identifiers_resp(response, payloadLen, &resp,
+                                                  &devs);
+    ASSERT_EQ(rc, 0);
+
+    size_t descSeen = 0;
+    foreach_pldm_downstream_device(devs, dev, rc)
+    {
+        struct pldm_descriptor descriptor;
+
+        EXPECT_EQ(dev.downstream_descriptor_count, 2u);
+        foreach_pldm_downstream_device_descriptor(devs, dev, descriptor, rc)
+        {
+            descSeen++;
+            if (descSeen == 2)
+            {
+                descriptor_iter.count = 0;
+            }
+        }
+        ASSERT_EQ(rc, 0);
+    }
+    ASSERT_EQ(rc, 0);
+    EXPECT_EQ(descSeen, 2u);
+}
+
+TEST(FirmwareUpdateStableAbiCoverage, packageForeachNextCoversTerminalMutations)
+{
+    const std::array<uint8_t, 150> package{
+        0x12, 0x44, 0xd2, 0x64, 0x8d, 0x7d, 0x47, 0x18, 0xa0, 0x30,
+        0xfc, 0x8a, 0x56, 0x58, 0x7d, 0x5a, 0x02, 0x94, 0x00, 0x00,
+        0xe9, 0x07, 0x03, 0x0b, 0x16, 0x03, 0x00, 0x00, 0x00, 0x00,
+        0x76, 0x02, 0x08, 0x00, 0x01, 0x04, 't',  'e',  's',  't',
+
+        0x01, 0x18, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x04,
+        0x00, 0x00, 0x01, 'v',  '0',  '.',  '1',  0x01, 0x00, 0x04,
+        0x00, 0x9c, 0x01, 0x00, 0x00,
+
+        0x01, 0x18, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x04,
+        0x00, 0x00, 0x02, 'v',  '1',  '.',  '0',  0x01, 0x00, 0x04,
+        0x00, 0x9c, 0x01, 0x00, 0x00,
+
+        0x02, 0x00,
+
+        0x0a, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00,
+        0x01, 0x00, 0x94, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+        0x01, 0x04, 'v',  '0',  '.',  '2',
+
+        0x0a, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00,
+        0x01, 0x00, 0x95, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+        0x01, 0x04, 'v',  '2',  '.',  '0',
+
+        0xd3, 0x5c, 0x1c, 0x8a,
+
+        0x5a,
+
+        0xa5,
+    };
+
+    DEFINE_PLDM_PACKAGE_FORMAT_PIN_FR02H(pin);
+    pldm_package_header_information_pad hdr;
+    struct pldm_package pkg{};
+    int rc = decode_pldm_firmware_update_package(package.data(), package.size(),
+                                                 &pin, &hdr, &pkg, 0);
+    ASSERT_EQ(rc, 0);
+
+    struct pldm_package_firmware_device_id_record fdrec;
+    const variable_field firmwareRecords = pkg.areas;
+    size_t fdrecSeen = 0;
+    foreach_pldm_package_firmware_device_id_record(pkg, fdrec, rc)
+    {
+        fdrecSeen++;
+        if (fdrecSeen == 1)
+        {
+            pkg.iter.field = {firmwareRecords.ptr + 1,
+                              firmwareRecords.length - 1};
+            pkg.iter.entries = 2;
+        }
+        else
+        {
+            pkg.iter.entries = 0;
+        }
+    }
+    ASSERT_EQ(rc, 0);
+    EXPECT_EQ(fdrecSeen, 2u);
+
+    struct pldm_package_downstream_device_id_record ddrec;
+    const variable_field downstreamRecords = pkg.iter.field;
+    size_t ddrecSeen = 0;
+    foreach_pldm_package_downstream_device_id_record(pkg, ddrec, rc)
+    {
+        ddrecSeen++;
+        if (ddrecSeen == 1)
+        {
+            pkg.iter.field = {downstreamRecords.ptr + 1,
+                              downstreamRecords.length - 1};
+            pkg.iter.entries = 2;
+        }
+        else
+        {
+            pkg.iter.entries = 0;
+        }
+    }
+    ASSERT_EQ(rc, 0);
+    EXPECT_EQ(ddrecSeen, 2u);
+
+    struct pldm_package_component_image_information info;
+    size_t infoSeen = 0;
+    foreach_pldm_package_component_image_information(pkg, info, rc)
+    {
+        infoSeen++;
+        if (infoSeen == 2)
+        {
+            pkg.iter.entries = 0;
+            pkg.state = PLDM_PACKAGE_PARSE_COMPLETE;
+        }
+    }
+    ASSERT_EQ(rc, 0);
+    EXPECT_EQ(infoSeen, 2u);
+}
+
+TEST(FirmwareUpdateStableAbiCoverage, noPayloadRequestEncodeErrors)
+{
+    std::array<uint8_t, hdrSize> storage{};
+    auto* msg =
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        reinterpret_cast<pldm_msg*>(storage.data());
+
+    EXPECT_EQ(encode_query_device_identifiers_req(
+                  1, PLDM_QUERY_DEVICE_IDENTIFIERS_REQ_BYTES, nullptr),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(encode_query_device_identifiers_req(
+                  1, PLDM_QUERY_DEVICE_IDENTIFIERS_REQ_BYTES + 1, msg),
+              PLDM_ERROR_INVALID_LENGTH);
+    EXPECT_EQ(encode_query_device_identifiers_req(
+                  32, PLDM_QUERY_DEVICE_IDENTIFIERS_REQ_BYTES, msg),
+              PLDM_ERROR_INVALID_DATA);
+
+    EXPECT_EQ(encode_get_firmware_parameters_req(
+                  1, PLDM_GET_FIRMWARE_PARAMETERS_REQ_BYTES, nullptr),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(encode_get_firmware_parameters_req(
+                  1, PLDM_GET_FIRMWARE_PARAMETERS_REQ_BYTES + 1, msg),
+              PLDM_ERROR_INVALID_LENGTH);
+    EXPECT_EQ(encode_get_firmware_parameters_req(
+                  32, PLDM_GET_FIRMWARE_PARAMETERS_REQ_BYTES, msg),
+              PLDM_ERROR_INVALID_DATA);
+}
+
+TEST(FirmwareUpdateStableAbiCoverage, queryDeviceIdentifierDecodeErrors)
+{
+    std::array<uint8_t, hdrSize + sizeof(pldm_query_device_identifiers_resp) +
+                            PLDM_FWUP_DEVICE_DESCRIPTOR_MIN_LEN>
+        storage{};
+    auto* msg =
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        reinterpret_cast<pldm_msg*>(storage.data());
+    uint8_t completionCode = 0;
+    uint32_t deviceIdentifiersLen = 0;
+    uint8_t descriptorCount = 0;
+    uint8_t* descriptorData = nullptr;
+
+    EXPECT_EQ(decode_query_device_identifiers_resp(
+                  nullptr, 1, &completionCode, &deviceIdentifiersLen,
+                  &descriptorCount, &descriptorData),
+              PLDM_ERROR_INVALID_DATA);
+
+    msg->payload[0] = PLDM_ERROR;
+    EXPECT_EQ(decode_query_device_identifiers_resp(
+                  msg, 1, &completionCode, &deviceIdentifiersLen,
+                  &descriptorCount, &descriptorData),
+              PLDM_SUCCESS);
+    EXPECT_EQ(completionCode, PLDM_ERROR);
+
+    msg->payload[0] = PLDM_SUCCESS;
+    EXPECT_EQ(decode_query_device_identifiers_resp(
+                  msg, sizeof(pldm_query_device_identifiers_resp) - 1,
+                  &completionCode, &deviceIdentifiersLen, &descriptorCount,
+                  &descriptorData),
+              PLDM_ERROR_INVALID_LENGTH);
+
+    auto* response =
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        reinterpret_cast<pldm_query_device_identifiers_resp*>(msg->payload);
+    response->completion_code = PLDM_SUCCESS;
+    response->device_identifiers_len =
+        htole32(PLDM_FWUP_DEVICE_DESCRIPTOR_MIN_LEN - 1);
+    response->descriptor_count = 1;
+    EXPECT_EQ(decode_query_device_identifiers_resp(
+                  msg, sizeof(*response), &completionCode,
+                  &deviceIdentifiersLen, &descriptorCount, &descriptorData),
+              PLDM_ERROR_INVALID_LENGTH);
+
+    response->device_identifiers_len =
+        htole32(PLDM_FWUP_DEVICE_DESCRIPTOR_MIN_LEN);
+    EXPECT_EQ(decode_query_device_identifiers_resp(
+                  msg,
+                  sizeof(*response) + PLDM_FWUP_DEVICE_DESCRIPTOR_MIN_LEN - 1,
+                  &completionCode, &deviceIdentifiersLen, &descriptorCount,
+                  &descriptorData),
+              PLDM_ERROR_INVALID_LENGTH);
+
+    response->descriptor_count = 0;
+    EXPECT_EQ(decode_query_device_identifiers_resp(
+                  msg, sizeof(*response) + PLDM_FWUP_DEVICE_DESCRIPTOR_MIN_LEN,
+                  &completionCode, &deviceIdentifiersLen, &descriptorCount,
+                  &descriptorData),
+              PLDM_ERROR_INVALID_DATA);
+}
+
+TEST(FirmwareUpdateStableAbiCoverage, firmwareParameterDecodeEdges)
+{
+    std::array<uint8_t, sizeof(pldm_component_parameter_entry)> entryStorage{};
+    auto* entry =
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        reinterpret_cast<pldm_component_parameter_entry*>(entryStorage.data());
+    pldm_component_parameter_entry decoded{};
+    variable_field active{};
+    variable_field pending{};
+
+    EXPECT_EQ(decode_get_firmware_parameters_resp_comp_entry(
+                  nullptr, entryStorage.size(), &decoded, &active, &pending),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(decode_get_firmware_parameters_resp_comp_entry(
+                  entryStorage.data(), entryStorage.size() - 1, &decoded,
+                  &active, &pending),
+              PLDM_ERROR_INVALID_LENGTH);
+
+    entry->active_comp_ver_str_len = 1;
+    entry->pending_comp_ver_str_len = 1;
+    EXPECT_EQ(decode_get_firmware_parameters_resp_comp_entry(
+                  entryStorage.data(), entryStorage.size(), &decoded, &active,
+                  &pending),
+              PLDM_ERROR_INVALID_LENGTH);
+
+    entry->active_comp_ver_str_len = 0;
+    entry->pending_comp_ver_str_len = 0;
+    EXPECT_EQ(decode_get_firmware_parameters_resp_comp_entry(
+                  entryStorage.data(), entryStorage.size(), &decoded, &active,
+                  &pending),
+              PLDM_SUCCESS);
+    EXPECT_EQ(active.ptr, nullptr);
+    EXPECT_EQ(active.length, 0u);
+    EXPECT_EQ(pending.ptr, nullptr);
+    EXPECT_EQ(pending.length, 0u);
+}
+
+TEST(FirmwareUpdateStableAbiCoverage, downstreamDecodeAndEncodeErrors)
+{
+    PLDM_MSG_DEFINE_P(msg,
+                      PLDM_GET_DOWNSTREAM_FIRMWARE_PARAMETERS_RESP_MIN_LEN);
+    pldm_query_downstream_devices_resp downstreamDevices{};
+    pldm_query_downstream_identifiers_resp downstreamIdentifiers{};
+    pldm_downstream_device_iter devIter{};
+    pldm_downstream_device dev{};
+    pldm_descriptor_iter descIter{};
+    pldm_descriptor descriptor{};
+    pldm_get_downstream_firmware_parameters_resp downstreamParams{};
+    pldm_downstream_device_parameters_iter paramIter{};
+    pldm_downstream_device_parameters_entry paramEntry{};
+
+    EXPECT_EQ(encode_query_downstream_devices_req(1, nullptr), -EINVAL);
+    EXPECT_EQ(encode_query_downstream_devices_req(32, msg), -EINVAL);
+
+    EXPECT_EQ(
+        decode_query_downstream_devices_resp(nullptr, 1, &downstreamDevices),
+        -EINVAL);
+    EXPECT_EQ(decode_query_downstream_devices_resp(msg, 0, &downstreamDevices),
+              -EINVAL);
+    msg->payload[0] = PLDM_ERROR;
+    EXPECT_EQ(decode_query_downstream_devices_resp(msg, 1, &downstreamDevices),
+              0);
+    EXPECT_EQ(downstreamDevices.completion_code, PLDM_ERROR);
+
+    pldm_query_downstream_identifiers_req identifiersReq{0, PLDM_GET_FIRSTPART};
+    EXPECT_EQ(encode_query_downstream_identifiers_req(
+                  1, nullptr, msg, PLDM_QUERY_DOWNSTREAM_IDENTIFIERS_REQ_BYTES),
+              -EINVAL);
+    EXPECT_EQ(encode_query_downstream_identifiers_req(
+                  32, &identifiersReq, msg,
+                  PLDM_QUERY_DOWNSTREAM_IDENTIFIERS_REQ_BYTES),
+              -EINVAL);
+
+    EXPECT_EQ(decode_query_downstream_identifiers_resp(
+                  nullptr, 1, &downstreamIdentifiers, &devIter),
+              -EINVAL);
+    EXPECT_EQ(decode_query_downstream_identifiers_resp(
+                  msg, 0, &downstreamIdentifiers, &devIter),
+              -EINVAL);
+    msg->payload[0] = PLDM_ERROR;
+    EXPECT_EQ(decode_query_downstream_identifiers_resp(
+                  msg, 1, &downstreamIdentifiers, &devIter),
+              0);
+    EXPECT_EQ(downstreamIdentifiers.completion_code, PLDM_ERROR);
+
+    EXPECT_EQ(decode_pldm_downstream_device_from_iter(nullptr, &dev), -EINVAL);
+    EXPECT_EQ(decode_pldm_downstream_device_from_iter(&devIter, &dev), -EINVAL);
+    uint8_t shortDevice[PLDM_DOWNSTREAM_DEVICE_BYTES - 1]{};
+    devIter.field = {shortDevice, sizeof(shortDevice)};
+    EXPECT_LT(decode_pldm_downstream_device_from_iter(&devIter, &dev), 0);
+
+    EXPECT_EQ(decode_pldm_descriptor_from_iter(nullptr, &descriptor), -EINVAL);
+    EXPECT_EQ(decode_pldm_descriptor_from_iter(&descIter, &descriptor),
+              -EINVAL);
+    uint8_t shortDescriptor[PLDM_FWUP_DEVICE_DESCRIPTOR_MIN_LEN - 1]{};
+    variable_field descriptorField{shortDescriptor, sizeof(shortDescriptor)};
+    descIter = {&descriptorField, 1};
+    EXPECT_LT(decode_pldm_descriptor_from_iter(&descIter, &descriptor), 0);
+
+    pldm_get_downstream_firmware_parameters_req paramsReq{0,
+                                                          PLDM_GET_FIRSTPART};
+    EXPECT_EQ(
+        encode_get_downstream_firmware_parameters_req(
+            1, nullptr, msg, PLDM_GET_DOWNSTREAM_FIRMWARE_PARAMETERS_REQ_BYTES),
+        -EINVAL);
+    EXPECT_EQ(encode_get_downstream_firmware_parameters_req(
+                  32, &paramsReq, msg,
+                  PLDM_GET_DOWNSTREAM_FIRMWARE_PARAMETERS_REQ_BYTES),
+              -EINVAL);
+
+    EXPECT_EQ(decode_get_downstream_firmware_parameters_resp(
+                  nullptr, 1, &downstreamParams, &paramIter),
+              -EINVAL);
+    EXPECT_LT(decode_get_downstream_firmware_parameters_resp(
+                  msg, 0, &downstreamParams, &paramIter),
+              0);
+    msg->payload[0] = PLDM_ERROR;
+    EXPECT_EQ(decode_get_downstream_firmware_parameters_resp(
+                  msg, 1, &downstreamParams, &paramIter),
+              0);
+    EXPECT_EQ(downstreamParams.completion_code, PLDM_ERROR);
+
+    EXPECT_EQ(decode_pldm_downstream_device_parameters_entry_from_iter(
+                  nullptr, &paramEntry),
+              -EINVAL);
+    EXPECT_EQ(decode_pldm_downstream_device_parameters_entry_from_iter(
+                  &paramIter, &paramEntry),
+              -EINVAL);
+    uint8_t shortParam[PLDM_DOWNSTREAM_DEVICE_PARAMETERS_ENTRY_MIN_LEN - 1]{};
+    paramIter.field = {shortParam, sizeof(shortParam)};
+    EXPECT_LT(decode_pldm_downstream_device_parameters_entry_from_iter(
+                  &paramIter, &paramEntry),
+              0);
+}
 #endif

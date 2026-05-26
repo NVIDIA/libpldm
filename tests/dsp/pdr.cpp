@@ -3,15 +3,132 @@
 #include <endian.h>
 #include <libpldm/pdr.h>
 #include <libpldm/platform.h>
+#include <sys/resource.h>
 
 #include <array>
+#include <csignal>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <vector>
 
 #include <gtest/gtest.h>
+
+#if defined(__has_include)
+#if __has_include(<valgrind/valgrind.h>)
+#include <valgrind/valgrind.h>
+#endif
+#endif
+
+#ifndef RUNNING_ON_VALGRIND
+#define RUNNING_ON_VALGRIND 0
+#endif
+
+#if defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#define TEST_HAS_ADDRESS_SANITIZER 1
+#endif
+#endif
+
+#if defined(__SANITIZE_ADDRESS__)
+#define TEST_HAS_ADDRESS_SANITIZER 1
+#endif
+
+#ifndef TEST_HAS_ADDRESS_SANITIZER
+#define TEST_HAS_ADDRESS_SANITIZER 0
+#endif
+
+#ifndef NDEBUG
+[[noreturn, maybe_unused]] static void exitFromAbort(int signal)
+{
+    exit(128 + signal);
+}
+
+[[maybe_unused]] static void installGcovAbortHandler()
+{
+    struct sigaction action{};
+    action.sa_handler = exitFromAbort;
+    sigemptyset(&action.sa_mask);
+    sigaction(SIGABRT, &action, nullptr);
+}
+
+#define EXPECT_GCOV_ABORT(statement)                                           \
+    EXPECT_EXIT(                                                               \
+        {                                                                      \
+            installGcovAbortHandler();                                         \
+            statement;                                                         \
+            exit(EXIT_SUCCESS);                                                \
+        },                                                                     \
+        testing::ExitedWithCode(128 + SIGABRT), ".*")
+#endif
+
+#if HAVE_LIBPLDM_ABI_STABLE && !TEST_HAS_ADDRESS_SANITIZER
+static int runStableAllocationFailures()
+{
+    if (RUNNING_ON_VALGRIND)
+    {
+        return EXIT_SUCCESS;
+    }
+
+    constexpr rlim_t maxAddressSpace = static_cast<rlim_t>(64) * 1024 * 1024;
+    struct rlimit limit = {maxAddressSpace, maxAddressSpace};
+    if (setrlimit(RLIMIT_AS, &limit) != 0)
+    {
+        return EXIT_SUCCESS;
+    }
+
+    constexpr size_t maxBigBlocks = 65536;
+    constexpr size_t maxSmallBlocks = 131072;
+    void* bigBlocks[maxBigBlocks] = {};
+    void* smallBlocks[maxSmallBlocks] = {};
+    size_t bigCount = 0;
+    size_t smallCount = 0;
+
+    for (; bigCount < maxBigBlocks; ++bigCount)
+    {
+        bigBlocks[bigCount] = malloc(1024);
+        if (bigBlocks[bigCount] == nullptr)
+        {
+            break;
+        }
+    }
+
+    for (; smallCount < maxSmallBlocks; ++smallCount)
+    {
+        smallBlocks[smallCount] = malloc(16);
+        if (smallBlocks[smallCount] == nullptr)
+        {
+            break;
+        }
+    }
+
+    auto repo = pldm_pdr_init();
+    auto tree = pldm_entity_association_tree_init();
+
+    int rc = EXIT_SUCCESS;
+    if (smallCount == maxSmallBlocks || repo != nullptr || tree != nullptr)
+    {
+        rc = EXIT_FAILURE;
+    }
+
+    pldm_pdr_destroy(repo);
+    pldm_entity_association_tree_destroy(tree);
+
+    for (size_t i = 0; i < smallCount; ++i)
+    {
+        free(smallBlocks[i]);
+    }
+    for (size_t i = 0; i < bigCount; ++i)
+    {
+        free(bigBlocks[i]);
+    }
+
+    return rc;
+}
+#endif
 
 typedef struct pldm_association_pdr_test
 {
@@ -89,6 +206,44 @@ static void
     EXPECT_TRUE(container_entity == container_entity1);
     EXPECT_TRUE(child_entity == child_entity1);
 }
+
+#if HAVE_LIBPLDM_ABI_STABLE
+#ifndef NDEBUG
+TEST(PDRAccess, testStablePreconditionAssertions)
+{
+    EXPECT_GCOV_ABORT((void)pldm_pdr_get_record_count(nullptr));
+    EXPECT_GCOV_ABORT((void)pldm_pdr_get_repo_size(nullptr));
+    EXPECT_GCOV_ABORT((void)pldm_pdr_get_record_handle(nullptr, nullptr));
+    EXPECT_GCOV_ABORT((void)pldm_pdr_record_is_remote(nullptr));
+    EXPECT_GCOV_ABORT((void)pldm_entity_extract(nullptr));
+    EXPECT_GCOV_ABORT((void)pldm_entity_node_get_remote_container_id(nullptr));
+    EXPECT_GCOV_ABORT((void)pldm_entity_is_node_parent(nullptr));
+    EXPECT_GCOV_ABORT((void)pldm_entity_get_parent(nullptr));
+}
+#endif
+#endif
+
+#if HAVE_LIBPLDM_ABI_TESTING && !defined(NDEBUG)
+TEST(PDRAccess, testTestingPreconditionAssertions)
+{
+    EXPECT_GCOV_ABORT((void)pldm_pdr_get_terminus_handle(nullptr, nullptr));
+}
+#endif
+
+#if HAVE_LIBPLDM_ABI_DEPRECATED && !defined(NDEBUG)
+TEST(EntityAssociationPDR, testDeprecatedPreconditionAssertions)
+{
+    EXPECT_GCOV_ABORT(pldm_entity_association_tree_copy_root(nullptr, nullptr));
+}
+#endif
+
+#if HAVE_LIBPLDM_ABI_STABLE && !TEST_HAS_ADDRESS_SANITIZER
+TEST(PDRAccess, testStableAllocationFailures)
+{
+    EXPECT_EXIT(exit(runStableAllocationFailures()),
+                testing::ExitedWithCode(EXIT_SUCCESS), ".*");
+}
+#endif
 
 TEST(PDRAccess, testInit)
 {
@@ -684,7 +839,7 @@ TEST(PDRUpdate, tesFindtFruRecordSet)
     pldm_pdr_destroy(repo);
 }
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(PDRUpdate, testFindLastInRange)
 {
     auto repo = pldm_pdr_init();
@@ -807,7 +962,7 @@ TEST(PDRAccess, testRemoveBySensorID)
     pldm_pdr_destroy(repo);
 }
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(PDRAccess, testGetTerminusHandle)
 {
 
@@ -978,6 +1133,240 @@ TEST(PDRAccess, testRemoveByEffecterID)
 
     pldm_pdr_destroy(repo);
 }
+
+#if HAVE_LIBPLDM_ABI_STABLE
+TEST(PDRAccess, testStableEdgeCases)
+{
+    std::array<uint8_t, sizeof(pldm_pdr_hdr)> data{};
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto* hdr = reinterpret_cast<pldm_pdr_hdr*>(data.data());
+    hdr->type = 42;
+
+    auto repo = pldm_pdr_init();
+    ASSERT_NE(repo, nullptr);
+
+    uint32_t handle = 0;
+    EXPECT_EQ(
+        pldm_pdr_add(nullptr, data.data(), data.size(), false, 1, &handle),
+        -EINVAL);
+    EXPECT_EQ(pldm_pdr_add(repo, nullptr, data.size(), false, 1, &handle),
+              -EINVAL);
+    EXPECT_EQ(pldm_pdr_add(repo, data.data(), 0, false, 1, &handle), -EINVAL);
+
+    uint32_t maxHandle = std::numeric_limits<uint32_t>::max();
+    EXPECT_EQ(
+        pldm_pdr_add(repo, data.data(), data.size(), false, 1, &maxHandle), 0);
+    handle = 0;
+    EXPECT_EQ(pldm_pdr_add(repo, data.data(), data.size(), false, 1, &handle),
+              -EOVERFLOW);
+
+    uint8_t* outData = nullptr;
+    uint32_t size{};
+    uint32_t nextRecHdl{};
+    auto rec = pldm_pdr_find_record(repo, 0, &outData, &size, &nextRecHdl);
+    ASSERT_NE(rec, nullptr);
+    EXPECT_EQ(size, data.size());
+    EXPECT_EQ(nextRecHdl, 0u);
+
+    EXPECT_EQ(pldm_pdr_find_record(nullptr, 0, &outData, &size, &nextRecHdl),
+              nullptr);
+    EXPECT_EQ(pldm_pdr_find_record(repo, 0, nullptr, &size, &nextRecHdl),
+              nullptr);
+    EXPECT_EQ(pldm_pdr_find_record(repo, 0, &outData, nullptr, &nextRecHdl),
+              nullptr);
+    EXPECT_EQ(pldm_pdr_find_record(repo, 0, &outData, &size, nullptr), nullptr);
+
+    EXPECT_EQ(
+        pldm_pdr_get_next_record(nullptr, rec, &outData, &size, &nextRecHdl),
+        nullptr);
+    EXPECT_EQ(
+        pldm_pdr_get_next_record(repo, nullptr, &outData, &size, &nextRecHdl),
+        nullptr);
+    EXPECT_EQ(pldm_pdr_get_next_record(repo, rec, nullptr, &size, &nextRecHdl),
+              nullptr);
+    EXPECT_EQ(
+        pldm_pdr_get_next_record(repo, rec, &outData, nullptr, &nextRecHdl),
+        nullptr);
+    EXPECT_EQ(pldm_pdr_get_next_record(repo, rec, &outData, &size, nullptr),
+              nullptr);
+
+    std::array<uint8_t, 1> marker{};
+    outData = marker.data();
+    size = 123;
+    nextRecHdl = 456;
+    EXPECT_EQ(pldm_pdr_get_next_record(repo, rec, &outData, &size, &nextRecHdl),
+              nullptr);
+    EXPECT_EQ(outData, nullptr);
+    EXPECT_EQ(size, 0u);
+    EXPECT_EQ(nextRecHdl, 0u);
+
+    EXPECT_EQ(
+        pldm_pdr_find_record_by_type(nullptr, 42, nullptr, &outData, &size),
+        nullptr);
+    EXPECT_EQ(pldm_pdr_find_record_by_type(repo, 42, nullptr, nullptr, nullptr),
+              rec);
+    EXPECT_EQ(pldm_pdr_find_record_by_type(repo, 99, rec, nullptr, nullptr),
+              nullptr);
+
+    EXPECT_EQ(pldm_pdr_delete_by_record_handle(nullptr, 1, false), -EINVAL);
+    EXPECT_EQ(pldm_pdr_delete_by_effecter_id(nullptr, 1, false, &handle),
+              -EINVAL);
+    EXPECT_EQ(pldm_pdr_delete_by_sensor_id(nullptr, 1, false, &handle),
+              -EINVAL);
+    EXPECT_EQ(pldm_pdr_add_fru_record_set(nullptr, 1, 1, 1, 1, 1, &handle),
+              -EINVAL);
+    EXPECT_EQ(pldm_pdr_add_fru_record_set(repo, 1, 1, 1, 1, 1, nullptr),
+              -EINVAL);
+
+    uint16_t terminusHdl{};
+    uint16_t entityType{};
+    uint16_t entityInstanceNum{};
+    uint16_t containerId{};
+    EXPECT_EQ(pldm_pdr_fru_record_set_find_by_rsi(
+                  nullptr, 1, &terminusHdl, &entityType, &entityInstanceNum,
+                  &containerId),
+              nullptr);
+    EXPECT_EQ(pldm_pdr_fru_record_set_find_by_rsi(repo, 1, nullptr, &entityType,
+                                                  &entityInstanceNum,
+                                                  &containerId),
+              nullptr);
+
+    pldm_pdr_remove_remote_pdrs(nullptr);
+    pldm_pdr_remove_pdrs_by_terminus_handle(nullptr, 1);
+    EXPECT_EQ(pldm_pdr_find_last_in_range(nullptr, 1, 2), nullptr);
+    pldm_pdr_destroy(nullptr);
+    pldm_pdr_destroy(repo);
+}
+
+TEST(EntityAssociationPDR, testStableEdgeCases)
+{
+    pldm_entity entity{1, 1, 0};
+    pldm_entity child{2, 1, 0};
+
+    EXPECT_EQ(pldm_entity_association_tree_add(nullptr, &entity, 0xffff,
+                                               nullptr,
+                                               PLDM_ENTITY_ASSOCIAION_PHYSICAL),
+              nullptr);
+
+    auto tree = pldm_entity_association_tree_init();
+    ASSERT_NE(tree, nullptr);
+    auto emptyTree = pldm_entity_association_tree_init();
+    ASSERT_NE(emptyTree, nullptr);
+    auto repo = pldm_pdr_init();
+    ASSERT_NE(repo, nullptr);
+
+    EXPECT_EQ(pldm_entity_association_tree_add(tree, nullptr, 0xffff, nullptr,
+                                               PLDM_ENTITY_ASSOCIAION_PHYSICAL),
+              nullptr);
+    EXPECT_EQ(
+        pldm_entity_association_tree_add(tree, &entity, 0xffff, nullptr, 0xff),
+        nullptr);
+
+    auto root = pldm_entity_association_tree_add(
+        tree, &entity, 0xffff, nullptr, PLDM_ENTITY_ASSOCIAION_PHYSICAL);
+    ASSERT_NE(root, nullptr);
+    auto childNode = pldm_entity_association_tree_add(
+        tree, &child, 0xffff, root, PLDM_ENTITY_ASSOCIAION_PHYSICAL);
+    ASSERT_NE(childNode, nullptr);
+
+    pldm_entity* visited = nullptr;
+    size_t visitedSize = 99;
+    pldm_entity_association_tree_visit(nullptr, &visited, &visitedSize);
+    EXPECT_EQ(visited, nullptr);
+    EXPECT_EQ(visitedSize, 99u);
+    pldm_entity_association_tree_visit(tree, nullptr, &visitedSize);
+    EXPECT_EQ(visitedSize, 99u);
+    pldm_entity_association_tree_visit(emptyTree, &visited, &visitedSize);
+    EXPECT_EQ(visited, nullptr);
+    EXPECT_EQ(visitedSize, 0u);
+
+    EXPECT_FALSE(pldm_entity_is_exist_parent(nullptr));
+    EXPECT_EQ(
+        pldm_entity_get_num_children(nullptr, PLDM_ENTITY_ASSOCIAION_PHYSICAL),
+        0);
+    EXPECT_EQ(pldm_entity_get_num_children(root, 0xff), 0);
+    EXPECT_FALSE(pldm_is_current_parent_child(nullptr, &child));
+    EXPECT_FALSE(pldm_is_current_parent_child(root, nullptr));
+
+    pldm_entity_node* found = nullptr;
+    pldm_find_entity_ref_in_tree(nullptr, entity, &found);
+    EXPECT_EQ(found, nullptr);
+    pldm_find_entity_ref_in_tree(tree, entity, nullptr);
+
+    EXPECT_EQ(pldm_entity_association_tree_find(nullptr, &entity), nullptr);
+    EXPECT_EQ(pldm_entity_association_tree_find(tree, nullptr), nullptr);
+    pldm_entity missing{99, 1, 0};
+    EXPECT_EQ(pldm_entity_association_tree_find(tree, &missing), nullptr);
+
+    EXPECT_EQ(pldm_entity_association_pdr_add(nullptr, repo, false, 1), 0);
+    EXPECT_EQ(pldm_entity_association_pdr_add(tree, nullptr, false, 1), 0);
+
+    uint32_t recordHandle = 0;
+    EXPECT_EQ(pldm_entity_association_pdr_remove_contained_entity(
+                  nullptr, &child, false, &recordHandle),
+              -EINVAL);
+    EXPECT_EQ(pldm_entity_association_pdr_remove_contained_entity(
+                  repo, nullptr, false, &recordHandle),
+              -EINVAL);
+    EXPECT_EQ(pldm_entity_association_pdr_remove_contained_entity(
+                  repo, &child, false, nullptr),
+              -EINVAL);
+    EXPECT_EQ(pldm_entity_association_pdr_remove_contained_entity(
+                  repo, &child, false, &recordHandle),
+              -EINVAL);
+
+    EXPECT_EQ(pldm_entity_association_tree_delete_node(nullptr, &child),
+              -EINVAL);
+    EXPECT_EQ(pldm_entity_association_tree_delete_node(tree, nullptr), -EINVAL);
+    EXPECT_EQ(pldm_entity_association_tree_delete_node(tree, &missing),
+              -ENOENT);
+
+    EXPECT_EQ(
+        pldm_pdr_remove_fru_record_set_by_rsi(nullptr, 1, false, &recordHandle),
+        -EINVAL);
+    EXPECT_EQ(pldm_pdr_remove_fru_record_set_by_rsi(repo, 1, false, nullptr),
+              -EINVAL);
+    recordHandle = 7;
+    EXPECT_EQ(
+        pldm_pdr_remove_fru_record_set_by_rsi(repo, 1, false, &recordHandle),
+        0);
+    EXPECT_EQ(recordHandle, 7u);
+
+    size_t numEntities = 0;
+    pldm_entity* entities = nullptr;
+    pldm_entity_association_pdr_extract(nullptr, 0, &numEntities, &entities);
+    EXPECT_EQ(numEntities, 0u);
+    EXPECT_EQ(entities, nullptr);
+
+    std::vector<uint8_t> pdr(sizeof(pldm_pdr_hdr), 0);
+    pldm_entity_association_pdr_extract(pdr.data(), pdr.size(), &numEntities,
+                                        &entities);
+    EXPECT_EQ(entities, nullptr);
+
+    pdr.resize(sizeof(pldm_pdr_hdr) + sizeof(pldm_pdr_entity_association));
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto* pdrHdr = reinterpret_cast<pldm_pdr_hdr*>(pdr.data());
+    pdrHdr->type = PLDM_TERMINUS_LOCATOR_PDR;
+    pdrHdr->length = htole16(sizeof(pldm_pdr_entity_association));
+    pldm_entity_association_pdr_extract(pdr.data(), pdr.size(), &numEntities,
+                                        &entities);
+    EXPECT_EQ(entities, nullptr);
+
+    pdrHdr->type = PLDM_PDR_ENTITY_ASSOCIATION;
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto* association = reinterpret_cast<pldm_pdr_entity_association*>(
+        pdr.data() + sizeof(pldm_pdr_hdr));
+    association->num_children = 0;
+    pldm_entity_association_pdr_extract(pdr.data(), pdr.size(), &numEntities,
+                                        &entities);
+    EXPECT_EQ(entities, nullptr);
+
+    pldm_pdr_destroy(repo);
+    pldm_entity_association_tree_destroy(emptyTree);
+    pldm_entity_association_tree_destroy(tree);
+    pldm_entity_association_tree_destroy(nullptr);
+}
+#endif
 
 TEST(EntityAssociationPDR, testInit)
 {
@@ -1180,7 +1569,7 @@ TEST(EntityAssociationPDR, testBuild)
     pldm_entity_association_tree_destroy(tree);
 }
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(EntityAssociationPDR, findAndAddRemotePDR)
 {
     //         Tree - 1
@@ -1892,7 +2281,7 @@ TEST(EntityAssociationPDR, testFind)
     pldm_entity_association_tree_destroy(tree);
 }
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(EntityAssociationPDR, testCopyTree)
 {
     pldm_entity entities[4]{};
@@ -2200,7 +2589,7 @@ TEST(EntityAssociationPDR, testEntityInstanceNumber)
     pldm_entity_association_tree_destroy(tree);
 }
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(EntityAssociationPDR, testFindChildContainerID)
 {
     pldm_entity entities[3]{};
@@ -2319,7 +2708,7 @@ TEST(EntityAssociationPDR, testNodeAddCheck)
     pldm_entity_association_tree_destroy(tree);
 }
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(EntityAssociationPDR, testAddContainedEntityRemotePDR)
 {
     // pldm_entity entities[5]{};
@@ -2378,7 +2767,7 @@ TEST(EntityAssociationPDR, testAddContainedEntityRemotePDR)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(EntityAssociationPDR, testAddContainedEntityNew)
 {
     // pldm_entity entities[5]{};
@@ -2441,6 +2830,69 @@ TEST(EntityAssociationPDR, testAddContainedEntityNew)
     free(entities);
     pldm_pdr_destroy(repo);
     pldm_entity_association_tree_destroy(tree);
+}
+#endif
+
+#if HAVE_LIBPLDM_ABI_TESTING
+TEST(EntityAssociationPDR, testTestingAbiEdgeCases)
+{
+    auto repo = pldm_pdr_init();
+    ASSERT_NE(repo, nullptr);
+    auto orgTree = pldm_entity_association_tree_init();
+    ASSERT_NE(orgTree, nullptr);
+    auto newTree = pldm_entity_association_tree_init();
+    ASSERT_NE(newTree, nullptr);
+
+    pldm_entity parent{1, 1, 0};
+    pldm_entity child{2, 1, 1};
+    uint16_t containerId = 0xffff;
+    uint32_t recordHandle = 0;
+
+    EXPECT_EQ(pldm_pdr_find_child_container_id_index_range_exclude(
+                  nullptr, 1, 1, 0, 0, 0, &containerId),
+              -EINVAL);
+    EXPECT_EQ(pldm_pdr_find_child_container_id_index_range_exclude(
+                  repo, 1, 1, 0, 0, 0, &containerId),
+              -ENOENT);
+
+    EXPECT_EQ(pldm_entity_association_tree_copy_root_check(nullptr, newTree),
+              -EINVAL);
+    EXPECT_EQ(pldm_entity_association_tree_copy_root_check(orgTree, nullptr),
+              -EINVAL);
+
+    EXPECT_EQ(pldm_entity_association_pdr_add_contained_entity_to_remote_pdr(
+                  nullptr, &child, 1),
+              -EINVAL);
+    EXPECT_EQ(pldm_entity_association_pdr_add_contained_entity_to_remote_pdr(
+                  repo, nullptr, 1),
+              -EINVAL);
+    EXPECT_EQ(pldm_entity_association_pdr_add_contained_entity_to_remote_pdr(
+                  repo, &child, 1),
+              -EINVAL);
+
+    EXPECT_EQ(pldm_entity_association_pdr_create_new(nullptr, 1, &parent,
+                                                     &child, &recordHandle),
+              -EINVAL);
+    EXPECT_EQ(pldm_entity_association_pdr_create_new(repo, 1, nullptr, &child,
+                                                     &recordHandle),
+              -EINVAL);
+    EXPECT_EQ(pldm_entity_association_pdr_create_new(repo, 1, &parent, nullptr,
+                                                     &recordHandle),
+              -EINVAL);
+    EXPECT_EQ(pldm_entity_association_pdr_create_new(repo, 1, &parent, &child,
+                                                     nullptr),
+              -EINVAL);
+    EXPECT_EQ(pldm_entity_association_pdr_create_new(
+                  repo, std::numeric_limits<uint32_t>::max(), &parent, &child,
+                  &recordHandle),
+              -EOVERFLOW);
+    EXPECT_EQ(pldm_entity_association_pdr_create_new(repo, 1, &parent, &child,
+                                                     &recordHandle),
+              -ENOENT);
+
+    pldm_pdr_destroy(repo);
+    pldm_entity_association_tree_destroy(orgTree);
+    pldm_entity_association_tree_destroy(newTree);
 }
 #endif
 
@@ -2683,7 +3135,7 @@ TEST(EntityAssociationTreeDestroyRoot, testDestroyNullTree)
     pldm_entity_association_tree_destroy_root(nullptr);
 }
 
-#ifdef LIBPLDM_API_DEPRECATED
+#if HAVE_LIBPLDM_ABI_DEPRECATED
 TEST(EntityAssociationTreeCopyRoot, testCopyRoot)
 {
     auto* orgTree = pldm_entity_association_tree_init();

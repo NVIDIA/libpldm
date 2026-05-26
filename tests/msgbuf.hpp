@@ -4,6 +4,18 @@
 
 #include <libpldm/compiler.h>
 
+/*
+ * These tests exercise the msgbuf implementation itself.  Emitting the helpers
+ * as noinline test-local functions avoids per-call-site inline coverage
+ * artifacts while leaving the library build unchanged.
+ */
+#if defined(__clang__) || defined(__GNUC__) || defined(_MSC_VER)
+#pragma push_macro("LIBPLDM_CC_ALWAYS_INLINE")
+#define PLDM_MSGBUF_RESTORE_ALWAYS_INLINE
+#endif
+#undef LIBPLDM_CC_ALWAYS_INLINE
+#define LIBPLDM_CC_ALWAYS_INLINE static __attribute__((noinline, unused))
+
 #include "msgbuf/core.h"
 
 /*
@@ -273,5 +285,10 @@ LIBPLDM_CC_ALWAYS_INLINE int
     static_assert(std::is_same<real32_t, T>::value);
     return pldm__msgbuf_extract_real32(ctx, buf);
 }
+
+#ifdef PLDM_MSGBUF_RESTORE_ALWAYS_INLINE
+#pragma pop_macro("LIBPLDM_CC_ALWAYS_INLINE")
+#undef PLDM_MSGBUF_RESTORE_ALWAYS_INLINE
+#endif
 
 #endif /* BUF_HPP */
