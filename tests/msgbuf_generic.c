@@ -11,8 +11,27 @@
 #ifndef NDEBUG
 #define NDEBUG 1
 #endif
+
+#include <libpldm/compiler.h>
+
+/*
+ * These tests exercise the msgbuf implementation itself. Emitting the helpers
+ * as noinline test-local functions avoids per-call-site inline coverage
+ * artifacts while leaving the library build unchanged.
+ */
+#if defined(__clang__) || defined(__GNUC__) || defined(_MSC_VER)
+#pragma push_macro("LIBPLDM_CC_ALWAYS_INLINE")
+#define PLDM_MSGBUF_RESTORE_ALWAYS_INLINE
+#endif
+#undef LIBPLDM_CC_ALWAYS_INLINE
+#define LIBPLDM_CC_ALWAYS_INLINE static __attribute__((noinline, unused))
+
 #include "msgbuf.h"
 #include "msgbuf/platform.h"
+
+#ifdef PLDM_MSGBUF_RESTORE_ALWAYS_INLINE
+#pragma pop_macro("LIBPLDM_CC_ALWAYS_INLINE")
+#endif
 
 /* Given we disabled asserts above, set up our own expectation framework */
 #define expect(cond) __expect(__func__, __LINE__, (cond))
@@ -340,6 +359,42 @@ static void test_msgbuf_extract_generic_int64(void)
     expect(val == src);
     expect(pldm_msgbuf_complete(ctx) == 0);
 }
+
+#if HAVE_LIBPLDM_ABI_STABLE
+static void test_msgbuf_extract_generic_uint64_errors(void)
+{
+    struct pldm_msgbuf_ro _ctx;
+    struct pldm_msgbuf_ro* ctx = &_ctx;
+    uint64_t buf[1] = {0};
+    uint64_t val = 0;
+
+    expect(pldm_msgbuf_init_errno(ctx, 0, buf, 0) == 0);
+    expect(pldm_msgbuf_extract(ctx, val) == -EOVERFLOW);
+    expect(pldm_msgbuf_complete(ctx) == -EOVERFLOW);
+
+    expect(pldm_msgbuf_init_errno(ctx, 0, buf, 0) == 0);
+    ctx->remaining = INTMAX_MIN + (intmax_t)sizeof(val) - 1;
+    expect(pldm_msgbuf_extract(ctx, val) == -EOVERFLOW);
+    expect(pldm_msgbuf_complete(ctx) == -EOVERFLOW);
+}
+
+static void test_msgbuf_extract_generic_int64_errors(void)
+{
+    struct pldm_msgbuf_ro _ctx;
+    struct pldm_msgbuf_ro* ctx = &_ctx;
+    int64_t buf[1] = {0};
+    int64_t val = 0;
+
+    expect(pldm_msgbuf_init_errno(ctx, 0, buf, 0) == 0);
+    expect(pldm_msgbuf_extract(ctx, val) == -EOVERFLOW);
+    expect(pldm_msgbuf_complete(ctx) == -EOVERFLOW);
+
+    expect(pldm_msgbuf_init_errno(ctx, 0, buf, 0) == 0);
+    ctx->remaining = INTMAX_MIN + (intmax_t)sizeof(val) - 1;
+    expect(pldm_msgbuf_extract(ctx, val) == -EOVERFLOW);
+    expect(pldm_msgbuf_complete(ctx) == -EOVERFLOW);
+}
+#endif
 
 static void test_msgbuf_insert_generic_uint64(void)
 {
@@ -985,6 +1040,81 @@ static void test_msgbuf_platform_extract_effecter_data(void)
     }
 }
 
+#if HAVE_LIBPLDM_ABI_STABLE
+static void test_msgbuf_platform_extract_overflow_paths(void)
+{
+    const enum pldm_sensor_readings_data_type sensor_tags[] = {
+        PLDM_SENSOR_DATA_SIZE_UINT8,  PLDM_SENSOR_DATA_SIZE_SINT8,
+        PLDM_SENSOR_DATA_SIZE_UINT16, PLDM_SENSOR_DATA_SIZE_SINT16,
+        PLDM_SENSOR_DATA_SIZE_UINT32, PLDM_SENSOR_DATA_SIZE_SINT32,
+        PLDM_SENSOR_DATA_SIZE_UINT64, PLDM_SENSOR_DATA_SIZE_SINT64,
+    };
+    const enum pldm_range_field_format range_tags[] = {
+        PLDM_RANGE_FIELD_FORMAT_UINT8,  PLDM_RANGE_FIELD_FORMAT_SINT8,
+        PLDM_RANGE_FIELD_FORMAT_UINT16, PLDM_RANGE_FIELD_FORMAT_SINT16,
+        PLDM_RANGE_FIELD_FORMAT_UINT32, PLDM_RANGE_FIELD_FORMAT_SINT32,
+        PLDM_RANGE_FIELD_FORMAT_REAL32, PLDM_RANGE_FIELD_FORMAT_UINT64,
+        PLDM_RANGE_FIELD_FORMAT_SINT64,
+    };
+    const enum pldm_effecter_data_size effecter_tags[] = {
+        PLDM_EFFECTER_DATA_SIZE_UINT8,  PLDM_EFFECTER_DATA_SIZE_SINT8,
+        PLDM_EFFECTER_DATA_SIZE_UINT16, PLDM_EFFECTER_DATA_SIZE_SINT16,
+        PLDM_EFFECTER_DATA_SIZE_UINT32, PLDM_EFFECTER_DATA_SIZE_SINT32,
+        PLDM_EFFECTER_DATA_SIZE_UINT64, PLDM_EFFECTER_DATA_SIZE_SINT64,
+    };
+    uint8_t buf[1] = {0};
+
+    for (size_t i = 0; i < sizeof(sensor_tags) / sizeof(sensor_tags[0]); i++)
+    {
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
+        union_sensor_data_size sensor = {0};
+        uint64_t value = 0;
+
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, 0) == 0);
+        expect(pldm_msgbuf_extract_sensor_data(ctx, sensor_tags[i], &sensor) ==
+               -EOVERFLOW);
+        expect(pldm_msgbuf_complete(ctx) == -EOVERFLOW);
+
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, 0) == 0);
+        expect(pldm_msgbuf_extract_sensor_value(ctx, sensor_tags[i], &value) ==
+               -EOVERFLOW);
+        expect(pldm_msgbuf_complete(ctx) == -EOVERFLOW);
+    }
+
+    for (size_t i = 0; i < sizeof(range_tags) / sizeof(range_tags[0]); i++)
+    {
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
+        union_range_field_format range = {0};
+
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, 0) == 0);
+        expect(pldm__msgbuf_extract_range_field_format(ctx, range_tags[i],
+                                                       &range) == -EOVERFLOW);
+        expect(pldm_msgbuf_complete(ctx) == -EOVERFLOW);
+    }
+
+    for (size_t i = 0; i < sizeof(effecter_tags) / sizeof(effecter_tags[0]);
+         i++)
+    {
+        struct pldm_msgbuf_ro _ctx;
+        struct pldm_msgbuf_ro* ctx = &_ctx;
+        union_effecter_data_size effecter = {0};
+        uint64_t value = 0;
+
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, 0) == 0);
+        expect(pldm_msgbuf_extract_effecter_value(ctx, effecter_tags[i],
+                                                  &value) == -EOVERFLOW);
+        expect(pldm_msgbuf_complete(ctx) == -EOVERFLOW);
+
+        expect(pldm_msgbuf_init_errno(ctx, 0, buf, 0) == 0);
+        expect(pldm__msgbuf_extract_effecter_data(ctx, effecter_tags[i],
+                                                  &effecter) == -EOVERFLOW);
+        expect(pldm_msgbuf_complete(ctx) == -EOVERFLOW);
+    }
+}
+#endif
+
 typedef void (*testfn)(void);
 
 static const testfn tests[] = {test_msgbuf_extract_generic_uint8,
@@ -995,6 +1125,10 @@ static const testfn tests[] = {test_msgbuf_extract_generic_uint8,
                                test_msgbuf_extract_generic_int32,
                                test_msgbuf_extract_generic_uint64,
                                test_msgbuf_extract_generic_int64,
+#if HAVE_LIBPLDM_ABI_STABLE
+                               test_msgbuf_extract_generic_uint64_errors,
+                               test_msgbuf_extract_generic_int64_errors,
+#endif
                                test_msgbuf_extract_generic_real32,
                                test_msgbuf_extract_array_generic_uint8,
                                test_msgbuf_insert_generic_uint8,
@@ -1012,6 +1146,9 @@ static const testfn tests[] = {test_msgbuf_extract_generic_uint8,
                                test_msgbuf_platform_extract_range_field_format,
                                test_msgbuf_platform_extract_effecter_value,
                                test_msgbuf_platform_extract_effecter_data,
+#if HAVE_LIBPLDM_ABI_STABLE
+                               test_msgbuf_platform_extract_overflow_paths,
+#endif
                                NULL};
 
 int main(void)

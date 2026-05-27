@@ -9,6 +9,7 @@ foreach t : testscpp
             implicit_include_directories: false,
             include_directories: ['../../../bindings/cpp/'],
             dependencies: [gtest_dep, gmock_dep, libpldm_dep, libpldmpp_dep],
+            cpp_args: test_cpp_args,
         ),
     )
 endforeach

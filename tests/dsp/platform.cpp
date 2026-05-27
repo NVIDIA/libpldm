@@ -8,14 +8,498 @@
 
 #include <array>
 #include <cerrno>
+#include <csignal>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 constexpr auto hdrSize = sizeof(pldm_msg_hdr);
+
+#if HAVE_LIBPLDM_ABI_STABLE
+namespace
+{
+
+#ifndef NDEBUG
+[[noreturn, maybe_unused]] void exitFromAbort(int signal)
+{
+    std::exit(128 + signal);
+}
+
+[[maybe_unused]] void installGcovAbortHandler()
+{
+    struct sigaction action{};
+    action.sa_handler = exitFromAbort;
+    sigemptyset(&action.sa_mask);
+    sigaction(SIGABRT, &action, nullptr);
+}
+
+#define EXPECT_GCOV_ABORT(statement)                                           \
+    EXPECT_EXIT(                                                               \
+        {                                                                      \
+            installGcovAbortHandler();                                         \
+            statement;                                                         \
+            std::exit(EXIT_SUCCESS);                                           \
+        },                                                                     \
+        testing::ExitedWithCode(128 + SIGABRT), ".*")
+#endif
+
+void appendLe64(std::vector<uint8_t>& data, uint64_t value)
+{
+    for (size_t index = 0; index < sizeof(value); ++index)
+    {
+        data.push_back(static_cast<uint8_t>(value >> (index * 8)));
+    }
+}
+
+void appendLeS64(std::vector<uint8_t>& data, int64_t value)
+{
+    appendLe64(data, static_cast<uint64_t>(value));
+}
+
+void setPdrLength(std::vector<uint8_t>& pdr, size_t length)
+{
+    pdr[8] = static_cast<uint8_t>(length);
+    pdr[9] = static_cast<uint8_t>(length >> 8);
+}
+
+std::vector<uint8_t> makeSensorPdr64ForTruncation(uint8_t sensorDataSize,
+                                                  uint8_t rangeFieldFormat)
+{
+    std::vector<uint8_t> pdr{
+        0x1,
+        0x0,
+        0x0,
+        0x0,
+        0x1,
+        PLDM_NUMERIC_SENSOR_PDR,
+        0x0,
+        0x0,
+        PLDM_PDR_NUMERIC_SENSOR_PDR_FIXED_LENGTH +
+            PLDM_PDR_NUMERIC_SENSOR_PDR_VARIED_SENSOR_DATA_SIZE_MIN_LENGTH * 8 +
+            PLDM_PDR_NUMERIC_SENSOR_PDR_VARIED_RANGE_FIELD_MIN_LENGTH * 8,
+        0,
+        0,
+        0,
+        0x1,
+        0x0,
+        PLDM_ENTITY_POWER_SUPPLY,
+        0,
+        1,
+        0,
+        0x1,
+        0x0,
+        PLDM_NO_INIT,
+        false,
+        PLDM_SENSOR_UNIT_DEGRESS_C,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        true,
+        sensorDataSize,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+    };
+    appendLe64(pdr, 3ULL);
+    pdr.insert(pdr.end(), {0, 0, 0, 0, 0x80, 0x3f, 0, 0, 0x80, 0x3f});
+    appendLe64(pdr, 0x1122334455667788ULL);
+    appendLe64(pdr, 0ULL);
+    pdr.push_back(rangeFieldFormat);
+    pdr.push_back(0);
+    for (uint64_t value = 1; value <= 9; ++value)
+    {
+        appendLe64(pdr, value);
+    }
+
+    return pdr;
+}
+
+std::vector<uint8_t> makeEffecterPdr64ForTruncation(uint8_t effecterDataSize,
+                                                    uint8_t rangeFieldFormat)
+{
+    std::vector<uint8_t> pdr{
+        0x1,
+        0x0,
+        0x0,
+        0x0,
+        0x1,
+        PLDM_NUMERIC_EFFECTER_PDR,
+        0x0,
+        0x0,
+        PLDM_PDR_NUMERIC_EFFECTER_PDR_FIXED_LENGTH +
+            PLDM_PDR_NUMERIC_EFFECTER_PDR_VARIED_EFFECTER_DATA_SIZE_MIN_LENGTH *
+                8 +
+            PLDM_PDR_NUMERIC_EFFECTER_PDR_VARIED_RANGE_FIELD_MIN_LENGTH * 8,
+        0,
+        0,
+        0,
+        0x1,
+        0x0,
+        PLDM_ENTITY_POWER_SUPPLY,
+        0,
+        1,
+        0,
+        0x1,
+        0x0,
+        0x2,
+        0x0,
+        PLDM_NO_INIT,
+        false,
+        PLDM_SENSOR_UNIT_DEGRESS_C,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        true,
+        effecterDataSize,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0x80,
+        0x3f,
+        0,
+        0,
+        0x80,
+        0x3f,
+    };
+    appendLe64(pdr, 0x1122334455667788ULL);
+    appendLe64(pdr, 0ULL);
+    pdr.push_back(rangeFieldFormat);
+    pdr.push_back(0x1f);
+    for (uint64_t value = 1; value <= 5; ++value)
+    {
+        appendLe64(pdr, value);
+    }
+
+    return pdr;
+}
+
+std::vector<uint8_t> makeEffecterValueResponse64(uint8_t effecterDataSize)
+{
+    std::vector<uint8_t> responseMsg(
+        hdrSize + PLDM_GET_NUMERIC_EFFECTER_VALUE_MIN_RESP_BYTES + 14);
+
+    responseMsg[hdrSize] = PLDM_SUCCESS;
+    responseMsg[hdrSize + 1] = effecterDataSize;
+    responseMsg[hdrSize + 2] = EFFECTER_OPER_STATE_ENABLED_NOUPDATEPENDING;
+    uint64_t pendingValue = htole64(0x1122334455667788ULL);
+    memcpy(&responseMsg[hdrSize + 3], &pendingValue, sizeof(pendingValue));
+    uint64_t presentValue = htole64(0x8877665544332211ULL);
+    memcpy(&responseMsg[hdrSize + 3 + sizeof(pendingValue)], &presentValue,
+           sizeof(presentValue));
+
+    return responseMsg;
+}
+
+constexpr std::array<uint8_t, 8> numericEffecterDataSizes{
+    PLDM_EFFECTER_DATA_SIZE_UINT8,  PLDM_EFFECTER_DATA_SIZE_SINT8,
+    PLDM_EFFECTER_DATA_SIZE_UINT16, PLDM_EFFECTER_DATA_SIZE_SINT16,
+    PLDM_EFFECTER_DATA_SIZE_UINT32, PLDM_EFFECTER_DATA_SIZE_SINT32,
+    PLDM_EFFECTER_DATA_SIZE_UINT64, PLDM_EFFECTER_DATA_SIZE_SINT64};
+
+constexpr std::array<uint8_t, 8> numericSensorDataSizes{
+    PLDM_SENSOR_DATA_SIZE_UINT8,  PLDM_SENSOR_DATA_SIZE_SINT8,
+    PLDM_SENSOR_DATA_SIZE_UINT16, PLDM_SENSOR_DATA_SIZE_SINT16,
+    PLDM_SENSOR_DATA_SIZE_UINT32, PLDM_SENSOR_DATA_SIZE_SINT32,
+    PLDM_SENSOR_DATA_SIZE_UINT64, PLDM_SENSOR_DATA_SIZE_SINT64};
+
+constexpr std::array<uint8_t, 9> numericRangeFieldFormats{
+    PLDM_RANGE_FIELD_FORMAT_UINT8,  PLDM_RANGE_FIELD_FORMAT_SINT8,
+    PLDM_RANGE_FIELD_FORMAT_UINT16, PLDM_RANGE_FIELD_FORMAT_SINT16,
+    PLDM_RANGE_FIELD_FORMAT_UINT32, PLDM_RANGE_FIELD_FORMAT_SINT32,
+    PLDM_RANGE_FIELD_FORMAT_REAL32, PLDM_RANGE_FIELD_FORMAT_UINT64,
+    PLDM_RANGE_FIELD_FORMAT_SINT64};
+
+size_t numericDataSize(uint8_t dataSize)
+{
+    switch (dataSize)
+    {
+        case PLDM_SENSOR_DATA_SIZE_UINT8:
+        case PLDM_SENSOR_DATA_SIZE_SINT8:
+            return 1;
+        case PLDM_SENSOR_DATA_SIZE_UINT16:
+        case PLDM_SENSOR_DATA_SIZE_SINT16:
+            return 2;
+        case PLDM_SENSOR_DATA_SIZE_UINT32:
+        case PLDM_SENSOR_DATA_SIZE_SINT32:
+            return 4;
+        case PLDM_SENSOR_DATA_SIZE_UINT64:
+        case PLDM_SENSOR_DATA_SIZE_SINT64:
+            return 8;
+    }
+
+    return 0;
+}
+
+size_t rangeFieldSize(uint8_t rangeFormat)
+{
+    switch (rangeFormat)
+    {
+        case PLDM_RANGE_FIELD_FORMAT_UINT8:
+        case PLDM_RANGE_FIELD_FORMAT_SINT8:
+            return 1;
+        case PLDM_RANGE_FIELD_FORMAT_UINT16:
+        case PLDM_RANGE_FIELD_FORMAT_SINT16:
+            return 2;
+        case PLDM_RANGE_FIELD_FORMAT_UINT32:
+        case PLDM_RANGE_FIELD_FORMAT_SINT32:
+        case PLDM_RANGE_FIELD_FORMAT_REAL32:
+            return 4;
+        case PLDM_RANGE_FIELD_FORMAT_UINT64:
+        case PLDM_RANGE_FIELD_FORMAT_SINT64:
+            return 8;
+    }
+
+    return 0;
+}
+
+void appendLeValue(std::vector<uint8_t>& data, size_t size, uint64_t value)
+{
+    for (size_t index = 0; index < size; ++index)
+    {
+        data.push_back(static_cast<uint8_t>(value >> (index * 8)));
+    }
+}
+
+std::vector<uint8_t> makeNumericSensorPdr(uint8_t sensorDataSize,
+                                          uint8_t rangeFieldFormat)
+{
+    const auto sensorSize = numericDataSize(sensorDataSize);
+    const auto rangeSize = rangeFieldSize(rangeFieldFormat);
+    std::vector<uint8_t> pdr{
+        0x1,
+        0x0,
+        0x0,
+        0x0,
+        0x1,
+        PLDM_NUMERIC_SENSOR_PDR,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x1,
+        0x0,
+        0x2,
+        0x0,
+        PLDM_ENTITY_POWER_SUPPLY,
+        0x0,
+        0x1,
+        0x0,
+        0x1,
+        0x0,
+        PLDM_NO_INIT,
+        false,
+        PLDM_SENSOR_UNIT_DEGRESS_C,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        true,
+        sensorDataSize,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+    };
+
+    appendLeValue(pdr, sensorSize, 3);
+    pdr.insert(pdr.end(),
+               {0x0, 0x0, 0x0, 0x0, 0x80, 0x3f, 0x0, 0x0, 0x80, 0x3f});
+    appendLeValue(pdr, sensorSize, UINT64_C(0x1122334455667788));
+    appendLeValue(pdr, sensorSize, 0);
+    pdr.push_back(rangeFieldFormat);
+    pdr.push_back(0x0);
+    for (uint64_t value = 1; value <= 9; ++value)
+    {
+        appendLeValue(pdr, rangeSize, value);
+    }
+
+    setPdrLength(pdr, pdr.size());
+    return pdr;
+}
+
+std::vector<uint8_t> makeNumericEffecterPdr(uint8_t effecterDataSize,
+                                            uint8_t rangeFieldFormat)
+{
+    const auto effecterSize = numericDataSize(effecterDataSize);
+    const auto rangeSize = rangeFieldSize(rangeFieldFormat);
+    std::vector<uint8_t> pdr{
+        0x1,
+        0x0,
+        0x0,
+        0x0,
+        0x1,
+        PLDM_NUMERIC_EFFECTER_PDR,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x1,
+        0x0,
+        0x2,
+        0x0,
+        PLDM_ENTITY_POWER_SUPPLY,
+        0x0,
+        0x1,
+        0x0,
+        0x1,
+        0x0,
+        0x2,
+        0x0,
+        PLDM_NO_INIT,
+        false,
+        PLDM_SENSOR_UNIT_DEGRESS_C,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        true,
+        effecterDataSize,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x80,
+        0x3f,
+        0x0,
+        0x0,
+        0x80,
+        0x3f,
+    };
+
+    appendLeValue(pdr, effecterSize, UINT64_C(0x1122334455667788));
+    appendLeValue(pdr, effecterSize, 0);
+    pdr.push_back(rangeFieldFormat);
+    pdr.push_back(0x1f);
+    for (uint64_t value = 1; value <= 5; ++value)
+    {
+        appendLeValue(pdr, rangeSize, value);
+    }
+
+    setPdrLength(pdr, pdr.size());
+    return pdr;
+}
+
+std::vector<uint8_t> makeSetNumericEffecterValueRequest(uint8_t dataSize)
+{
+    std::vector<uint8_t> requestMsg(hdrSize + 3);
+
+    requestMsg[hdrSize] = 0x34;
+    requestMsg[hdrSize + 1] = 0x12;
+    requestMsg[hdrSize + 2] = dataSize;
+    appendLeValue(requestMsg, numericDataSize(dataSize),
+                  UINT64_C(0x8877665544332211));
+
+    return requestMsg;
+}
+
+std::vector<uint8_t> makeGetNumericEffecterValueResponse(uint8_t dataSize)
+{
+    std::vector<uint8_t> responseMsg(hdrSize + 3);
+
+    responseMsg[hdrSize] = PLDM_SUCCESS;
+    responseMsg[hdrSize + 1] = dataSize;
+    responseMsg[hdrSize + 2] = EFFECTER_OPER_STATE_ENABLED_NOUPDATEPENDING;
+    appendLeValue(responseMsg, numericDataSize(dataSize),
+                  UINT64_C(0x1122334455667788));
+    appendLeValue(responseMsg, numericDataSize(dataSize),
+                  UINT64_C(0x8877665544332211));
+
+    return responseMsg;
+}
+
+std::vector<uint8_t> makeGetSensorReadingResponse(uint8_t dataSize)
+{
+    std::vector<uint8_t> responseMsg(hdrSize + 7);
+
+    responseMsg[hdrSize] = PLDM_SUCCESS;
+    responseMsg[hdrSize + 1] = dataSize;
+    responseMsg[hdrSize + 2] = PLDM_SENSOR_ENABLED;
+    responseMsg[hdrSize + 3] = PLDM_EVENTS_ENABLED;
+    responseMsg[hdrSize + 4] = PLDM_SENSOR_NORMAL;
+    responseMsg[hdrSize + 5] = PLDM_SENSOR_WARNING;
+    responseMsg[hdrSize + 6] = PLDM_SENSOR_UPPERWARNING;
+    appendLeValue(responseMsg, numericDataSize(dataSize),
+                  UINT64_C(0x1122334455667788));
+
+    return responseMsg;
+}
+
+#if HAVE_LIBPLDM_ABI_TESTING
+std::vector<uint8_t> makeNumericSensorEventData(uint8_t dataSize)
+{
+    std::vector<uint8_t> eventData{
+        PLDM_SENSOR_NORMAL,
+        PLDM_SENSOR_WARNING,
+        dataSize,
+    };
+
+    appendLeValue(eventData, numericDataSize(dataSize),
+                  UINT64_C(0x1122334455667788));
+
+    return eventData;
+}
+#endif
+
+} // namespace
+#endif
 
 TEST(StateEffecterPdr, testIncorrectInvocations)
 {
@@ -460,7 +944,7 @@ TEST(GetPDR, testBadDecodeResponse)
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
 }
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(GetPDR, testGoodDecodeResponseSafe)
 {
     static const char recordData[] = "123456789";
@@ -505,7 +989,7 @@ TEST(GetPDR, testGoodDecodeResponseSafe)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(GetPDR, testBadDecodeResponseSafeTrivial)
 {
     pldm_get_pdr_resp resp;
@@ -534,7 +1018,7 @@ TEST(GetPDR, testBadDecodeResponseSafeTrivial)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(GetPDRRepositoryInfo, testGoodEncodeRequest)
 {
     pldm_msg request{};
@@ -545,7 +1029,7 @@ TEST(GetPDRRepositoryInfo, testGoodEncodeRequest)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(GetPDRRepositoryInfo, testBadEncodeRequest)
 {
     auto rc =
@@ -722,7 +1206,7 @@ TEST(GetPDRRepositoryInfo, testBadDecodeResponse)
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
 }
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(GetPDRRepositoryInfo, testGoodDecodeResponseSafe)
 {
     alignas(pldm_msg) unsigned char
@@ -769,7 +1253,7 @@ TEST(GetPDRRepositoryInfo, testGoodDecodeResponseSafe)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(GetPDRRepositoryInfo, testBadDecodeResponseSafeTrivial)
 {
     struct pldm_pdr_repository_info_resp resp;
@@ -870,6 +1354,57 @@ TEST(SetNumericEffecterValue, testBadDecodeRequest)
         &reteffecter_data_size, reinterpret_cast<uint8_t*>(&reteffecter_value));
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
 }
+
+#if HAVE_LIBPLDM_ABI_STABLE
+TEST(SetNumericEffecterValue, testDecodeEveryValueSize)
+{
+    for (uint8_t dataSize : numericEffecterDataSizes)
+    {
+        auto requestMsg = makeSetNumericEffecterValueRequest(dataSize);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        auto req = reinterpret_cast<pldm_msg*>(requestMsg.data());
+        uint16_t effecterId = 0;
+        uint8_t effecterDataSize = 0;
+        uint8_t effecterValue[sizeof(uint64_t)] = {};
+
+        SCOPED_TRACE(dataSize);
+        EXPECT_EQ(decode_set_numeric_effecter_value_req(
+                      req, requestMsg.size() - hdrSize, &effecterId,
+                      &effecterDataSize, effecterValue),
+                  PLDM_SUCCESS);
+        EXPECT_EQ(effecterId, 0x1234);
+        EXPECT_EQ(effecterDataSize, dataSize);
+
+        for (size_t payloadLength =
+                 PLDM_SET_NUMERIC_EFFECTER_VALUE_MIN_REQ_BYTES;
+             payloadLength < requestMsg.size() - hdrSize; ++payloadLength)
+        {
+            SCOPED_TRACE(payloadLength);
+            EXPECT_EQ(decode_set_numeric_effecter_value_req(
+                          req, payloadLength, &effecterId, &effecterDataSize,
+                          effecterValue),
+                      PLDM_ERROR_INVALID_LENGTH);
+        }
+    }
+}
+
+TEST(SetNumericEffecterValue, testDecodeRejectsInvalidValueSize)
+{
+    auto requestMsg =
+        makeSetNumericEffecterValueRequest(PLDM_EFFECTER_DATA_SIZE_MAX + 1);
+    requestMsg.push_back(0);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto req = reinterpret_cast<pldm_msg*>(requestMsg.data());
+    uint16_t effecterId = 0;
+    uint8_t effecterDataSize = 0;
+    uint8_t effecterValue[sizeof(uint64_t)] = {};
+
+    EXPECT_EQ(decode_set_numeric_effecter_value_req(
+                  req, PLDM_SET_NUMERIC_EFFECTER_VALUE_MIN_REQ_BYTES,
+                  &effecterId, &effecterDataSize, effecterValue),
+              PLDM_ERROR_INVALID_DATA);
+}
+#endif
 
 TEST(SetNumericEffecterValue, testGoodEncodeRequest)
 {
@@ -2713,7 +3248,7 @@ TEST(PlatformEventMessage, testBadPldmMsgPollEventDataDecodeRequest)
     EXPECT_EQ(rc, -EPROTO);
 }
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(PlatformEventMessage, testGoodPldmMsgPollEventDataEncode)
 {
     std::array<uint8_t, PLDM_PLATFORM_EVENT_MESSAGE_FORMAT_VERSION +
@@ -2756,7 +3291,7 @@ TEST(PlatformEventMessage, testGoodPldmMsgPollEventDataEncode)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(PlatformEventMessage, testBadPldmMsgPollEventDataEncode)
 {
     std::array<uint8_t, PLDM_PLATFORM_EVENT_MESSAGE_FORMAT_VERSION +
@@ -3261,6 +3796,225 @@ TEST(GetNumericEffecterValue, testGoodDecodeResponse)
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     EXPECT_EQ(presentValue, *(reinterpret_cast<uint16_t*>(retpresentValue)));
 }
+
+#if HAVE_LIBPLDM_ABI_STABLE
+TEST(GetNumericEffecterValue, testGoodDecodeUint64Response)
+{
+    std::array<uint8_t,
+               hdrSize + PLDM_GET_NUMERIC_EFFECTER_VALUE_MIN_RESP_BYTES + 14>
+        responseMsg{};
+
+    uint8_t completionCode = PLDM_SUCCESS;
+    uint8_t effecter_dataSize = PLDM_EFFECTER_DATA_SIZE_UINT64;
+    uint8_t effecter_operState = EFFECTER_OPER_STATE_ENABLED_NOUPDATEPENDING;
+    uint64_t pendingValue = 0x1122334455667788ULL;
+    uint64_t presentValue = 0x8877665544332211ULL;
+
+    uint8_t retcompletionCode;
+    uint8_t reteffecter_dataSize;
+    uint8_t reteffecter_operState;
+    uint8_t retpendingValue[sizeof(pendingValue)];
+    uint8_t retpresentValue[sizeof(presentValue)];
+
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
+    struct pldm_get_numeric_effecter_value_resp* resp =
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        reinterpret_cast<struct pldm_get_numeric_effecter_value_resp*>(
+            response->payload);
+
+    resp->completion_code = completionCode;
+    resp->effecter_data_size = effecter_dataSize;
+    resp->effecter_oper_state = effecter_operState;
+
+    uint64_t pendingValue_le = htole64(pendingValue);
+    memcpy(resp->pending_and_present_values, &pendingValue_le,
+           sizeof(pendingValue_le));
+    uint64_t presentValue_le = htole64(presentValue);
+    memcpy(&resp->pending_and_present_values[sizeof(pendingValue_le)],
+           &presentValue_le, sizeof(presentValue_le));
+
+    auto rc = decode_get_numeric_effecter_value_resp(
+        response, responseMsg.size() - hdrSize, &retcompletionCode,
+        &reteffecter_dataSize, &reteffecter_operState, retpendingValue,
+        retpresentValue);
+
+    uint64_t retpending;
+    uint64_t retpresent;
+    memcpy(&retpending, retpendingValue, sizeof(retpending));
+    memcpy(&retpresent, retpresentValue, sizeof(retpresent));
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(completionCode, retcompletionCode);
+    EXPECT_EQ(effecter_dataSize, reteffecter_dataSize);
+    EXPECT_EQ(effecter_operState, reteffecter_operState);
+    EXPECT_EQ(pendingValue, retpending);
+    EXPECT_EQ(presentValue, retpresent);
+}
+
+TEST(GetNumericEffecterValue, testGoodDecodeSint64Response)
+{
+    std::array<uint8_t,
+               hdrSize + PLDM_GET_NUMERIC_EFFECTER_VALUE_MIN_RESP_BYTES + 14>
+        responseMsg{};
+
+    uint8_t completionCode = PLDM_SUCCESS;
+    uint8_t effecter_dataSize = PLDM_EFFECTER_DATA_SIZE_SINT64;
+    uint8_t effecter_operState = EFFECTER_OPER_STATE_ENABLED_UPDATEPENDING;
+    int64_t pendingValue = -1234567890123LL;
+    int64_t presentValue = 1234567890123LL;
+
+    uint8_t retcompletionCode;
+    uint8_t reteffecter_dataSize;
+    uint8_t reteffecter_operState;
+    uint8_t retpendingValue[sizeof(pendingValue)];
+    uint8_t retpresentValue[sizeof(presentValue)];
+
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
+    struct pldm_get_numeric_effecter_value_resp* resp =
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        reinterpret_cast<struct pldm_get_numeric_effecter_value_resp*>(
+            response->payload);
+
+    resp->completion_code = completionCode;
+    resp->effecter_data_size = effecter_dataSize;
+    resp->effecter_oper_state = effecter_operState;
+
+    uint64_t pendingValue_le = htole64(static_cast<uint64_t>(pendingValue));
+    memcpy(resp->pending_and_present_values, &pendingValue_le,
+           sizeof(pendingValue_le));
+    uint64_t presentValue_le = htole64(static_cast<uint64_t>(presentValue));
+    memcpy(&resp->pending_and_present_values[sizeof(pendingValue_le)],
+           &presentValue_le, sizeof(presentValue_le));
+
+    auto rc = decode_get_numeric_effecter_value_resp(
+        response, responseMsg.size() - hdrSize, &retcompletionCode,
+        &reteffecter_dataSize, &reteffecter_operState, retpendingValue,
+        retpresentValue);
+
+    int64_t retpending;
+    int64_t retpresent;
+    memcpy(&retpending, retpendingValue, sizeof(retpending));
+    memcpy(&retpresent, retpresentValue, sizeof(retpresent));
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(completionCode, retcompletionCode);
+    EXPECT_EQ(effecter_dataSize, reteffecter_dataSize);
+    EXPECT_EQ(effecter_operState, reteffecter_operState);
+    EXPECT_EQ(pendingValue, retpending);
+    EXPECT_EQ(presentValue, retpresent);
+}
+
+TEST(GetNumericEffecterValue, testRejectsEveryTruncatedUint64Response)
+{
+    auto responseMsg =
+        makeEffecterValueResponse64(PLDM_EFFECTER_DATA_SIZE_UINT64);
+
+    uint8_t retcompletionCode;
+    uint8_t reteffecter_dataSize;
+    uint8_t reteffecter_operState;
+    uint8_t retpendingValue[sizeof(uint64_t)];
+    uint8_t retpresentValue[sizeof(uint64_t)];
+
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
+    for (size_t payloadLength = PLDM_GET_NUMERIC_EFFECTER_VALUE_MIN_RESP_BYTES;
+         payloadLength < responseMsg.size() - hdrSize; ++payloadLength)
+    {
+        SCOPED_TRACE(payloadLength);
+        EXPECT_NE(PLDM_SUCCESS,
+                  decode_get_numeric_effecter_value_resp(
+                      response, payloadLength, &retcompletionCode,
+                      &reteffecter_dataSize, &reteffecter_operState,
+                      retpendingValue, retpresentValue));
+    }
+}
+
+TEST(GetNumericEffecterValue, testRejectsEveryTruncatedSint64Response)
+{
+    auto responseMsg =
+        makeEffecterValueResponse64(PLDM_EFFECTER_DATA_SIZE_SINT64);
+
+    uint8_t retcompletionCode;
+    uint8_t reteffecter_dataSize;
+    uint8_t reteffecter_operState;
+    uint8_t retpendingValue[sizeof(int64_t)];
+    uint8_t retpresentValue[sizeof(int64_t)];
+
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
+    for (size_t payloadLength = PLDM_GET_NUMERIC_EFFECTER_VALUE_MIN_RESP_BYTES;
+         payloadLength < responseMsg.size() - hdrSize; ++payloadLength)
+    {
+        SCOPED_TRACE(payloadLength);
+        EXPECT_NE(PLDM_SUCCESS,
+                  decode_get_numeric_effecter_value_resp(
+                      response, payloadLength, &retcompletionCode,
+                      &reteffecter_dataSize, &reteffecter_operState,
+                      retpendingValue, retpresentValue));
+    }
+}
+
+TEST(GetNumericEffecterValue, testDecodeEveryValueSize)
+{
+    for (uint8_t dataSize : numericEffecterDataSizes)
+    {
+        auto responseMsg = makeGetNumericEffecterValueResponse(dataSize);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
+        uint8_t completionCode = 0;
+        uint8_t effecterDataSize = 0;
+        uint8_t effecterOperState = 0;
+        uint8_t pendingValue[sizeof(uint64_t)] = {};
+        uint8_t presentValue[sizeof(uint64_t)] = {};
+
+        SCOPED_TRACE(dataSize);
+        EXPECT_EQ(decode_get_numeric_effecter_value_resp(
+                      response, responseMsg.size() - hdrSize, &completionCode,
+                      &effecterDataSize, &effecterOperState, pendingValue,
+                      presentValue),
+                  PLDM_SUCCESS);
+        EXPECT_EQ(completionCode, PLDM_SUCCESS);
+        EXPECT_EQ(effecterDataSize, dataSize);
+        EXPECT_EQ(effecterOperState,
+                  EFFECTER_OPER_STATE_ENABLED_NOUPDATEPENDING);
+
+        for (size_t payloadLength =
+                 PLDM_GET_NUMERIC_EFFECTER_VALUE_MIN_RESP_BYTES;
+             payloadLength < responseMsg.size() - hdrSize; ++payloadLength)
+        {
+            SCOPED_TRACE(payloadLength);
+            EXPECT_EQ(decode_get_numeric_effecter_value_resp(
+                          response, payloadLength, &completionCode,
+                          &effecterDataSize, &effecterOperState, pendingValue,
+                          presentValue),
+                      PLDM_ERROR_INVALID_LENGTH);
+        }
+    }
+}
+
+TEST(GetNumericEffecterValue, testDecodeRejectsInvalidValueSize)
+{
+    auto responseMsg =
+        makeGetNumericEffecterValueResponse(PLDM_EFFECTER_DATA_SIZE_MAX + 1);
+    responseMsg.push_back(0);
+    responseMsg.push_back(0);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
+    uint8_t completionCode = 0;
+    uint8_t effecterDataSize = 0;
+    uint8_t effecterOperState = 0;
+    uint8_t pendingValue[sizeof(uint64_t)] = {};
+    uint8_t presentValue[sizeof(uint64_t)] = {};
+
+    EXPECT_EQ(decode_get_numeric_effecter_value_resp(
+                  response, PLDM_GET_NUMERIC_EFFECTER_VALUE_MIN_RESP_BYTES,
+                  &completionCode, &effecterDataSize, &effecterOperState,
+                  pendingValue, presentValue),
+              PLDM_ERROR_INVALID_DATA);
+}
+#endif
 
 TEST(GetNumericEffecterValue, testBadDecodeResponse)
 {
@@ -3785,7 +4539,75 @@ TEST(GetSensorReading, testBadDecodeResponse)
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
 }
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_STABLE
+TEST(GetSensorReading, testDecodeEveryReadingSize)
+{
+    for (uint8_t dataSize : numericSensorDataSizes)
+    {
+        auto responseMsg = makeGetSensorReadingResponse(dataSize);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
+        uint8_t completionCode = 0;
+        uint8_t sensorDataSize = 0;
+        uint8_t sensorOperationalState = 0;
+        uint8_t sensorEventMessageEnable = 0;
+        uint8_t presentState = 0;
+        uint8_t previousState = 0;
+        uint8_t eventState = 0;
+        uint8_t presentReading[sizeof(uint64_t)] = {};
+
+        SCOPED_TRACE(dataSize);
+        EXPECT_EQ(decode_get_sensor_reading_resp(
+                      response, responseMsg.size() - hdrSize, &completionCode,
+                      &sensorDataSize, &sensorOperationalState,
+                      &sensorEventMessageEnable, &presentState, &previousState,
+                      &eventState, presentReading),
+                  PLDM_SUCCESS);
+        EXPECT_EQ(completionCode, PLDM_SUCCESS);
+        EXPECT_EQ(sensorDataSize, dataSize);
+        EXPECT_EQ(sensorOperationalState, PLDM_SENSOR_ENABLED);
+        EXPECT_EQ(sensorEventMessageEnable, PLDM_EVENTS_ENABLED);
+
+        for (size_t payloadLength = PLDM_GET_SENSOR_READING_MIN_RESP_BYTES;
+             payloadLength < responseMsg.size() - hdrSize; ++payloadLength)
+        {
+            SCOPED_TRACE(payloadLength);
+            EXPECT_EQ(decode_get_sensor_reading_resp(
+                          response, payloadLength, &completionCode,
+                          &sensorDataSize, &sensorOperationalState,
+                          &sensorEventMessageEnable, &presentState,
+                          &previousState, &eventState, presentReading),
+                      PLDM_ERROR_INVALID_LENGTH);
+        }
+    }
+}
+
+TEST(GetSensorReading, testDecodeRejectsInvalidReadingSize)
+{
+    auto responseMsg =
+        makeGetSensorReadingResponse(PLDM_SENSOR_DATA_SIZE_MAX + 1);
+    responseMsg.push_back(0);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto response = reinterpret_cast<pldm_msg*>(responseMsg.data());
+    uint8_t completionCode = 0;
+    uint8_t sensorDataSize = 0;
+    uint8_t sensorOperationalState = 0;
+    uint8_t sensorEventMessageEnable = 0;
+    uint8_t presentState = 0;
+    uint8_t previousState = 0;
+    uint8_t eventState = 0;
+    uint8_t presentReading[sizeof(uint64_t)] = {};
+
+    EXPECT_EQ(decode_get_sensor_reading_resp(
+                  response, PLDM_GET_SENSOR_READING_MIN_RESP_BYTES,
+                  &completionCode, &sensorDataSize, &sensorOperationalState,
+                  &sensorEventMessageEnable, &presentState, &previousState,
+                  &eventState, presentReading),
+              PLDM_ERROR_INVALID_DATA);
+}
+#endif
+
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(SetNumericSensorEnable, testDecodeRequest)
 {
     int rc;
@@ -3820,7 +4642,7 @@ TEST(SetNumericSensorEnable, testDecodeRequest)
 }
 #endif // LIBPLDM_API_TESTING
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(SetNumericSensorEnable, testDecodeInvalidOpRequest)
 {
     int rc;
@@ -3843,7 +4665,7 @@ TEST(SetNumericSensorEnable, testDecodeInvalidOpRequest)
 }
 #endif // LIBPLDM_API_TESTING
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(SetNumericSensorEnable, testDecodeInvalidEventRequest)
 {
     int rc;
@@ -3866,7 +4688,7 @@ TEST(SetNumericSensorEnable, testDecodeInvalidEventRequest)
 }
 #endif // LIBPLDM_API_TESTING
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(SetStateSensorEnables, testDecodeRequest)
 {
     int rc;
@@ -3906,7 +4728,7 @@ TEST(SetStateSensorEnables, testDecodeRequest)
 }
 #endif // LIBPLDM_API_TESTING
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(SetStateSensorEnables, testDecodeInvalidOpRequest)
 {
     int rc;
@@ -3930,7 +4752,7 @@ TEST(SetStateSensorEnables, testDecodeInvalidOpRequest)
 }
 #endif // LIBPLDM_API_TESTING
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(SetStateSensorEnables, testDecodeInvalidEventRequest)
 {
     int rc;
@@ -3954,7 +4776,7 @@ TEST(SetStateSensorEnables, testDecodeInvalidEventRequest)
 }
 #endif // LIBPLDM_API_TESTING
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(GetEventReceiver, testGoodEncodeRequest)
 {
     std::array<uint8_t, hdrSize> requestMsg{};
@@ -3966,7 +4788,7 @@ TEST(GetEventReceiver, testGoodEncodeRequest)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(GetEventReceiver, testBadEncodeRequest)
 {
     auto rc =
@@ -3975,7 +4797,7 @@ TEST(GetEventReceiver, testBadEncodeRequest)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(GetEventReceiver, testGoodEncodeResponse)
 {
     struct pldm_get_event_receiver_resp request_event_receiver_values;
@@ -3993,7 +4815,7 @@ TEST(GetEventReceiver, testGoodEncodeResponse)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(GetEventReceiver, testBadEncodeResponse)
 {
     std::array<uint8_t, hdrSize + sizeof(pldm_get_event_receiver_resp)>
@@ -4017,7 +4839,7 @@ TEST(GetEventReceiver, testBadEncodeResponse)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(GetEventReceiver, testGoodDecodeResponse)
 {
     struct pldm_get_event_receiver_resp request_event_receiver_values;
@@ -4044,7 +4866,7 @@ TEST(GetEventReceiver, testGoodDecodeResponse)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(GetEventReceiver, testBadDecodeResponse)
 {
     struct pldm_get_event_receiver_resp decoded_resp;
@@ -5120,6 +5942,256 @@ TEST(decodeNumericSensorPdrData, Real32Test)
     EXPECT_FLOAT_EQ(-300.003f, decodedPdr.fatal_low.value_f32);
 }
 
+#if HAVE_LIBPLDM_ABI_STABLE
+TEST(decodeNumericSensorPdrData, Uint64Test)
+{
+    std::vector<uint8_t> pdr1{
+        0x1,
+        0x0,
+        0x0,
+        0x0,                     // record handle
+        0x1,                     // PDRHeaderVersion
+        PLDM_NUMERIC_SENSOR_PDR, // PDRType
+        0x0,
+        0x0, // recordChangeNumber
+        PLDM_PDR_NUMERIC_SENSOR_PDR_FIXED_LENGTH +
+            PLDM_PDR_NUMERIC_SENSOR_PDR_VARIED_SENSOR_DATA_SIZE_MIN_LENGTH * 8 +
+            PLDM_PDR_NUMERIC_SENSOR_PDR_VARIED_RANGE_FIELD_MIN_LENGTH * 8,
+        0, // dataLength
+        0,
+        0, // PLDMTerminusHandle
+        0x1,
+        0x0, // sensorID=1
+        PLDM_ENTITY_POWER_SUPPLY,
+        0, // entityType=Power Supply(120)
+        1,
+        0, // entityInstanceNumber
+        0x1,
+        0x0,                          // containerID=1
+        PLDM_NO_INIT,                 // sensorInit
+        false,                        // sensorAuxiliaryNamesPDR
+        PLDM_SENSOR_UNIT_DEGRESS_C,   // baseUint(2)=degrees C
+        0,                            // unitModifier
+        0,                            // rateUnit
+        0,                            // baseOEMUnitHandle
+        0,                            // auxUnit
+        0,                            // auxUnitModifier
+        0,                            // auxRateUnit
+        0,                            // rel
+        0,                            // auxOEMUnitHandle
+        true,                         // isLinear
+        PLDM_SENSOR_DATA_SIZE_UINT64, // sensorDataSize
+        0,
+        0,
+        0xc0,
+        0x3f, // resolution=1.5
+        0,
+        0,
+        0x80,
+        0x3f, // offset=1.0
+        0,
+        0, // accuracy
+        0, // plusTolerance
+        0  // minusTolerance
+    };
+    appendLe64(pdr1, 3ULL);
+    pdr1.insert(pdr1.end(), {
+                                0, // supportedThresholds
+                                0, // thresholdAndHysteresisVolatility
+                                0, 0, 0x80, 0x3f, // stateTransitionInterval
+                                0, 0, 0x80, 0x3f  // updateInterval
+                            });
+    appendLe64(pdr1, 0x1122334455667788ULL);
+    appendLe64(pdr1, 0ULL);
+    pdr1.push_back(PLDM_RANGE_FIELD_FORMAT_UINT64);
+    pdr1.push_back(0);
+    appendLe64(pdr1, 0x0102030405060708ULL);
+    appendLe64(pdr1, 0x1112131415161718ULL);
+    appendLe64(pdr1, 0x2122232425262728ULL);
+    appendLe64(pdr1, 0x3132333435363738ULL);
+    appendLe64(pdr1, 0x4142434445464748ULL);
+    appendLe64(pdr1, 0x5152535455565758ULL);
+    appendLe64(pdr1, 0x6162636465666768ULL);
+    appendLe64(pdr1, 0x7172737475767778ULL);
+    appendLe64(pdr1, 0x8182838485868788ULL);
+
+    struct pldm_numeric_sensor_value_pdr decodedPdr;
+    auto rc =
+        decode_numeric_sensor_pdr_data(pdr1.data(), pdr1.size(), &decodedPdr);
+    EXPECT_EQ(PLDM_SUCCESS, rc);
+
+    EXPECT_EQ(PLDM_SENSOR_DATA_SIZE_UINT64, decodedPdr.sensor_data_size);
+    EXPECT_EQ(3ULL, decodedPdr.hysteresis.value_u64);
+    EXPECT_EQ(0x1122334455667788ULL, decodedPdr.max_readable.value_u64);
+    EXPECT_EQ(0ULL, decodedPdr.min_readable.value_u64);
+    EXPECT_EQ(PLDM_RANGE_FIELD_FORMAT_UINT64, decodedPdr.range_field_format);
+    EXPECT_EQ(0x0102030405060708ULL, decodedPdr.nominal_value.value_u64);
+    EXPECT_EQ(0x1112131415161718ULL, decodedPdr.normal_max.value_u64);
+    EXPECT_EQ(0x2122232425262728ULL, decodedPdr.normal_min.value_u64);
+    EXPECT_EQ(0x3132333435363738ULL, decodedPdr.warning_high.value_u64);
+    EXPECT_EQ(0x4142434445464748ULL, decodedPdr.warning_low.value_u64);
+    EXPECT_EQ(0x5152535455565758ULL, decodedPdr.critical_high.value_u64);
+    EXPECT_EQ(0x6162636465666768ULL, decodedPdr.critical_low.value_u64);
+    EXPECT_EQ(0x7172737475767778ULL, decodedPdr.fatal_high.value_u64);
+    EXPECT_EQ(0x8182838485868788ULL, decodedPdr.fatal_low.value_u64);
+}
+
+TEST(decodeNumericSensorPdrData, Sint64Test)
+{
+    std::vector<uint8_t> pdr1{
+        0x1,
+        0x0,
+        0x0,
+        0x0,                     // record handle
+        0x1,                     // PDRHeaderVersion
+        PLDM_NUMERIC_SENSOR_PDR, // PDRType
+        0x0,
+        0x0, // recordChangeNumber
+        PLDM_PDR_NUMERIC_SENSOR_PDR_FIXED_LENGTH +
+            PLDM_PDR_NUMERIC_SENSOR_PDR_VARIED_SENSOR_DATA_SIZE_MIN_LENGTH * 8 +
+            PLDM_PDR_NUMERIC_SENSOR_PDR_VARIED_RANGE_FIELD_MIN_LENGTH * 8,
+        0, // dataLength
+        0,
+        0, // PLDMTerminusHandle
+        0x1,
+        0x0, // sensorID=1
+        PLDM_ENTITY_POWER_SUPPLY,
+        0, // entityType=Power Supply(120)
+        1,
+        0, // entityInstanceNumber
+        0x1,
+        0x0,                          // containerID=1
+        PLDM_NO_INIT,                 // sensorInit
+        false,                        // sensorAuxiliaryNamesPDR
+        PLDM_SENSOR_UNIT_DEGRESS_C,   // baseUint(2)=degrees C
+        0,                            // unitModifier
+        0,                            // rateUnit
+        0,                            // baseOEMUnitHandle
+        0,                            // auxUnit
+        0,                            // auxUnitModifier
+        0,                            // auxRateUnit
+        0,                            // rel
+        0,                            // auxOEMUnitHandle
+        true,                         // isLinear
+        PLDM_SENSOR_DATA_SIZE_SINT64, // sensorDataSize
+        0,
+        0,
+        0,
+        0, // resolution
+        0,
+        0,
+        0,
+        0, // offset
+        0,
+        0, // accuracy
+        0, // plusTolerance
+        0  // minusTolerance
+    };
+    appendLeS64(pdr1, int64_t{-3});
+    pdr1.insert(pdr1.end(), {
+                                0, // supportedThresholds
+                                0, // thresholdAndHysteresisVolatility
+                                0, 0, 0x80, 0x3f, // stateTransitionInterval
+                                0, 0, 0x80, 0x3f  // updateInterval
+                            });
+    appendLeS64(pdr1, int64_t{1234567890123});
+    appendLeS64(pdr1, int64_t{-1234567890123});
+    pdr1.push_back(PLDM_RANGE_FIELD_FORMAT_SINT64);
+    pdr1.push_back(0);
+    appendLeS64(pdr1, int64_t{0});
+    appendLeS64(pdr1, int64_t{500000000000});
+    appendLeS64(pdr1, int64_t{-500000000000});
+    appendLeS64(pdr1, int64_t{1000000000000});
+    appendLeS64(pdr1, int64_t{-1000000000000});
+    appendLeS64(pdr1, int64_t{2000000000000});
+    appendLeS64(pdr1, int64_t{-2000000000000});
+    appendLeS64(pdr1, int64_t{3000000000000});
+    appendLeS64(pdr1, int64_t{-3000000000000});
+
+    struct pldm_numeric_sensor_value_pdr decodedPdr;
+    auto rc =
+        decode_numeric_sensor_pdr_data(pdr1.data(), pdr1.size(), &decodedPdr);
+    EXPECT_EQ(PLDM_SUCCESS, rc);
+
+    EXPECT_EQ(PLDM_SENSOR_DATA_SIZE_SINT64, decodedPdr.sensor_data_size);
+    EXPECT_EQ(-3, decodedPdr.hysteresis.value_s64);
+    EXPECT_EQ(1234567890123, decodedPdr.max_readable.value_s64);
+    EXPECT_EQ(-1234567890123, decodedPdr.min_readable.value_s64);
+    EXPECT_EQ(PLDM_RANGE_FIELD_FORMAT_SINT64, decodedPdr.range_field_format);
+    EXPECT_EQ(0, decodedPdr.nominal_value.value_s64);
+    EXPECT_EQ(500000000000, decodedPdr.normal_max.value_s64);
+    EXPECT_EQ(-500000000000, decodedPdr.normal_min.value_s64);
+    EXPECT_EQ(1000000000000, decodedPdr.warning_high.value_s64);
+    EXPECT_EQ(-1000000000000, decodedPdr.warning_low.value_s64);
+    EXPECT_EQ(2000000000000, decodedPdr.critical_high.value_s64);
+    EXPECT_EQ(-2000000000000, decodedPdr.critical_low.value_s64);
+    EXPECT_EQ(3000000000000, decodedPdr.fatal_high.value_s64);
+    EXPECT_EQ(-3000000000000, decodedPdr.fatal_low.value_s64);
+}
+
+TEST(decodeNumericSensorPdrData, RejectsEveryTruncatedUint64Test)
+{
+    auto pdr = makeSensorPdr64ForTruncation(PLDM_SENSOR_DATA_SIZE_UINT64,
+                                            PLDM_RANGE_FIELD_FORMAT_UINT64);
+
+    for (size_t length = PLDM_PDR_NUMERIC_SENSOR_PDR_MIN_LENGTH;
+         length < pdr.size(); ++length)
+    {
+        auto truncated = pdr;
+        setPdrLength(truncated, length);
+
+        struct pldm_numeric_sensor_value_pdr decodedPdr;
+        SCOPED_TRACE(length);
+        EXPECT_NE(PLDM_SUCCESS, decode_numeric_sensor_pdr_data(
+                                    truncated.data(), length, &decodedPdr));
+    }
+}
+
+TEST(decodeNumericSensorPdrData, RejectsEveryTruncatedSint64Test)
+{
+    auto pdr = makeSensorPdr64ForTruncation(PLDM_SENSOR_DATA_SIZE_SINT64,
+                                            PLDM_RANGE_FIELD_FORMAT_SINT64);
+
+    for (size_t length = PLDM_PDR_NUMERIC_SENSOR_PDR_MIN_LENGTH;
+         length < pdr.size(); ++length)
+    {
+        auto truncated = pdr;
+        setPdrLength(truncated, length);
+
+        struct pldm_numeric_sensor_value_pdr decodedPdr;
+        SCOPED_TRACE(length);
+        EXPECT_NE(PLDM_SUCCESS, decode_numeric_sensor_pdr_data(
+                                    truncated.data(), length, &decodedPdr));
+    }
+}
+
+TEST(decodeNumericSensorPdrData, RejectsEveryTruncatedValueAndRangeFormat)
+{
+    for (const auto sensorDataSize : numericSensorDataSizes)
+    {
+        for (const auto rangeFieldFormat : numericRangeFieldFormats)
+        {
+            auto pdr = makeNumericSensorPdr(sensorDataSize, rangeFieldFormat);
+
+            for (size_t length = PLDM_PDR_NUMERIC_SENSOR_PDR_MIN_LENGTH;
+                 length < pdr.size(); ++length)
+            {
+                auto truncated = pdr;
+                struct pldm_numeric_sensor_value_pdr decodedPdr{};
+
+                setPdrLength(truncated, length);
+                SCOPED_TRACE(sensorDataSize);
+                SCOPED_TRACE(rangeFieldFormat);
+                SCOPED_TRACE(length);
+                EXPECT_NE(PLDM_SUCCESS,
+                          decode_numeric_sensor_pdr_data(truncated.data(),
+                                                         length, &decodedPdr));
+            }
+        }
+    }
+}
+#endif
+
 TEST(decodeNumericSensorPdrDataDeathTest, InvalidSizeTest)
 {
     // A corrupted PDR. The data after plusTolerance missed.
@@ -5176,7 +6248,7 @@ TEST(decodeNumericSensorPdrDataDeathTest, InvalidSizeTest)
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
 }
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(decodeNumericEffecterPdrData, Uint8Test)
 {
     std::vector<uint8_t> pdr1{
@@ -5290,7 +6362,7 @@ TEST(decodeNumericEffecterPdrData, Uint8Test)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(decodeNumericEffecterPdrData, Sint8Test)
 {
     std::vector<uint8_t> pdr1{
@@ -5379,7 +6451,7 @@ TEST(decodeNumericEffecterPdrData, Sint8Test)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(decodeNumericEffecterPdrData, Uint16Test)
 {
     std::vector<uint8_t> pdr1{
@@ -5476,7 +6548,7 @@ TEST(decodeNumericEffecterPdrData, Uint16Test)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(decodeNumericEffecterPdrData, Sint16Test)
 {
     std::vector<uint8_t> pdr1{
@@ -5573,7 +6645,7 @@ TEST(decodeNumericEffecterPdrData, Sint16Test)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(decodeNumericEffecterPdrData, Uint32Test)
 {
     std::vector<uint8_t> pdr1{
@@ -5684,7 +6756,7 @@ TEST(decodeNumericEffecterPdrData, Uint32Test)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(decodeNumericEffecterPdrData, Sint32Test)
 {
     std::vector<uint8_t> pdr1{
@@ -5794,7 +6866,7 @@ TEST(decodeNumericEffecterPdrData, Sint32Test)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(decodeNumericEffecterPdrData, Real32Test)
 {
     std::vector<uint8_t> pdr1{
@@ -5905,6 +6977,247 @@ TEST(decodeNumericEffecterPdrData, Real32Test)
     EXPECT_FLOAT_EQ(-50.05f, decodedPdr.normal_min.value_f32);
     EXPECT_FLOAT_EQ(300.003f, decodedPdr.rated_max.value_f32);
     EXPECT_FLOAT_EQ(-300.003f, decodedPdr.rated_min.value_f32);
+}
+#endif
+
+#if HAVE_LIBPLDM_ABI_STABLE
+TEST(decodeNumericEffecterPdrData, Uint64Test)
+{
+    std::vector<uint8_t> pdr1{
+        0x1,
+        0x0,
+        0x0,
+        0x0,                       // record handle
+        0x1,                       // PDRHeaderVersion
+        PLDM_NUMERIC_EFFECTER_PDR, // PDRType
+        0x0,
+        0x0, // recordChangeNumber
+        PLDM_PDR_NUMERIC_EFFECTER_PDR_FIXED_LENGTH +
+            PLDM_PDR_NUMERIC_EFFECTER_PDR_VARIED_EFFECTER_DATA_SIZE_MIN_LENGTH *
+                8 +
+            PLDM_PDR_NUMERIC_EFFECTER_PDR_VARIED_RANGE_FIELD_MIN_LENGTH * 8,
+        0, // dataLength
+        0,
+        0, // PLDMTerminusHandle
+        0x1,
+        0x0, // effecterID=1
+        PLDM_ENTITY_POWER_SUPPLY,
+        0, // entityType=Power Supply(120)
+        1,
+        0, // entityInstanceNumber
+        0x1,
+        0x0, // containerID=1
+        0x2,
+        0x0,                            // effecter_semantic_id=2
+        PLDM_NO_INIT,                   // effecterInit
+        false,                          // effecterAuxiliaryNames
+        PLDM_SENSOR_UNIT_DEGRESS_C,     // baseUint(2)=degrees C
+        0,                              // unitModifier
+        0,                              // rateUnit
+        0,                              // baseOEMUnitHandle
+        0,                              // auxUnit
+        0,                              // auxUnitModifier
+        0,                              // auxRateUnit
+        0,                              // auxOEMUnitHandle
+        true,                           // isLinear
+        PLDM_EFFECTER_DATA_SIZE_UINT64, // effecterDataSize
+        0,
+        0,
+        0xc0,
+        0x3f, // resolution=1.5
+        0,
+        0,
+        0x80,
+        0x3f, // offset=1.0
+        0,
+        0, // accuracy
+        0, // plusTolerance
+        0, // minusTolerance
+        0,
+        0,
+        0x80,
+        0x3f, // stateTransistionInterval=1.0
+        0,
+        0,
+        0x80,
+        0x3f // transition_interval=1.0
+    };
+    appendLe64(pdr1, 0x1122334455667788ULL);
+    appendLe64(pdr1, 0ULL);
+    pdr1.push_back(PLDM_RANGE_FIELD_FORMAT_UINT64);
+    pdr1.push_back(0x1f);
+    appendLe64(pdr1, 0x0102030405060708ULL);
+    appendLe64(pdr1, 0x1112131415161718ULL);
+    appendLe64(pdr1, 0x2122232425262728ULL);
+    appendLe64(pdr1, 0x3132333435363738ULL);
+    appendLe64(pdr1, 0x4142434445464748ULL);
+
+    struct pldm_numeric_effecter_value_pdr decodedPdr;
+    auto rc =
+        decode_numeric_effecter_pdr_data(pdr1.data(), pdr1.size(), &decodedPdr);
+    EXPECT_EQ(PLDM_SUCCESS, rc);
+
+    EXPECT_EQ(PLDM_EFFECTER_DATA_SIZE_UINT64, decodedPdr.effecter_data_size);
+    EXPECT_EQ(0x1122334455667788ULL, decodedPdr.max_settable.value_u64);
+    EXPECT_EQ(0ULL, decodedPdr.min_settable.value_u64);
+    EXPECT_EQ(PLDM_RANGE_FIELD_FORMAT_UINT64, decodedPdr.range_field_format);
+    EXPECT_EQ(0x1fu, decodedPdr.range_field_support.byte);
+    EXPECT_EQ(0x0102030405060708ULL, decodedPdr.nominal_value.value_u64);
+    EXPECT_EQ(0x1112131415161718ULL, decodedPdr.normal_max.value_u64);
+    EXPECT_EQ(0x2122232425262728ULL, decodedPdr.normal_min.value_u64);
+    EXPECT_EQ(0x3132333435363738ULL, decodedPdr.rated_max.value_u64);
+    EXPECT_EQ(0x4142434445464748ULL, decodedPdr.rated_min.value_u64);
+}
+
+TEST(decodeNumericEffecterPdrData, Sint64Test)
+{
+    std::vector<uint8_t> pdr1{
+        0x1,
+        0x0,
+        0x0,
+        0x0,                       // record handle
+        0x1,                       // PDRHeaderVersion
+        PLDM_NUMERIC_EFFECTER_PDR, // PDRType
+        0x0,
+        0x0, // recordChangeNumber
+        PLDM_PDR_NUMERIC_EFFECTER_PDR_FIXED_LENGTH +
+            PLDM_PDR_NUMERIC_EFFECTER_PDR_VARIED_EFFECTER_DATA_SIZE_MIN_LENGTH *
+                8 +
+            PLDM_PDR_NUMERIC_EFFECTER_PDR_VARIED_RANGE_FIELD_MIN_LENGTH * 8,
+        0, // dataLength
+        0,
+        0, // PLDMTerminusHandle
+        0x1,
+        0x0, // effecterID=1
+        PLDM_ENTITY_POWER_SUPPLY,
+        0, // entityType=Power Supply(120)
+        1,
+        0, // entityInstanceNumber
+        0x1,
+        0x0, // containerID=1
+        0x2,
+        0x0,                            // effecter_semantic_id=2
+        PLDM_NO_INIT,                   // effecterInit
+        false,                          // effecterAuxiliaryNames
+        PLDM_SENSOR_UNIT_DEGRESS_C,     // baseUint(2)=degrees C
+        0,                              // unitModifier
+        0,                              // rateUnit
+        0,                              // baseOEMUnitHandle
+        0,                              // auxUnit
+        0,                              // auxUnitModifier
+        0,                              // auxRateUnit
+        0,                              // auxOEMUnitHandle
+        true,                           // isLinear
+        PLDM_EFFECTER_DATA_SIZE_SINT64, // effecterDataSize
+        0,
+        0,
+        0,
+        0, // resolution
+        0,
+        0,
+        0,
+        0, // offset
+        0,
+        0, // accuracy
+        0, // plusTolerance
+        0, // minusTolerance
+        0,
+        0,
+        0x80,
+        0x3f, // stateTransistionInterval=1.0
+        0,
+        0,
+        0x80,
+        0x3f // transition_interval=1.0
+    };
+    appendLeS64(pdr1, int64_t{1234567890123});
+    appendLeS64(pdr1, int64_t{-1234567890123});
+    pdr1.push_back(PLDM_RANGE_FIELD_FORMAT_SINT64);
+    pdr1.push_back(0x1f);
+    appendLeS64(pdr1, int64_t{0});
+    appendLeS64(pdr1, int64_t{500000000000});
+    appendLeS64(pdr1, int64_t{-500000000000});
+    appendLeS64(pdr1, int64_t{3000000000000});
+    appendLeS64(pdr1, int64_t{-3000000000000});
+
+    struct pldm_numeric_effecter_value_pdr decodedPdr;
+    auto rc =
+        decode_numeric_effecter_pdr_data(pdr1.data(), pdr1.size(), &decodedPdr);
+    EXPECT_EQ(PLDM_SUCCESS, rc);
+
+    EXPECT_EQ(PLDM_EFFECTER_DATA_SIZE_SINT64, decodedPdr.effecter_data_size);
+    EXPECT_EQ(1234567890123, decodedPdr.max_settable.value_s64);
+    EXPECT_EQ(-1234567890123, decodedPdr.min_settable.value_s64);
+    EXPECT_EQ(PLDM_RANGE_FIELD_FORMAT_SINT64, decodedPdr.range_field_format);
+    EXPECT_EQ(0x1f, decodedPdr.range_field_support.byte);
+    EXPECT_EQ(0, decodedPdr.nominal_value.value_s64);
+    EXPECT_EQ(500000000000, decodedPdr.normal_max.value_s64);
+    EXPECT_EQ(-500000000000, decodedPdr.normal_min.value_s64);
+    EXPECT_EQ(3000000000000, decodedPdr.rated_max.value_s64);
+    EXPECT_EQ(-3000000000000, decodedPdr.rated_min.value_s64);
+}
+
+TEST(decodeNumericEffecterPdrData, RejectsEveryTruncatedUint64Test)
+{
+    auto pdr = makeEffecterPdr64ForTruncation(PLDM_EFFECTER_DATA_SIZE_UINT64,
+                                              PLDM_RANGE_FIELD_FORMAT_UINT64);
+
+    for (size_t length = PLDM_PDR_NUMERIC_EFFECTER_PDR_MIN_LENGTH;
+         length < pdr.size(); ++length)
+    {
+        auto truncated = pdr;
+        setPdrLength(truncated, length);
+
+        struct pldm_numeric_effecter_value_pdr decodedPdr;
+        SCOPED_TRACE(length);
+        EXPECT_NE(PLDM_SUCCESS, decode_numeric_effecter_pdr_data(
+                                    truncated.data(), length, &decodedPdr));
+    }
+}
+
+TEST(decodeNumericEffecterPdrData, RejectsEveryTruncatedSint64Test)
+{
+    auto pdr = makeEffecterPdr64ForTruncation(PLDM_EFFECTER_DATA_SIZE_SINT64,
+                                              PLDM_RANGE_FIELD_FORMAT_SINT64);
+
+    for (size_t length = PLDM_PDR_NUMERIC_EFFECTER_PDR_MIN_LENGTH;
+         length < pdr.size(); ++length)
+    {
+        auto truncated = pdr;
+        setPdrLength(truncated, length);
+
+        struct pldm_numeric_effecter_value_pdr decodedPdr;
+        SCOPED_TRACE(length);
+        EXPECT_NE(PLDM_SUCCESS, decode_numeric_effecter_pdr_data(
+                                    truncated.data(), length, &decodedPdr));
+    }
+}
+
+TEST(decodeNumericEffecterPdrData, RejectsEveryTruncatedValueAndRangeFormat)
+{
+    for (const auto effecterDataSize : numericEffecterDataSizes)
+    {
+        for (const auto rangeFieldFormat : numericRangeFieldFormats)
+        {
+            auto pdr =
+                makeNumericEffecterPdr(effecterDataSize, rangeFieldFormat);
+
+            for (size_t length = PLDM_PDR_NUMERIC_EFFECTER_PDR_MIN_LENGTH;
+                 length < pdr.size(); ++length)
+            {
+                auto truncated = pdr;
+                struct pldm_numeric_effecter_value_pdr decodedPdr{};
+
+                setPdrLength(truncated, length);
+                SCOPED_TRACE(effecterDataSize);
+                SCOPED_TRACE(rangeFieldFormat);
+                SCOPED_TRACE(length);
+                EXPECT_NE(PLDM_SUCCESS,
+                          decode_numeric_effecter_pdr_data(
+                              truncated.data(), length, &decodedPdr));
+            }
+        }
+    }
 }
 #endif
 
@@ -6345,7 +7658,7 @@ TEST(PlatformEventMessage, testBadCperEventDataDecodeRequest)
     free(cperEvent);
 }
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(decodePldmFileDescriptorPdr, oemFileClassificationPresentTest)
 {
     std::vector<uint8_t> pdr1{
@@ -6420,7 +7733,7 @@ TEST(decodePldmFileDescriptorPdr, oemFileClassificationPresentTest)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(decodePldmFileDescriptorPdr, BadTestUnAllocatedPtrParams)
 {
     int rc;
@@ -6464,7 +7777,7 @@ TEST(decodePldmFileDescriptorPdr, BadTestUnAllocatedPtrParams)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(decodePldmFileDescriptorPdr, BadTestInvalidExpectedParamLength)
 {
     int rc;
@@ -6505,7 +7818,7 @@ TEST(decodePldmFileDescriptorPdr, BadTestInvalidExpectedParamLength)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(decodePldmFileDescriptorPdr, BadTestDataBufferOverLength)
 {
     int rc;
@@ -6645,6 +7958,304 @@ TEST(GetTerminusUID, testGoodDecodeResponse)
         }
     }
     EXPECT_EQ(uuidMatched, true);
+}
+
+#if HAVE_LIBPLDM_ABI_STABLE
+TEST(PlatformStableAbiCoverage, SetStateEffecterEncodeErrors)
+{
+    std::array<uint8_t, hdrSize + PLDM_SET_STATE_EFFECTER_STATES_REQ_BYTES>
+        requestStorage{};
+    std::array<uint8_t, hdrSize + PLDM_SET_STATE_EFFECTER_STATES_RESP_BYTES>
+        responseStorage{};
+    std::array<uint8_t, hdrSize +
+                            PLDM_GET_STATE_EFFECTER_STATES_MIN_RESP_BYTES +
+                            sizeof(get_effecter_state_field)>
+        getStateResponseStorage{};
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto* request = reinterpret_cast<pldm_msg*>(requestStorage.data());
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto* response = reinterpret_cast<pldm_msg*>(responseStorage.data());
+    auto* getStateResponse =
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        reinterpret_cast<pldm_msg*>(getStateResponseStorage.data());
+    set_effecter_state_field field{};
+    pldm_get_state_effecter_states_resp getStateResp{};
+
+    EXPECT_EQ(encode_set_state_effecter_states_resp(0, PLDM_SUCCESS, nullptr),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(encode_set_state_effecter_states_resp(32, PLDM_SUCCESS, response),
+              PLDM_ERROR_INVALID_DATA);
+
+    EXPECT_EQ(encode_set_state_effecter_states_req(0, 1, 1, &field, nullptr),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(encode_set_state_effecter_states_req(0, 1, 0, &field, request),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(encode_set_state_effecter_states_req(0, 1, 9, &field, request),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(encode_set_state_effecter_states_req(0, 1, 1, nullptr, request),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(encode_set_state_effecter_states_req(32, 1, 1, &field, request),
+              PLDM_ERROR_INVALID_DATA);
+
+    EXPECT_EQ(encode_get_state_effecter_states_resp(
+                  0, &getStateResp, nullptr,
+                  getStateResponseStorage.size() - hdrSize),
+              -EINVAL);
+    EXPECT_EQ(encode_get_state_effecter_states_resp(
+                  0, nullptr, getStateResponse,
+                  getStateResponseStorage.size() - hdrSize),
+              -EINVAL);
+    getStateResp.comp_effecter_count = 0;
+    EXPECT_EQ(encode_get_state_effecter_states_resp(
+                  0, &getStateResp, getStateResponse,
+                  getStateResponseStorage.size() - hdrSize),
+              -EBADMSG);
+    getStateResp.comp_effecter_count =
+        PLDM_GET_EFFECTER_STATE_FIELD_COUNT_MAX + 1;
+    EXPECT_EQ(encode_get_state_effecter_states_resp(
+                  0, &getStateResp, getStateResponse,
+                  getStateResponseStorage.size() - hdrSize),
+              -EBADMSG);
+    getStateResp.comp_effecter_count = 1;
+    EXPECT_EQ(encode_get_state_effecter_states_resp(
+                  32, &getStateResp, getStateResponse,
+                  getStateResponseStorage.size() - hdrSize),
+              -EINVAL);
+    EXPECT_EQ(encode_get_state_effecter_states_resp(0, &getStateResp,
+                                                    getStateResponse, 1),
+              -EOVERFLOW);
+}
+
+TEST(PlatformStableAbiCoverage, EventReceiverAndTerminusErrors)
+{
+    std::array<uint8_t, hdrSize + PLDM_SET_EVENT_RECEIVER_REQ_BYTES>
+        setEventStorage{};
+    std::array<uint8_t, hdrSize> terminusReqStorage{};
+    std::array<uint8_t, hdrSize + PLDM_GET_TERMINUS_UID_RESP_BYTES + 1>
+        terminusRespStorage{};
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto* setEvent = reinterpret_cast<pldm_msg*>(setEventStorage.data());
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto* terminusReq = reinterpret_cast<pldm_msg*>(terminusReqStorage.data());
+    auto* terminusResp =
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        reinterpret_cast<pldm_msg*>(terminusRespStorage.data());
+
+    EXPECT_EQ(encode_set_event_receiver_req(
+                  0, PLDM_EVENT_MESSAGE_GLOBAL_ENABLE_ASYNC,
+                  PLDM_TRANSPORT_PROTOCOL_TYPE_MCTP, 8, 0, nullptr),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(
+        encode_set_event_receiver_req(0, PLDM_EVENT_MESSAGE_GLOBAL_ENABLE_ASYNC,
+                                      0xff, 8, 0, setEvent),
+        PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(encode_set_event_receiver_req(
+                  32, PLDM_EVENT_MESSAGE_GLOBAL_ENABLE_ASYNC,
+                  PLDM_TRANSPORT_PROTOCOL_TYPE_MCTP, 8, 0, setEvent),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(encode_set_event_receiver_req(
+                  0, PLDM_EVENT_MESSAGE_GLOBAL_ENABLE_ASYNC,
+                  PLDM_TRANSPORT_PROTOCOL_TYPE_MCTP, 8, 0, setEvent),
+              PLDM_SUCCESS);
+
+    EXPECT_EQ(encode_get_terminus_uid_req(0, nullptr), PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(encode_get_terminus_uid_req(32, terminusReq),
+              PLDM_ERROR_INVALID_DATA);
+
+    uint8_t completionCode = 0;
+    uint8_t uuid[16]{};
+    EXPECT_EQ(decode_get_terminus_UID_resp(nullptr,
+                                           PLDM_GET_TERMINUS_UID_RESP_BYTES,
+                                           &completionCode, uuid),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(decode_get_terminus_UID_resp(terminusResp,
+                                           PLDM_GET_TERMINUS_UID_RESP_BYTES,
+                                           &completionCode, nullptr),
+              PLDM_ERROR_INVALID_DATA);
+
+    terminusResp->payload[0] = PLDM_ERROR;
+    EXPECT_EQ(decode_get_terminus_UID_resp(terminusResp, sizeof(completionCode),
+                                           &completionCode, uuid),
+              PLDM_SUCCESS);
+    EXPECT_EQ(completionCode, PLDM_ERROR);
+
+    terminusResp->payload[0] = PLDM_SUCCESS;
+    EXPECT_EQ(decode_get_terminus_UID_resp(terminusResp,
+                                           PLDM_GET_TERMINUS_UID_RESP_BYTES + 1,
+                                           &completionCode, uuid),
+              PLDM_ERROR_INVALID_LENGTH);
+}
+
+TEST(PlatformStableAbiCoverage, PdrDecoderInvalidInputs)
+{
+    uint8_t data[sizeof(pldm_pdr_hdr)]{};
+    pldm_numeric_sensor_value_pdr sensorPdr{};
+    pldm_numeric_effecter_value_pdr effecterPdr{};
+    pldm_entity_auxiliary_names_pdr entityPdr{};
+    pldm_entity_auxiliary_name name{};
+
+    EXPECT_EQ(decode_numeric_sensor_pdr_data(nullptr, 0, &sensorPdr),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(decode_numeric_sensor_pdr_data(data, sizeof(data), nullptr),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(decode_numeric_effecter_pdr_data(nullptr, 0, &effecterPdr),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(decode_numeric_effecter_pdr_data(data, sizeof(data), nullptr),
+              PLDM_ERROR_INVALID_DATA);
+
+    EXPECT_EQ(decode_entity_auxiliary_names_pdr(nullptr, sizeof(data),
+                                                &entityPdr, sizeof(entityPdr)),
+              -EINVAL);
+    EXPECT_EQ(decode_entity_auxiliary_names_pdr(data, sizeof(data), nullptr,
+                                                sizeof(entityPdr)),
+              -EINVAL);
+    EXPECT_EQ(decode_entity_auxiliary_names_pdr(data, sizeof(data), &entityPdr,
+                                                sizeof(entityPdr) - 1),
+              -EINVAL);
+
+    EXPECT_EQ(decode_pldm_entity_auxiliary_names_pdr_index(nullptr), -EINVAL);
+    entityPdr.name_string_count = 0;
+    entityPdr.names = &name;
+    EXPECT_EQ(decode_pldm_entity_auxiliary_names_pdr_index(&entityPdr),
+              -EINVAL);
+    entityPdr.name_string_count = 1;
+    entityPdr.names = nullptr;
+    EXPECT_EQ(decode_pldm_entity_auxiliary_names_pdr_index(&entityPdr),
+              -EINVAL);
+    entityPdr.name_string_count = 0;
+    EXPECT_EQ(decode_pldm_entity_auxiliary_names_pdr_index(&entityPdr), 0);
+}
+
+TEST(PlatformStableAbiCoverage, PdrHeaderRejectsOutOfRangePayloadLength)
+{
+    pldm_numeric_sensor_value_pdr sensorPdr{};
+    pldm_numeric_effecter_value_pdr effecterPdr{};
+    pldm_entity_auxiliary_names_pdr entityPdr{};
+    pldm_platform_file_descriptor_pdr filePdr{};
+
+    std::vector<uint8_t> sensor(PLDM_PDR_NUMERIC_SENSOR_PDR_MIN_LENGTH);
+    setPdrLength(sensor, 0);
+    EXPECT_EQ(decode_numeric_sensor_pdr_data(sensor.data(), sensor.size(),
+                                             &sensorPdr),
+              PLDM_ERROR_INVALID_LENGTH);
+    setPdrLength(sensor, UINT16_MAX);
+    EXPECT_EQ(decode_numeric_sensor_pdr_data(sensor.data(), sensor.size(),
+                                             &sensorPdr),
+              PLDM_ERROR_INVALID_LENGTH);
+
+    std::vector<uint8_t> effecter(PLDM_PDR_NUMERIC_EFFECTER_PDR_MIN_LENGTH);
+#ifndef NDEBUG
+    setPdrLength(effecter, 0);
+    EXPECT_GCOV_ABORT((void)decode_numeric_effecter_pdr_data(
+        effecter.data(), effecter.size(), &effecterPdr));
+    setPdrLength(effecter, UINT16_MAX);
+    EXPECT_GCOV_ABORT((void)decode_numeric_effecter_pdr_data(
+        effecter.data(), effecter.size(), &effecterPdr));
+#else
+    setPdrLength(effecter, 0);
+    EXPECT_EQ(decode_numeric_effecter_pdr_data(effecter.data(), effecter.size(),
+                                               &effecterPdr),
+              PLDM_ERROR_INVALID_LENGTH);
+    setPdrLength(effecter, UINT16_MAX);
+    EXPECT_EQ(decode_numeric_effecter_pdr_data(effecter.data(), effecter.size(),
+                                               &effecterPdr),
+              PLDM_ERROR_INVALID_LENGTH);
+#endif
+
+    std::vector<uint8_t> entityShort(
+        PLDM_PDR_ENTITY_AUXILIARY_NAME_PDR_MIN_LENGTH);
+    EXPECT_EQ(decode_entity_auxiliary_names_pdr(entityShort.data(),
+                                                entityShort.size(), &entityPdr,
+                                                sizeof(entityPdr)),
+              -EOVERFLOW);
+
+    std::vector<uint8_t> entity(sizeof(pldm_pdr_hdr));
+    setPdrLength(entity, UINT16_MAX);
+    EXPECT_EQ(decode_entity_auxiliary_names_pdr(entity.data(), entity.size(),
+                                                &entityPdr, sizeof(entityPdr)),
+              -EOVERFLOW);
+
+    std::vector<uint8_t> file(PLDM_PDR_FILE_DESCRIPTOR_PDR_MIN_LENGTH);
+    setPdrLength(file, 0);
+    EXPECT_EQ(decode_pldm_platform_file_descriptor_pdr(file.data(), file.size(),
+                                                       &filePdr),
+              -EOVERFLOW);
+    setPdrLength(file, UINT16_MAX);
+    EXPECT_EQ(decode_pldm_platform_file_descriptor_pdr(file.data(), file.size(),
+                                                       &filePdr),
+              -EOVERFLOW);
+}
+
+TEST(PlatformStableAbiCoverage, FileDescriptorPdrAcceptsMinimalValidRecord)
+{
+    std::vector<uint8_t> file{
+        0x01,
+        0x00,
+        0x00,
+        0x00,                     // Record handle
+        0x01,                     // PDR header version
+        PLDM_FILE_DESCRIPTOR_PDR, // PDR type
+        0x00,
+        0x00, // Record change number
+        0x1a,
+        0x00, // Data length
+        0x01,
+        0x00, // Terminus handle
+        0x02,
+        0x00, // File identifier
+        0x14,
+        0x00, // Entity type
+        0x01,
+        0x00, // Entity instance number
+        0x00,
+        0x00, // Container ID
+        0x00,
+        0x00, // Superior directory file identifier
+        0x01, // File classification
+        0x00, // OEM file classification
+        0x00,
+        0x00, // File capabilities
+        0x01,
+        0x02,
+        0x03,
+        0x04, // File version
+        0x00,
+        0x04,
+        0x00,
+        0x00, // File maximum size
+        0x01, // File maximum descriptor count
+        0x00, // File name length
+    };
+    pldm_platform_file_descriptor_pdr decoded{};
+
+    ASSERT_EQ(file.size(), PLDM_PDR_FILE_DESCRIPTOR_PDR_MIN_LENGTH);
+    EXPECT_EQ(decode_pldm_platform_file_descriptor_pdr(file.data(), file.size(),
+                                                       &decoded),
+              0);
+    EXPECT_EQ(decoded.hdr.length,
+              PLDM_PDR_FILE_DESCRIPTOR_PDR_MIN_LENGTH - sizeof(pldm_pdr_hdr));
+    EXPECT_EQ(decoded.file_identifier, 2);
+    EXPECT_EQ(decoded.file_name.length, 0u);
+    EXPECT_EQ(decoded.oem_file_classification_name.length, 0u);
+}
+#endif
+
+TEST(PlatformTestingAbiCoverage, SensorEnableDecoderErrors)
+{
+    std::array<uint8_t,
+               hdrSize + 3 + PLDM_SET_STATE_SENSOR_ENABLES_MAX_COUNT * 2>
+        storage{};
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto* msg = reinterpret_cast<pldm_msg*>(storage.data());
+    pldm_set_numeric_sensor_enable_req numericReq{};
+    pldm_set_state_sensor_enables_req stateReq{};
+
+    EXPECT_EQ(decode_set_numeric_sensor_enable_req(nullptr, 0, &numericReq),
+              -EINVAL);
+    EXPECT_EQ(decode_set_numeric_sensor_enable_req(msg, 0, nullptr), -EINVAL);
+    EXPECT_EQ(decode_set_state_sensor_enables_req(nullptr, 0, &stateReq),
+              -EINVAL);
+    EXPECT_EQ(decode_set_state_sensor_enables_req(msg, 0, nullptr), -EINVAL);
 }
 
 TEST(DecodeNumericSensorEventData, testGoodDecodeUint64)
@@ -6948,6 +8559,29 @@ TEST(DecodeNumericSensorEventData, testBadDecodeInsufficientDataForSize)
 
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
 }
+
+#if HAVE_LIBPLDM_ABI_STABLE
+TEST(DecodeNumericSensorEventData, testRejectsEveryTruncatedSize)
+{
+    for (uint8_t dataSize : numericSensorDataSizes)
+    {
+        auto eventData = makeNumericSensorEventData(dataSize);
+
+        for (size_t eventDataLength =
+                 PLDM_SENSOR_EVENT_NUMERIC_SENSOR_STATE_MIN_DATA_LENGTH;
+             eventDataLength < eventData.size(); ++eventDataLength)
+        {
+            struct pldm_numeric_sensor_event_data decodedData = {};
+
+            SCOPED_TRACE(dataSize);
+            SCOPED_TRACE(eventDataLength);
+            EXPECT_EQ(decode_numeric_sensor_event_data(
+                          eventData.data(), eventDataLength, &decodedData),
+                      PLDM_ERROR_INVALID_LENGTH);
+        }
+    }
+}
+#endif
 
 TEST(DecodeNumericSensorEventData, testGoodDecodeBoundaryValuesUint64Max)
 {
@@ -7390,7 +9024,7 @@ TEST(EncodePdrRepositoryChgEventData, testBadBufferTooSmall)
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
 }
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 namespace
 {
 void createFileDescriptorPDR(pldm_platform_file_descriptor_pdr& pdr,

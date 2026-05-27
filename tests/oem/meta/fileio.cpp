@@ -239,7 +239,7 @@ TEST(EncodeOemMetaFileIoReadResp, testInvalidDataEncodeResponse)
     EXPECT_EQ(rc, -EOVERFLOW);
 }
 
-#ifdef LIBPLDM_API_DEPRECATED
+#if HAVE_LIBPLDM_ABI_DEPRECATED
 TEST(DecodeOemMetaFileIoReq, testGoodDecodeRequest)
 {
     constexpr uint8_t fileHandle = 0x01;
@@ -277,7 +277,22 @@ TEST(DecodeOemMetaFileIoReq, testGoodDecodeRequest)
 
 TEST(DecodeOemMetaFileIoReq, testBadNullArgs)
 {
-    EXPECT_NE(
-        decode_oem_meta_file_io_req(nullptr, 0, nullptr, nullptr, nullptr), 0);
+    EXPECT_EQ(
+        decode_oem_meta_file_io_req(nullptr, 0, nullptr, nullptr, nullptr),
+        PLDM_ERROR_INVALID_DATA);
+}
+
+TEST(DecodeOemMetaFileIoReq, testBadLength)
+{
+    pldm_msg msg{};
+    uint8_t fileHandle = 0;
+    uint32_t length = 0;
+    uint8_t data[1] = {};
+
+    EXPECT_EQ(
+        decode_oem_meta_file_io_req(&msg, SIZE_MAX, &fileHandle, &length, data),
+        PLDM_ERROR_INVALID_LENGTH);
+    EXPECT_EQ(decode_oem_meta_file_io_req(&msg, 0, &fileHandle, &length, data),
+              PLDM_ERROR_INVALID_LENGTH);
 }
 #endif

@@ -925,7 +925,7 @@ TEST(SetFRURecordTable, testBadDecodeRequest)
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
 }
 
-#ifdef LIBPLDM_API_DEPRECATED
+#if HAVE_LIBPLDM_ABI_DEPRECATED
 TEST(EncodeFruRecord, testGoodEncode)
 {
     constexpr size_t totalSize = 256;
@@ -976,6 +976,69 @@ TEST(EncodeFruRecord, testBadInsufficientSpace)
                          0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C};
     EXPECT_EQ(encode_fru_record(table.data(), 4, &curr, 1, 1, 1, 1, tlvData,
                                 sizeof(tlvData)),
+              PLDM_ERROR_INVALID_LENGTH);
+}
+#endif
+
+#if HAVE_LIBPLDM_ABI_STABLE
+TEST(FruStableAbiCoverage, testErrorBranches)
+{
+    std::array<uint8_t, sizeof(pldm_msg_hdr) +
+                            PLDM_GET_FRU_RECORD_TABLE_METADATA_RESP_BYTES>
+        metadataStorage{};
+    auto* metadataMsg =
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        reinterpret_cast<pldm_msg*>(metadataStorage.data());
+
+    uint8_t completionCode = 0;
+    uint8_t major = 0;
+    uint8_t minor = 0;
+    uint32_t maximumSize = 0;
+    uint32_t tableLength = 0;
+    uint16_t recordSetIdentifiers = 0;
+    uint16_t tableRecords = 0;
+    uint32_t checksum = 0;
+
+    EXPECT_EQ(decode_get_fru_record_table_metadata_resp(
+                  nullptr, PLDM_GET_FRU_RECORD_TABLE_METADATA_RESP_BYTES,
+                  &completionCode, &major, &minor, &maximumSize, &tableLength,
+                  &recordSetIdentifiers, &tableRecords, &checksum),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(decode_get_fru_record_table_metadata_resp(
+                  metadataMsg, PLDM_GET_FRU_RECORD_TABLE_METADATA_RESP_BYTES,
+                  nullptr, &major, &minor, &maximumSize, &tableLength,
+                  &recordSetIdentifiers, &tableRecords, &checksum),
+              PLDM_ERROR_INVALID_DATA);
+
+    metadataMsg->payload[0] = PLDM_ERROR;
+    EXPECT_EQ(decode_get_fru_record_table_metadata_resp(
+                  metadataMsg, sizeof(completionCode), &completionCode, &major,
+                  &minor, &maximumSize, &tableLength, &recordSetIdentifiers,
+                  &tableRecords, &checksum),
+              PLDM_SUCCESS);
+    EXPECT_EQ(completionCode, PLDM_ERROR);
+
+    std::array<uint8_t,
+               sizeof(pldm_msg_hdr) + PLDM_SET_FRU_RECORD_TABLE_MIN_REQ_BYTES>
+        setStorage{};
+    auto* setMsg =
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        reinterpret_cast<pldm_msg*>(setStorage.data());
+    uint32_t transferHandle = 0;
+    uint8_t transferFlag = 0;
+    variable_field table{};
+
+    EXPECT_EQ(decode_set_fru_record_table_req(
+                  nullptr, PLDM_SET_FRU_RECORD_TABLE_MIN_REQ_BYTES,
+                  &transferHandle, &transferFlag, &table),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(decode_set_fru_record_table_req(
+                  setMsg, PLDM_SET_FRU_RECORD_TABLE_MIN_REQ_BYTES, nullptr,
+                  &transferFlag, &table),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(decode_set_fru_record_table_req(
+                  setMsg, PLDM_SET_FRU_RECORD_TABLE_MIN_REQ_BYTES - 1,
+                  &transferHandle, &transferFlag, &table),
               PLDM_ERROR_INVALID_LENGTH);
 }
 #endif

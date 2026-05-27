@@ -11,7 +11,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(EncodeDfOpenReq, GoodTest)
 {
     uint8_t instance_id = 0;
@@ -37,7 +37,7 @@ TEST(EncodeDfOpenReq, GoodTest)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(EncodeDfOpenReq, BadTestUnAllocatedPtrParams)
 {
     uint8_t instance_id = 0;
@@ -63,7 +63,7 @@ TEST(EncodeDfOpenReq, BadTestUnAllocatedPtrParams)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(EncodeDfOpenReq, BadTestInvalidExpectedOutputMsgLength)
 {
     uint8_t instance_id = 0;
@@ -85,7 +85,7 @@ TEST(EncodeDfOpenReq, BadTestInvalidExpectedOutputMsgLength)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(DecodeDfOpenResp, GoodTest)
 {
     uint8_t completion_code = PLDM_SUCCESS;
@@ -116,7 +116,7 @@ TEST(DecodeDfOpenResp, GoodTest)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(DecodeDfOpenResp, BadTestUnAllocatedPtrParams)
 {
     uint8_t completion_code = PLDM_SUCCESS;
@@ -147,7 +147,7 @@ TEST(DecodeDfOpenResp, BadTestUnAllocatedPtrParams)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(DecodeDfOpenResp, BadTestInvalidExpectedInputMsgLength)
 {
     uint8_t completion_code = PLDM_SUCCESS;
@@ -175,7 +175,7 @@ TEST(DecodeDfOpenResp, BadTestInvalidExpectedInputMsgLength)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(EncodeDfCloseReq, GoodTest)
 {
     uint8_t instance_id = 0;
@@ -183,7 +183,7 @@ TEST(EncodeDfCloseReq, GoodTest)
     bitfield16_t df_close_options;
     df_close_options.value = 0x0100;
 
-    static constexpr const size_t requestMsgLength = PLDM_DF_OPEN_REQ_BYTES;
+    static constexpr const size_t requestMsgLength = PLDM_DF_CLOSE_REQ_BYTES;
     std::array<uint8_t, requestMsgLength> requestMsg = {0x00, 0x02, 0x00, 0x01};
 
     const struct pldm_file_df_close_req req_data = {file_descriptor,
@@ -201,7 +201,7 @@ TEST(EncodeDfCloseReq, GoodTest)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(EncodeDfCloseReq, BadTestUnAllocatedPtrParams)
 {
     uint8_t instance_id = 0;
@@ -210,7 +210,7 @@ TEST(EncodeDfCloseReq, BadTestUnAllocatedPtrParams)
     df_close_options.value = 0x0100;
     int rc;
 
-    static constexpr const size_t requestMsgLength = PLDM_DF_OPEN_REQ_BYTES;
+    static constexpr const size_t requestMsgLength = PLDM_DF_CLOSE_REQ_BYTES;
 
     const struct pldm_file_df_close_req req_data = {file_descriptor,
                                                     df_close_options};
@@ -227,7 +227,7 @@ TEST(EncodeDfCloseReq, BadTestUnAllocatedPtrParams)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(EncodeDfCloseReq, BadTestInvalidExpectedOutputMsgLength)
 {
     uint8_t instance_id = 0;
@@ -236,7 +236,7 @@ TEST(EncodeDfCloseReq, BadTestInvalidExpectedOutputMsgLength)
     df_close_options.value = 0x0100;
     int rc;
 
-    static constexpr const size_t requestMsgLength = PLDM_DF_OPEN_REQ_BYTES;
+    static constexpr const size_t requestMsgLength = PLDM_DF_CLOSE_REQ_BYTES;
 
     const struct pldm_file_df_close_req req_data = {file_descriptor,
                                                     df_close_options};
@@ -249,7 +249,7 @@ TEST(EncodeDfCloseReq, BadTestInvalidExpectedOutputMsgLength)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(DecodeDfCloseResp, GoodTest)
 {
     uint8_t completion_code = PLDM_SUCCESS;
@@ -278,7 +278,7 @@ TEST(DecodeDfCloseResp, GoodTest)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(DecodeDfCloseResp, BadTestUnAllocatedPtrParams)
 {
     uint8_t completion_code = PLDM_SUCCESS;
@@ -307,7 +307,7 @@ TEST(DecodeDfCloseResp, BadTestUnAllocatedPtrParams)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(EncodeDfHeartbeatReq, GoodTest)
 {
     uint8_t instance_id = 0;
@@ -334,7 +334,7 @@ TEST(EncodeDfHeartbeatReq, GoodTest)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(EncodeDfHeartbeatReq, BadTestUnAllocatedPtrParams)
 {
     uint8_t instance_id = 0;
@@ -360,7 +360,7 @@ TEST(EncodeDfHeartbeatReq, BadTestUnAllocatedPtrParams)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(EncodeDfHeartbeatReq, BadTestInvalidExpectedOutputMsgLength)
 {
     uint8_t instance_id = 0;
@@ -382,7 +382,7 @@ TEST(EncodeDfHeartbeatReq, BadTestInvalidExpectedOutputMsgLength)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(DecodeDfHeartbeatResp, GoodTest)
 {
     uint8_t completion_code = PLDM_SUCCESS;
@@ -414,7 +414,7 @@ TEST(DecodeDfHeartbeatResp, GoodTest)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(DecodeDfHeartbeatResp, BadTestUnAllocatedPtrParams)
 {
     uint8_t completion_code = PLDM_SUCCESS;
@@ -447,7 +447,7 @@ TEST(DecodeDfHeartbeatResp, BadTestUnAllocatedPtrParams)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(DecodeDfHeartbeatResp, BadTestInvalidExpectedInputMsgLength)
 {
     uint8_t completion_code = PLDM_SUCCESS;
@@ -475,7 +475,7 @@ TEST(DecodeDfHeartbeatResp, BadTestInvalidExpectedInputMsgLength)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(EncodeDfOpenResp, GoodTest)
 {
     uint8_t instance_id = 0;
@@ -499,7 +499,7 @@ TEST(EncodeDfOpenResp, GoodTest)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(EncodeDfOpenResp, BadTestUnAllocatedPtrParams)
 {
     uint8_t instance_id = 0;
@@ -515,13 +515,13 @@ TEST(EncodeDfOpenResp, BadTestUnAllocatedPtrParams)
                                        &payload_length);
     EXPECT_EQ(rc, -EINVAL);
 
-    rc = encode_pldm_file_df_open_req(instance_id, nullptr, responsePtr,
-                                      &payload_length);
+    rc = encode_pldm_file_df_open_resp(instance_id, nullptr, responsePtr,
+                                       &payload_length);
     EXPECT_EQ(rc, -EINVAL);
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(EncodeDfOpenResp, BadTestInvalidExpectedOutputMsgLength)
 {
     uint8_t instance_id = 0;
@@ -540,7 +540,7 @@ TEST(EncodeDfOpenResp, BadTestInvalidExpectedOutputMsgLength)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(EncodeDfOpenResp, GoodTestCompletionCode)
 {
     uint8_t instance_id = 0;
@@ -559,7 +559,7 @@ TEST(EncodeDfOpenResp, GoodTestCompletionCode)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(DecodeDfOpenReq, GoodTest)
 {
     uint16_t file_identifier = 0x0100;
@@ -591,7 +591,7 @@ TEST(DecodeDfOpenReq, GoodTest)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(DecodeDfOpenReq, BadTestUnAllocatedPtrParams)
 {
     uint16_t file_identifier = 0x0100;
@@ -623,7 +623,7 @@ TEST(DecodeDfOpenReq, BadTestUnAllocatedPtrParams)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(DecodeDfOpenReq, BadTestInvalidExpectedInputMsgLength)
 {
     uint16_t file_identifier = 0x0100;
@@ -652,7 +652,7 @@ TEST(DecodeDfOpenReq, BadTestInvalidExpectedInputMsgLength)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(EncodeDfCloseResp, GoodTest)
 {
     uint8_t instance_id = 0;
@@ -672,7 +672,7 @@ TEST(EncodeDfCloseResp, GoodTest)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(EncodeDfCloseResp, BadTestUnAllocatedPtrParams)
 {
     uint8_t instance_id = 0;
@@ -692,7 +692,7 @@ TEST(EncodeDfCloseResp, BadTestUnAllocatedPtrParams)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(DecodeDfCloseReq, GoodTest)
 {
     uint16_t file_descriptor = 0x1000;
@@ -724,7 +724,7 @@ TEST(DecodeDfCloseReq, GoodTest)
 }
 #endif
 
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(DecodeDfCloseReq, BadTestUnAllocatedPtrParams)
 {
     uint16_t file_descriptor = 0x1000;

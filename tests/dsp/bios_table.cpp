@@ -3,9 +3,12 @@
 #include <libpldm/bios.h>
 #include <libpldm/bios_table.h>
 #include <libpldm/edac.h>
+#include <sys/resource.h>
 
 #include <algorithm>
+#include <csignal>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <iterator>
 #include <string>
@@ -14,6 +17,25 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+#if defined(__has_include)
+#if __has_include(<valgrind/valgrind.h>)
+#include <valgrind/valgrind.h>
+#endif
+#endif
+
+#ifndef RUNNING_ON_VALGRIND
+#define RUNNING_ON_VALGRIND 0
+#endif
+
+#if (defined(__has_feature) && __has_feature(address_sanitizer)) ||            \
+    defined(__SANITIZE_ADDRESS__)
+#define TEST_HAS_ADDRESS_SANITIZER 1
+#endif
+
+#ifndef TEST_HAS_ADDRESS_SANITIZER
+#define TEST_HAS_ADDRESS_SANITIZER 0
+#endif
 
 using testing::ElementsAreArray;
 using Table = std::vector<uint8_t>;
@@ -1195,3 +1217,397 @@ TEST(BIOSTableChecksum, testBIOSTableChecksum)
     EXPECT_EQ(true,
               pldm_bios_table_checksum(stringTable.data(), stringTable.size()));
 }
+
+#if HAVE_LIBPLDM_ABI_STABLE
+TEST(BiosTableStableAbiCoverage, StringEntryRejectsInvalidInputs)
+{
+    const char str[] = "abc";
+    std::vector<uint8_t> entry(
+        pldm_bios_table_string_entry_encode_length(std::strlen(str)));
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto stringEntry =
+        reinterpret_cast<pldm_bios_string_table_entry*>(entry.data());
+    // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
+
+    EXPECT_EQ(pldm_bios_table_string_entry_encode(nullptr, entry.size(), str,
+                                                  std::strlen(str)),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(pldm_bios_table_string_entry_encode(entry.data(), entry.size(),
+                                                  nullptr, std::strlen(str)),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(
+        pldm_bios_table_string_entry_encode(entry.data(), entry.size(), str, 0),
+        PLDM_ERROR_INVALID_DATA);
+
+    char buffer[4]{};
+    EXPECT_EQ(pldm_bios_table_string_entry_decode_string(nullptr, buffer,
+                                                         sizeof(buffer)),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(pldm_bios_table_string_entry_decode_string(stringEntry, nullptr,
+                                                         sizeof(buffer)),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(
+        pldm_bios_table_string_entry_decode_string(stringEntry, buffer, 0),
+        PLDM_ERROR_INVALID_LENGTH);
+}
+
+TEST(BiosTableStableAbiCoverage, AttributeStringInfoValidation)
+{
+    const char* errmsg = nullptr;
+    pldm_bios_table_attr_entry_string_info info{1, false, 1, 3, 3, 2, "ab"};
+
+    EXPECT_EQ(pldm_bios_table_attr_entry_string_info_check(&info, &errmsg),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_STREQ("Wrong DefaultStringLength", errmsg);
+
+    info = {1, false, 1, 2, 3, 4, "abcd"};
+    EXPECT_EQ(pldm_bios_table_attr_entry_string_info_check(&info, &errmsg),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_STREQ("Wrong DefaultStringLength", errmsg);
+
+    info = {1, false, 0xfe, 0, 3, 3, "abc"};
+    EXPECT_EQ(pldm_bios_table_attr_entry_string_info_check(&info, &errmsg),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_STREQ("Wrong StringType", errmsg);
+
+    info = {1, false, 1, 0, 4, 3, "abcd"};
+    EXPECT_EQ(pldm_bios_table_attr_entry_string_info_check(&info, &errmsg),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_STREQ("Length of DefaultString should be equal to "
+                 "DefaultStringLength",
+                 errmsg);
+}
+
+TEST(BiosTableStableAbiCoverage, AttributeStringEncodeRejectsInvalidInputs)
+{
+    pldm_bios_table_attr_entry_string_info info{1, false, 1, 0, 3, 3, "abc"};
+    std::vector<uint8_t> entry(
+        pldm_bios_table_attr_entry_string_encode_length(info.def_length));
+
+    EXPECT_EQ(
+        pldm_bios_table_attr_entry_string_encode(nullptr, entry.size(), &info),
+        PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(pldm_bios_table_attr_entry_string_encode(entry.data(),
+                                                       entry.size(), nullptr),
+              PLDM_ERROR_INVALID_DATA);
+
+    char buffer[4]{};
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto attrEntry =
+        reinterpret_cast<pldm_bios_attr_table_entry*>(entry.data());
+    // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
+    attrEntry->attr_type = PLDM_BIOS_INTEGER;
+    EXPECT_EQ(pldm_bios_table_attr_entry_string_decode_def_string(
+                  nullptr, buffer, sizeof(buffer)),
+              0);
+    EXPECT_EQ(pldm_bios_table_attr_entry_string_decode_def_string(
+                  attrEntry, nullptr, sizeof(buffer)),
+              0);
+    EXPECT_EQ(pldm_bios_table_attr_entry_string_decode_def_string(attrEntry,
+                                                                  buffer, 0),
+              0);
+    EXPECT_EQ(pldm_bios_table_attr_entry_string_decode_def_string(
+                  attrEntry, buffer, sizeof(buffer)),
+              0);
+}
+
+TEST(BiosTableStableAbiCoverage, AttributeIntegerInfoValidation)
+{
+    const char* errmsg = nullptr;
+    pldm_bios_table_attr_entry_integer_info info{1, false, 5, 5, 0, 5};
+
+    EXPECT_EQ(pldm_bios_table_attr_entry_integer_info_check(&info, &errmsg),
+              PLDM_SUCCESS);
+
+    info = {1, false, 5, 5, 0, 4};
+    EXPECT_EQ(pldm_bios_table_attr_entry_integer_info_check(&info, &errmsg),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_STREQ("Wrong DefaultValue", errmsg);
+
+    info = {1, false, 5, 5, 1, 5};
+    EXPECT_EQ(pldm_bios_table_attr_entry_integer_info_check(&info, &errmsg),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_STREQ("Wrong ScalarIncrement", errmsg);
+
+    info = {1, false, 1, 10, 2, 11};
+    EXPECT_EQ(pldm_bios_table_attr_entry_integer_info_check(&info, &errmsg),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_STREQ("Wrong DefaultValue", errmsg);
+
+    info = {1, false, 1, 10, 0, 5};
+    EXPECT_EQ(pldm_bios_table_attr_entry_integer_info_check(&info, &errmsg),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_STREQ("ScalarIncrement should not be zero when "
+                 "lower_bound != upper_bound",
+                 errmsg);
+
+    info = {1, false, 1, 10, 4, 6};
+    EXPECT_EQ(pldm_bios_table_attr_entry_integer_info_check(&info, &errmsg),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_STREQ("Wrong DefaultValue or ScalarIncrement", errmsg);
+}
+
+TEST(BiosTableStableAbiCoverage, AttributeIntegerEncodeRejectsInvalidInputs)
+{
+    pldm_bios_table_attr_entry_integer_info info{1, false, 1, 10, 1, 5};
+    std::vector<uint8_t> entry(
+        pldm_bios_table_attr_entry_integer_encode_length());
+
+    EXPECT_EQ(
+        pldm_bios_table_attr_entry_integer_encode(nullptr, entry.size(), &info),
+        PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(pldm_bios_table_attr_entry_integer_encode(entry.data(),
+                                                        entry.size(), nullptr),
+              PLDM_ERROR_INVALID_DATA);
+}
+
+TEST(BiosTableStableAbiCoverage, EnumDecodeRejectsInvalidInputs)
+{
+    std::vector<uint8_t> enumEntry{
+        0,
+        0, /* attr handle */
+        PLDM_BIOS_ENUMERATION,
+        1,
+        0, /* attr name handle */
+        1, /* possible value count */
+        2,
+        0, /* possible value handle */
+        0, /* default count */
+    };
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto entry =
+        reinterpret_cast<pldm_bios_attr_table_entry*>(enumEntry.data());
+    // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
+    uint8_t pvNum = 0;
+    uint16_t pvHandles[1]{};
+
+    EXPECT_EQ(pldm_bios_table_attr_entry_enum_decode_pv_num(nullptr, &pvNum),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(
+        pldm_bios_table_attr_entry_enum_decode_pv_hdls(nullptr, pvHandles, 1),
+        PLDM_ERROR_INVALID_DATA);
+    entry->attr_type = PLDM_BIOS_STRING;
+    EXPECT_EQ(
+        pldm_bios_table_attr_entry_enum_decode_pv_hdls(entry, pvHandles, 1),
+        PLDM_ERROR_INVALID_DATA);
+}
+
+TEST(BiosTableStableAbiCoverage, AttributeValueEncodersRejectInvalidInputs)
+{
+    uint8_t handles[] = {0, 1};
+    std::vector<uint8_t> enumEntry(
+        pldm_bios_table_attr_value_entry_encode_enum_length(2));
+    std::vector<uint8_t> stringEntry(
+        pldm_bios_table_attr_value_entry_encode_string_length(3));
+    std::vector<uint8_t> integerEntry(
+        pldm_bios_table_attr_value_entry_encode_integer_length());
+
+    EXPECT_EQ(
+        pldm_bios_table_attr_value_entry_encode_enum(
+            nullptr, enumEntry.size(), 0, PLDM_BIOS_ENUMERATION, 2, handles),
+        PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(pldm_bios_table_attr_value_entry_encode_enum(
+                  enumEntry.data(), enumEntry.size(), 0, PLDM_BIOS_ENUMERATION,
+                  2, nullptr),
+              PLDM_ERROR_INVALID_DATA);
+
+    EXPECT_EQ(pldm_bios_table_attr_value_entry_encode_string(
+                  nullptr, stringEntry.size(), 0, PLDM_BIOS_STRING, 3, "abc"),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(pldm_bios_table_attr_value_entry_encode_string(
+                  stringEntry.data(), stringEntry.size(), 0, PLDM_BIOS_STRING,
+                  3, nullptr),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(
+        pldm_bios_table_attr_value_entry_encode_string(
+            stringEntry.data(), stringEntry.size(), 0, PLDM_BIOS_STRING, 0, ""),
+        PLDM_SUCCESS);
+
+    EXPECT_EQ(pldm_bios_table_attr_value_entry_encode_integer(
+                  nullptr, integerEntry.size(), 0, PLDM_BIOS_INTEGER, 5),
+              PLDM_ERROR_INVALID_DATA);
+}
+
+TEST(BiosTableStableAbiCoverage, PadChecksumRejectsInvalidInputs)
+{
+    Table table{1, 2, 3, 4};
+    size_t size = table.size();
+
+    EXPECT_EQ(pldm_bios_table_append_pad_checksum(nullptr, table.size(), &size),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(pldm_bios_table_append_pad_checksum(table.data(), table.size(),
+                                                  nullptr),
+              PLDM_ERROR_INVALID_DATA);
+
+    size = SIZE_MAX - 1;
+    EXPECT_EQ(
+        pldm_bios_table_append_pad_checksum(table.data(), SIZE_MAX, &size),
+        PLDM_ERROR_INVALID_LENGTH);
+
+    size = table.size();
+    EXPECT_EQ(
+        pldm_bios_table_append_pad_checksum(table.data(), table.size(), &size),
+        PLDM_ERROR_INVALID_LENGTH);
+
+    size = table.size();
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
+    // NOLINTBEGIN(performance-no-int-to-ptr)
+    auto invalidEnd =
+        reinterpret_cast<void*>(UINTPTR_MAX - static_cast<uintptr_t>(1));
+    // NOLINTEND(performance-no-int-to-ptr)
+    // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
+    EXPECT_EQ(pldm_bios_table_append_pad_checksum(invalidEnd, SIZE_MAX, &size),
+              PLDM_ERROR_INVALID_LENGTH);
+}
+
+TEST(BiosTableStableAbiCoverage, ChecksumRejectsInvalidInputs)
+{
+    EXPECT_FALSE(pldm_bios_table_checksum(nullptr, 12));
+
+    uint8_t tooSmall[11]{};
+    EXPECT_FALSE(pldm_bios_table_checksum(tooSmall, sizeof(tooSmall)));
+
+    Table stringTable{
+        1,   0,                  /* string handle*/
+        5,   0,                  /* string length */
+        'T', 'a', 'b', 'l', 'e', /* string */
+    };
+    buildTable(stringTable);
+    stringTable[0] ^= 0xff;
+    EXPECT_FALSE(
+        pldm_bios_table_checksum(stringTable.data(), stringTable.size()));
+}
+#endif
+
+#if HAVE_LIBPLDM_ABI_DEPRECATED
+TEST(BiosTableDeprecatedAbiCoverage, EnumEncodeRejectsInvalidInputs)
+{
+    uint16_t pvHandles[] = {2, 3};
+    uint8_t defaults[] = {0};
+    pldm_bios_table_attr_entry_enum_info info{1,         true, 2,
+                                              pvHandles, 1,    defaults};
+    std::vector<uint8_t> entry(pldm_bios_table_attr_entry_enum_encode_length(
+        info.pv_num, info.def_num));
+
+    EXPECT_EQ(
+        pldm_bios_table_attr_entry_enum_encode(nullptr, entry.size(), &info),
+        PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(pldm_bios_table_attr_entry_enum_encode(entry.data(), entry.size(),
+                                                     nullptr),
+              PLDM_ERROR_INVALID_DATA);
+    EXPECT_EQ(pldm_bios_table_attr_entry_enum_encode(entry.data(), entry.size(),
+                                                     &info),
+              PLDM_SUCCESS);
+    EXPECT_EQ(entry[2], PLDM_BIOS_ENUMERATION_READ_ONLY);
+}
+
+TEST(BiosTableDeprecatedAbiCoverage, EnumDefNumRejectsInvalidInputs)
+{
+    std::vector<uint8_t> enumEntry{
+        0,
+        0, /* attr handle */
+        PLDM_BIOS_ENUMERATION,
+        1,
+        0, /* attr name handle */
+        1, /* possible value count */
+        2,
+        0, /* possible value handle */
+        0, /* default count */
+    };
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto entry =
+        reinterpret_cast<pldm_bios_attr_table_entry*>(enumEntry.data());
+    // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
+    uint8_t defNum = 0;
+
+    EXPECT_EQ(pldm_bios_table_attr_entry_enum_decode_def_num(nullptr, &defNum),
+              PLDM_ERROR_INVALID_DATA);
+    entry->attr_type = PLDM_BIOS_STRING;
+    EXPECT_EQ(pldm_bios_table_attr_entry_enum_decode_def_num(entry, &defNum),
+              PLDM_ERROR_INVALID_DATA);
+}
+
+TEST(BiosTableDeprecatedAbiCoverage, IteratorCreateAcceptsUnknownTableType)
+{
+    Table table(8, 0);
+    auto iter = pldm_bios_table_iter_create(
+        table.data(), table.size(), static_cast<pldm_bios_table_types>(0xff));
+
+    ASSERT_NE(iter, nullptr);
+    pldm_bios_table_iter_free(iter);
+}
+#endif
+
+#if HAVE_LIBPLDM_ABI_DEPRECATED && !TEST_HAS_ADDRESS_SANITIZER &&              \
+    !defined(NDEBUG)
+namespace
+{
+[[noreturn]] void exitFromBiosAbort(int signal)
+{
+    std::exit(128 + signal);
+}
+
+void installBiosGcovAbortHandler()
+{
+    struct sigaction action{};
+    action.sa_handler = exitFromBiosAbort;
+    sigemptyset(&action.sa_mask);
+    sigaction(SIGABRT, &action, nullptr);
+}
+
+void exhaustMemoryThenCreateIterator()
+{
+    if (RUNNING_ON_VALGRIND)
+    {
+        std::exit(EXIT_SUCCESS);
+    }
+
+    constexpr rlim_t maxAddressSpace = static_cast<rlim_t>(64) * 1024 * 1024;
+    struct rlimit limit = {maxAddressSpace, maxAddressSpace};
+    if (setrlimit(RLIMIT_AS, &limit) != 0)
+    {
+        std::exit(EXIT_FAILURE);
+    }
+
+    constexpr size_t maxBigBlocks = 65536;
+    constexpr size_t maxSmallBlocks = 131072;
+    void* bigBlocks[maxBigBlocks] = {};
+    void* smallBlocks[maxSmallBlocks] = {};
+    size_t bigCount = 0;
+    size_t smallCount = 0;
+
+    for (; bigCount < maxBigBlocks; ++bigCount)
+    {
+        bigBlocks[bigCount] = std::malloc(1024);
+        if (bigBlocks[bigCount] == nullptr)
+        {
+            break;
+        }
+    }
+
+    for (; smallCount < maxSmallBlocks; ++smallCount)
+    {
+        smallBlocks[smallCount] = std::malloc(16);
+        if (smallBlocks[smallCount] == nullptr)
+        {
+            break;
+        }
+    }
+
+    (void)pldm_bios_table_iter_create(nullptr, 0, PLDM_BIOS_STRING_TABLE);
+    std::exit(EXIT_FAILURE);
+}
+} // namespace
+
+TEST(BiosTableDeprecatedAbiCoverage, IteratorCreateAllocationAssertion)
+{
+    const int expectedCode = RUNNING_ON_VALGRIND ? EXIT_SUCCESS : 128 + SIGABRT;
+
+    EXPECT_EXIT(
+        {
+            installBiosGcovAbortHandler();
+            exhaustMemoryThenCreateIterator();
+        },
+        testing::ExitedWithCode(expectedCode), ".*");
+}
+#endif

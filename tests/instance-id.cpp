@@ -48,6 +48,13 @@ TEST(InstanceId, dbInstanceDefaultPath)
     }
 }
 
+#if HAVE_LIBPLDM_ABI_STABLE
+TEST(InstanceId, destroyNullDb)
+{
+    EXPECT_EQ(::pldm_instance_db_destroy(nullptr), 0);
+}
+#endif
+
 class PldmInstanceDbTest : public ::testing::Test
 {
   protected:

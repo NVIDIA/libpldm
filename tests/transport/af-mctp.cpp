@@ -6,7 +6,7 @@
 #include <gtest/gtest.h>
 
 /* map_tid() with MCTP_NET_ANY matches any network during lookup */
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(AfMctpTidLookup, any_network_match)
 {
     struct pldm_transport_af_mctp ctx{};
@@ -30,7 +30,7 @@ TEST(AfMctpTidLookup, any_network_match)
 #endif
 
 /* map_tid_fqe() entries only match their exact network ID */
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(AfMctpTidLookup, network_specific_match)
 {
     struct pldm_transport_af_mctp ctx{};
@@ -60,7 +60,7 @@ TEST(AfMctpTidLookup, network_specific_match)
 #endif
 
 /* When both APIs coexist, exact network takes precedence over MCTP_NET_ANY */
-#if HAVE_LIBPLDM_API_TESTING
+#if HAVE_LIBPLDM_ABI_TESTING
 TEST(AfMctpTidLookup, exact_network_preferred_over_any_net)
 {
     struct pldm_transport_af_mctp ctx{};
