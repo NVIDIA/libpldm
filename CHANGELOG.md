@@ -99,6 +99,8 @@ Change categories:
   sensor data size validation. This bug could cause sensor readings to fail
   validation when using 64-bit sensor values.
 
+- transport: Improve time validation in pldm_transport_send_recv_msg()
+
 - platform: Corrected `enum pldm_effecter_data_size` and
   `enum pldm_range_field_format` ordinal values to match DSP0248 v1.3.0
   Table 88. The `UINT64` (6) and `SINT64` (7) entries were missing from the
