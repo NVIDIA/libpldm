@@ -16,7 +16,6 @@
 #include <poll.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
@@ -93,47 +92,12 @@ int pldm_transport_af_mctp_get_tid(struct pldm_transport_af_mctp *ctx,
 	return pldm_transport_af_mctp_find_tid(ctx, MCTP_NET_ANY, eid, tid);
 }
 
-static void pldm_transport_af_mctp_alloc_tag(struct pldm_transport_af_mctp *ctx,
-					     mctp_eid_t eid)
-{
-	struct mctp_ioc_tag_ctl ctl = { 0 };
-
-	if (ctx->tag_cache[eid]) {
-		return;
-	}
-
-	ctl.peer_addr = eid;
-
-	if (!ioctl(ctx->socket, SIOCMCTPALLOCTAG, &ctl)) {
-		ctx->tag_cache[eid] = ctl.tag;
-	}
-}
-
-static void pldm_transport_af_mctp_drop_tag(struct pldm_transport_af_mctp *ctx,
-					    mctp_eid_t eid)
-{
-	struct mctp_ioc_tag_ctl ctl = { 0 };
-
-	if (!ctx->tag_cache[eid]) {
-		return;
-	}
-
-	ctl.peer_addr = eid;
-	ctl.tag = ctx->tag_cache[eid];
-
-	if (!ioctl(ctx->socket, SIOCMCTPDROPTAG, &ctl)) {
-		ctx->tag_cache[eid] = 0;
-	}
-}
-
 LIBPLDM_ABI_STABLE
 int pldm_transport_af_mctp_map_tid(struct pldm_transport_af_mctp *ctx,
 				   pldm_tid_t tid, mctp_eid_t eid)
 {
 	ctx->tid_map[tid].net = MCTP_NET_ANY;
 	ctx->tid_map[tid].eid = eid;
-
-	pldm_transport_af_mctp_alloc_tag(ctx, eid);
 
 	return 0;
 }
@@ -143,7 +107,6 @@ int pldm_transport_af_mctp_unmap_tid(struct pldm_transport_af_mctp *ctx,
 				     pldm_tid_t tid,
 				     LIBPLDM_CC_UNUSED mctp_eid_t eid)
 {
-	pldm_transport_af_mctp_drop_tag(ctx, eid);
 	ctx->tid_map[tid].net = 0;
 	ctx->tid_map[tid].eid = 0;
 	return 0;
@@ -284,11 +247,7 @@ static pldm_requester_rc_t pldm_transport_af_mctp_send(struct pldm_transport *t,
 		addr.smctp_addr.s_addr = eid;
 		addr.smctp_network = network;
 		addr.smctp_type = MCTP_MSG_TYPE_PLDM;
-
-		pldm_transport_af_mctp_alloc_tag(af_mctp, eid);
-		addr.smctp_tag = af_mctp->tag_cache[eid] ?
-					 af_mctp->tag_cache[eid] :
-					 MCTP_TAG_OWNER;
+		addr.smctp_tag = MCTP_TAG_OWNER;
 	}
 
 	if (msg_len > INT_MAX ||
