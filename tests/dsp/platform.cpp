@@ -1197,6 +1197,16 @@ TEST(GetPDRRepositoryInfo, testBadDecodeResponse)
         &retDataTransferHandleTimeout);
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
 
+    resp->completion_code = PLDM_ERROR;
+    rc = decode_get_pdr_repository_info_resp(
+        response, responseMsg.size() - hdrSize, &retCompletionCode,
+        &retRepositoryState, retUpdateTime, retOemUpdateTime, &retRecordCount,
+        &retRepositorySize, &retLargestRecordSize,
+        &retDataTransferHandleTimeout);
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(retCompletionCode, PLDM_ERROR);
+
+    resp->completion_code = PLDM_SUCCESS;
     resp->repository_state = PLDM_FAILED + 1;
     rc = decode_get_pdr_repository_info_resp(
         response, responseMsg.size() - hdrSize, &retCompletionCode,
