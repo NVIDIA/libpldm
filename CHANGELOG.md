@@ -94,6 +94,9 @@ Change categories:
 
 ### Fixed
 
+- platform: Discard active message buffers for GetPDRRepositoryInfo error
+  responses
+
 - platform: Fixed `encode_get_sensor_reading_resp()` using incorrect
   `PLDM_EFFECTER_DATA_SIZE_*` constants instead of `PLDM_SENSOR_DATA_SIZE_*` for
   sensor data size validation. This bug could cause sensor readings to fail
