@@ -105,17 +105,53 @@ static int runStableAllocationFailures()
         }
     }
 
-    auto repo = pldm_pdr_init();
-    auto tree = pldm_entity_association_tree_init();
+    /* The heap may still contain free chunks of other size classes, e.g.
+     * released by the test framework before the death-test fork, that can
+     * satisfy the allocations made by the functions under test. Each
+     * successful call consumes address space that is never released until
+     * the drain completes, so under RLIMIT_AS the calls must eventually
+     * fail. Hold every success until then, and release everything before
+     * returning so the coverage runtime can allocate during exit.
+     */
+    /* static: stack growth after exhaustion may exceed RLIMIT_AS */
+    constexpr size_t maxAttempts = 32768;
+    static struct pldm_pdr* repos[maxAttempts];
+    static struct pldm_entity_association_tree* trees[maxAttempts];
+    size_t repoCount = 0;
+    size_t treeCount = 0;
+    bool repoFailed = false;
+    bool treeFailed = false;
 
-    int rc = EXIT_SUCCESS;
-    if (smallCount == maxSmallBlocks || repo != nullptr || tree != nullptr)
+    for (; repoCount < maxAttempts; ++repoCount)
     {
-        rc = EXIT_FAILURE;
+        repos[repoCount] = pldm_pdr_init();
+        if (repos[repoCount] == nullptr)
+        {
+            repoFailed = true;
+            break;
+        }
     }
 
-    pldm_pdr_destroy(repo);
-    pldm_entity_association_tree_destroy(tree);
+    for (; treeCount < maxAttempts; ++treeCount)
+    {
+        trees[treeCount] = pldm_entity_association_tree_init();
+        if (trees[treeCount] == nullptr)
+        {
+            treeFailed = true;
+            break;
+        }
+    }
+
+    int rc = (repoFailed && treeFailed) ? EXIT_SUCCESS : EXIT_FAILURE;
+
+    for (size_t i = 0; i < repoCount; ++i)
+    {
+        pldm_pdr_destroy(repos[i]);
+    }
+    for (size_t i = 0; i < treeCount; ++i)
+    {
+        pldm_entity_association_tree_destroy(trees[i]);
+    }
 
     for (size_t i = 0; i < smallCount; ++i)
     {
