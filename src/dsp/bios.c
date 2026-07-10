@@ -312,7 +312,8 @@ int decode_get_bios_table_resp(const struct pldm_msg *msg,
 
 {
 	if (msg == NULL || transfer_flag == NULL ||
-	    next_transfer_handle == NULL || completion_code == NULL) {
+	    next_transfer_handle == NULL || completion_code == NULL ||
+	    bios_table_offset == NULL) {
 		return PLDM_ERROR_INVALID_DATA;
 	}
 	if (payload_length <= PLDM_GET_BIOS_TABLE_MIN_RESP_BYTES) {
@@ -375,7 +376,8 @@ int decode_get_bios_attribute_current_value_by_handle_resp(
 	uint8_t *transfer_flag, struct variable_field *attribute_data)
 {
 	if (msg == NULL || transfer_flag == NULL ||
-	    next_transfer_handle == NULL || completion_code == NULL) {
+	    next_transfer_handle == NULL || completion_code == NULL ||
+	    attribute_data == NULL) {
 		return PLDM_ERROR_INVALID_DATA;
 	}
 
