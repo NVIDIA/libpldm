@@ -1594,7 +1594,18 @@ void exhaustMemoryThenCreateIterator()
         }
     }
 
-    (void)pldm_bios_table_iter_create(nullptr, 0, PLDM_BIOS_STRING_TABLE);
+    /* The heap may still contain free chunks of other size classes, e.g.
+     * released by the test framework before the death-test fork, that can
+     * satisfy the iterator allocation. Call the function under test
+     * repeatedly, intentionally leaking each success: every iteration
+     * consumes address space, so under RLIMIT_AS the allocation must
+     * eventually fail and trigger the assertion, which aborts the loop.
+     */
+    constexpr size_t maxAttempts = 131072;
+    for (size_t i = 0; i < maxAttempts; ++i)
+    {
+        (void)pldm_bios_table_iter_create(nullptr, 0, PLDM_BIOS_STRING_TABLE);
+    }
     std::exit(EXIT_FAILURE);
 }
 } // namespace
