@@ -14,6 +14,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "compiler.h"
+
 #define POINTER_CHECK(pointer)                                                 \
 	do {                                                                   \
 		if ((pointer) == NULL)                                         \
@@ -149,7 +151,6 @@ static int attr_table_entry_encode_header(void *entry, size_t length,
 {
 	struct pldm_bios_attr_table_entry *attr_entry = entry;
 
-	assert(sizeof(*attr_entry) <= length);
 	if (sizeof(*attr_entry) > length) {
 		return PLDM_ERROR_INVALID_LENGTH;
 	}
@@ -1174,7 +1175,7 @@ pldm_bios_table_attr_value_find_by_handle(const void *table, size_t length,
 		attr_value_table_handle_equal, &handle);
 }
 
-LIBPLDM_ABI_STABLE
+LIBPLDM_ABI_DEPRECATED_UNSAFE
 int pldm_bios_table_attr_value_copy_and_update(
 	const void *src_table, size_t src_length, void *dest_table,
 	size_t *dest_length, const void *entry, size_t entry_length)

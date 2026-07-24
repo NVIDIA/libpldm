@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
-#ifndef LIBPLDM_OEM_META_FILE_IO_H
-#define LIBPLDM_OEM_META_FILE_IO_H
+#pragma once
 
 #include <libpldm/compiler.h>
 
@@ -8,10 +7,11 @@
 extern "C" {
 #endif
 
+#include <libpldm/base.h>
+
 #include <stddef.h>
 #include <stdint.h>
 
-struct pldm_msg;
 /** @brief PLDM Commands in OEM META type
  */
 
@@ -164,5 +164,3 @@ int encode_oem_meta_file_io_read_resp(
 #ifdef __cplusplus
 }
 #endif
-
-#endif /*LIBPLDM_OEM_META_FILE_IO_H*/

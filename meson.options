@@ -12,6 +12,24 @@ option(
     value: false,
 )
 option(
+    'api',
+    type: 'string',
+    description: 'The path to the public headers for libpldm',
+    value: 'include',
+)
+option(
+    'bindings',
+    type: 'array',
+    description: 'Language bindings for libpldm',
+    choices: ['cpp'],
+    value: ['cpp'],
+)
+option(
+    'documentation',
+    type: 'feature',
+    description: 'Build Doxygen documentation',
+)
+option(
     'oem',
     type: 'array',
     description: 'Enable OEM PLDM extensions',
@@ -20,9 +38,11 @@ option(
 )
 option('tests', type: 'boolean', description: 'Build tests')
 option(
-    'transport',
-    type: 'boolean',
-    description: 'Enable transport implementation',
+    'test-methods',
+    type: 'array',
+    description: 'Select the applied methods of testing',
+    choices: ['unit', 'fuzz'],
+    value: ['unit'],
 )
 option(
     'tools',
@@ -32,9 +52,7 @@ option(
     value: ['pd'],
 )
 option(
-    'bindings',
-    type: 'array',
-    description: 'Language bindings for libpldm',
-    choices: ['cpp'],
-    value: ['cpp'],
+    'transport',
+    type: 'boolean',
+    description: 'Enable transport implementation',
 )

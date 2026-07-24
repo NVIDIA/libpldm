@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
 #include "dsp/base.h"
+#include "environ/errno.h"
 #include "msgbuf.h"
 
 #include <libpldm/base.h>
 #include <libpldm/file.h>
 
 #include <assert.h>
-#include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -313,4 +313,65 @@ int decode_pldm_file_df_heartbeat_resp(const struct pldm_msg *msg,
 	pldm_msgbuf_extract(buf, resp->responder_max_interval);
 
 	return pldm_msgbuf_complete_consumed(buf);
+}
+
+LIBPLDM_ABI_TESTING
+int decode_pldm_file_df_heartbeat_req(const struct pldm_msg *msg,
+				      size_t payload_length,
+				      struct pldm_file_df_heartbeat_req *req)
+{
+	PLDM_MSGBUF_RO_DEFINE_P(buf);
+	int rc;
+
+	if (!msg || !req) {
+		return -EINVAL;
+	}
+
+	rc = pldm_msgbuf_init_errno(buf, PLDM_DF_HEARTBEAT_REQ_BYTES,
+				    msg->payload, payload_length);
+	if (rc) {
+		return rc;
+	}
+
+	pldm_msgbuf_extract(buf, req->file_descriptor);
+	pldm_msgbuf_extract(buf, req->requester_max_interval);
+
+	return pldm_msgbuf_complete_consumed(buf);
+}
+
+LIBPLDM_ABI_TESTING
+int encode_pldm_file_df_heartbeat_resp(
+	uint8_t instance_id, const struct pldm_file_df_heartbeat_resp *resp,
+	struct pldm_msg *msg, size_t *payload_length)
+{
+	PLDM_MSGBUF_RW_DEFINE_P(buf);
+	int rc;
+
+	if (!msg || !resp) {
+		return -EINVAL;
+	}
+
+	struct pldm_header_info header = { 0 };
+	header.instance = instance_id;
+	header.msg_type = PLDM_RESPONSE;
+	header.pldm_type = PLDM_FILE;
+	header.command = PLDM_FILE_CMD_DF_HEARTBEAT;
+
+	rc = pack_pldm_header_errno(&header, &(msg->hdr));
+	if (rc) {
+		return rc;
+	}
+
+	rc = pldm_msgbuf_init_errno(buf, PLDM_DF_HEARTBEAT_RESP_BYTES,
+				    msg->payload, *payload_length);
+	if (rc) {
+		return rc;
+	}
+
+	pldm_msgbuf_insert(buf, resp->completion_code);
+	if (resp->completion_code == PLDM_SUCCESS) {
+		pldm_msgbuf_insert(buf, resp->responder_max_interval);
+	}
+
+	return pldm_msgbuf_complete_used(buf, *payload_length, payload_length);
 }

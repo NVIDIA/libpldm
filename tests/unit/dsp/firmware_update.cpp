@@ -1,6 +1,7 @@
 #include "msgbuf.hpp"
 
 #include <endian.h>
+#include <libpldm/api.h>
 #include <libpldm/base.h>
 
 /*
@@ -118,7 +119,11 @@ TEST(DecodePackageHeaderInfo, goodPath)
                          PLDM_FWUP_PACKAGE_HEADER_IDENTIFIER_V1_0.end()));
     EXPECT_EQ(pkgHeader.package_header_format_version,
               PLDM_FWUP_PACKAGE_HEADER_FORMAT_REVISION_V1_0);
-    EXPECT_EQ(pkgHeader.package_header_size, packageHeaderSize);
+    {
+
+        uint16_t aligned = pkgHeader.package_header_size;
+        EXPECT_EQ(aligned, packageHeaderSize);
+    }
     EXPECT_EQ(true, std::equal(pkgHeader.package_release_date_time,
                                pkgHeader.package_release_date_time +
                                    PLDM_TIMESTAMP104_SIZE,
@@ -410,13 +415,20 @@ TEST(DecodeFirmwareDeviceIdRecord, goodPath)
     ASSERT_EQ(rc, PLDM_SUCCESS);
     EXPECT_EQ(deviceIdRecHeader.record_length, recordLen);
     EXPECT_EQ(deviceIdRecHeader.descriptor_count, descriptorCount);
-    EXPECT_EQ(deviceIdRecHeader.device_update_option_flags.value,
-              deviceUpdateFlag);
+
+    {
+        bitfield32_t aligned = deviceIdRecHeader.device_update_option_flags;
+        EXPECT_EQ(aligned.value, deviceUpdateFlag);
+    }
+
     EXPECT_EQ(deviceIdRecHeader.comp_image_set_version_string_type,
               PLDM_STR_TYPE_ASCII);
     EXPECT_EQ(deviceIdRecHeader.comp_image_set_version_string_length,
               imageSetVersionStr.size());
-    EXPECT_EQ(deviceIdRecHeader.fw_device_pkg_data_length, fwDevicePkgDataLen);
+    {
+        uint16_t aligned = deviceIdRecHeader.fw_device_pkg_data_length;
+        EXPECT_EQ(aligned, fwDevicePkgDataLen);
+    }
 
     EXPECT_EQ(applicableComponents.length, applicableComponentsBitfield.size());
     EXPECT_EQ(true,
@@ -502,13 +514,20 @@ TEST(DecodeFirmwareDeviceIdRecord, goodPathNofwDevicePkgData)
     EXPECT_EQ(rc, PLDM_SUCCESS);
     EXPECT_EQ(deviceIdRecHeader.record_length, recordLen);
     EXPECT_EQ(deviceIdRecHeader.descriptor_count, descriptorCount);
-    EXPECT_EQ(deviceIdRecHeader.device_update_option_flags.value,
-              deviceUpdateFlag);
+
+    {
+        bitfield32_t aligned = deviceIdRecHeader.device_update_option_flags;
+        EXPECT_EQ(aligned.value, deviceUpdateFlag);
+    }
+
     EXPECT_EQ(deviceIdRecHeader.comp_image_set_version_string_type,
               PLDM_STR_TYPE_ASCII);
     EXPECT_EQ(deviceIdRecHeader.comp_image_set_version_string_length,
               imageSetVersionStr.size());
-    EXPECT_EQ(deviceIdRecHeader.fw_device_pkg_data_length, 0);
+    {
+        uint16_t aligned = deviceIdRecHeader.fw_device_pkg_data_length;
+        EXPECT_EQ(aligned, 0);
+    }
 
     EXPECT_EQ(applicableComponents.length, applicableComponentsBitfield.size());
     EXPECT_EQ(true,
@@ -1063,7 +1082,7 @@ TEST(DecodeComponentImageInfo, errorPaths)
 
 TEST(QueryDeviceIdentifiers, goodPathEncodeRequest)
 {
-    std::array<uint8_t, sizeof(pldm_msg_hdr)> requestMsg{};
+    std::array<uint8_t, sizeof(pldm_msg)> requestMsg{};
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto requestPtr = reinterpret_cast<pldm_msg*>(requestMsg.data());
 
@@ -1179,7 +1198,7 @@ TEST(QueryDeviceIdentifiers, goodPathEncodeResponse)
 
 TEST(GetFirmwareParameters, goodPathEncodeRequest)
 {
-    std::array<uint8_t, sizeof(pldm_msg_hdr)> requestMsg{};
+    std::array<uint8_t, sizeof(pldm_msg)> requestMsg{};
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto requestPtr = reinterpret_cast<pldm_msg*>(requestMsg.data());
     uint8_t instanceId = 0x01;
@@ -1260,8 +1279,17 @@ TEST(GetFirmwareParameters, decodeResponse)
 
     EXPECT_EQ(rc, PLDM_SUCCESS);
     EXPECT_EQ(outResp.completion_code, PLDM_SUCCESS);
-    EXPECT_EQ(outResp.capabilities_during_update.value, fdCapabilities);
-    EXPECT_EQ(outResp.comp_count, compCount);
+
+    {
+        bitfield32_t aligned = outResp.capabilities_during_update;
+        EXPECT_EQ(aligned.value, fdCapabilities);
+    }
+
+    {
+        uint16_t aligned = outResp.comp_count;
+        EXPECT_EQ(aligned, compCount);
+    }
+
     EXPECT_EQ(outResp.active_comp_image_set_ver_str_type, PLDM_STR_TYPE_ASCII);
     EXPECT_EQ(outResp.active_comp_image_set_ver_str_len,
               activeCompImageSetVersion.size());
@@ -1321,8 +1349,17 @@ TEST(GetFirmwareParameters, decodeResponseZeroCompCount)
 
     EXPECT_EQ(rc, PLDM_SUCCESS);
     EXPECT_EQ(outResp.completion_code, PLDM_SUCCESS);
-    EXPECT_EQ(outResp.capabilities_during_update.value, fdCapabilities);
-    EXPECT_EQ(outResp.comp_count, compCount);
+
+    {
+        bitfield32_t aligned = outResp.capabilities_during_update;
+        EXPECT_EQ(aligned.value, fdCapabilities);
+    }
+
+    {
+        uint16_t aligned = outResp.comp_count;
+        EXPECT_EQ(aligned, compCount);
+    }
+
     EXPECT_EQ(outResp.active_comp_image_set_ver_str_type, PLDM_STR_TYPE_ASCII);
     EXPECT_EQ(outResp.active_comp_image_set_ver_str_len,
               activeCompImageSetVersion.size());
@@ -1378,8 +1415,17 @@ TEST(GetFirmwareParameters,
 
     EXPECT_EQ(rc, PLDM_SUCCESS);
     EXPECT_EQ(outResp.completion_code, PLDM_SUCCESS);
-    EXPECT_EQ(outResp.capabilities_during_update.value, fdCapabilities);
-    EXPECT_EQ(outResp.comp_count, compCount);
+
+    {
+        bitfield32_t aligned = outResp.capabilities_during_update;
+        EXPECT_EQ(aligned.value, fdCapabilities);
+    }
+
+    {
+        uint16_t aligned = outResp.comp_count;
+        EXPECT_EQ(aligned, compCount);
+    }
+
     EXPECT_EQ(outResp.active_comp_image_set_ver_str_type, PLDM_STR_TYPE_ASCII);
     EXPECT_EQ(outResp.active_comp_image_set_ver_str_len,
               activeCompImageSetVersion.size());
@@ -1809,7 +1855,12 @@ TEST(GetFirmwareParameters, goodPathDecodeComponentParameterEntry)
     EXPECT_EQ(outEntry.comp_identifier, compIdentifier);
     EXPECT_EQ(inEntry->comp_classification_index,
               outEntry.comp_classification_index);
-    EXPECT_EQ(outEntry.active_comp_comparison_stamp, timestamp);
+
+    {
+        uint32_t aligned = outEntry.active_comp_comparison_stamp;
+        EXPECT_EQ(aligned, timestamp);
+    }
+
     EXPECT_EQ(inEntry->active_comp_ver_str_type,
               outEntry.active_comp_ver_str_type);
     EXPECT_EQ(inEntry->active_comp_ver_str_len,
@@ -1817,7 +1868,11 @@ TEST(GetFirmwareParameters, goodPathDecodeComponentParameterEntry)
     EXPECT_EQ(0, memcmp(inEntry->active_comp_release_date,
                         outEntry.active_comp_release_date,
                         sizeof(inEntry->active_comp_release_date)));
-    EXPECT_EQ(outEntry.pending_comp_comparison_stamp, timestamp);
+    {
+        uint32_t aligned = outEntry.pending_comp_comparison_stamp;
+        EXPECT_EQ(aligned, timestamp);
+    }
+
     EXPECT_EQ(inEntry->pending_comp_ver_str_type,
               outEntry.pending_comp_ver_str_type);
     EXPECT_EQ(inEntry->pending_comp_ver_str_len,
@@ -1825,9 +1880,15 @@ TEST(GetFirmwareParameters, goodPathDecodeComponentParameterEntry)
     EXPECT_EQ(0, memcmp(inEntry->pending_comp_release_date,
                         outEntry.pending_comp_release_date,
                         sizeof(inEntry->pending_comp_release_date)));
-    EXPECT_EQ(outEntry.comp_activation_methods.value, compActivationMethods);
-    EXPECT_EQ(outEntry.capabilities_during_update.value,
-              capabilitiesDuringUpdate);
+    {
+        bitfield16_t aligned = outEntry.comp_activation_methods;
+        EXPECT_EQ(aligned.value, compActivationMethods);
+    }
+
+    {
+        bitfield32_t aligned = outEntry.capabilities_during_update;
+        EXPECT_EQ(aligned.value, capabilitiesDuringUpdate);
+    }
 
     EXPECT_EQ(0, memcmp(outActiveCompVerStr.ptr,
                         entry.data() + activeCompVerStrPos,
@@ -1882,7 +1943,7 @@ TEST(GetFirmwareParameters, goodPathDecodeComponentParameterEntry)
 TEST(QueryDownstreamDevices, goodPathEncodeRequest)
 {
     constexpr uint8_t instanceId = 1;
-    std::array<uint8_t, sizeof(pldm_msg_hdr)> requestMsg{};
+    std::array<uint8_t, sizeof(pldm_msg)> requestMsg{};
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto requestPtr = reinterpret_cast<pldm_msg*>(requestMsg.data());
 

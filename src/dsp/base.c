@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
 #include "api.h"
+#include "array.h"
 #include "dsp/base.h"
+#include "environ/errno.h"
 #include "msgbuf.h"
 
 #include <assert.h>
@@ -8,7 +10,6 @@
 #include <libpldm/pldm_types.h>
 
 #include <endian.h>
-#include <errno.h>
 #include <limits.h>
 #include <stdint.h>
 #include <string.h>
@@ -226,37 +227,6 @@ int encode_get_commands_req(uint8_t instance_id, uint8_t type, ver32_t version,
 }
 
 LIBPLDM_ABI_STABLE
-int encode_get_types_resp(uint8_t instance_id, uint8_t completion_code,
-			  const bitfield8_t *types, struct pldm_msg *msg)
-{
-	if (msg == NULL) {
-		return PLDM_ERROR_INVALID_DATA;
-	}
-
-	struct pldm_header_info header = { 0 };
-	header.instance = instance_id;
-	header.msg_type = PLDM_RESPONSE;
-	header.command = PLDM_GET_PLDM_TYPES;
-
-	uint8_t rc = pack_pldm_header(&header, &(msg->hdr));
-	if (rc != PLDM_SUCCESS) {
-		return rc;
-	}
-
-	struct pldm_get_types_resp *response =
-		(struct pldm_get_types_resp *)msg->payload;
-	response->completion_code = completion_code;
-	if (response->completion_code == PLDM_SUCCESS) {
-		if (types == NULL) {
-			return PLDM_ERROR_INVALID_DATA;
-		}
-		memcpy(response->types, &(types->byte), PLDM_MAX_TYPES / 8);
-	}
-
-	return PLDM_SUCCESS;
-}
-
-LIBPLDM_ABI_STABLE
 int decode_get_commands_req(const struct pldm_msg *msg, size_t payload_length,
 			    uint8_t *type, ver32_t *version)
 {
@@ -302,31 +272,6 @@ int encode_get_commands_resp(uint8_t instance_id, uint8_t completion_code,
 		memcpy(response->commands, &(commands->byte),
 		       PLDM_MAX_CMDS_PER_TYPE / 8);
 	}
-
-	return PLDM_SUCCESS;
-}
-
-LIBPLDM_ABI_STABLE
-int decode_get_types_resp(const struct pldm_msg *msg, size_t payload_length,
-			  uint8_t *completion_code, bitfield8_t *types)
-{
-	if (msg == NULL || types == NULL || completion_code == NULL) {
-		return PLDM_ERROR_INVALID_DATA;
-	}
-
-	*completion_code = msg->payload[0];
-	if (PLDM_SUCCESS != *completion_code) {
-		return PLDM_SUCCESS;
-	}
-
-	if (payload_length != PLDM_GET_TYPES_RESP_BYTES) {
-		return PLDM_ERROR_INVALID_LENGTH;
-	}
-
-	struct pldm_get_types_resp *response =
-		(struct pldm_get_types_resp *)msg->payload;
-
-	memcpy(&(types->byte), response->types, PLDM_MAX_TYPES / 8);
 
 	return PLDM_SUCCESS;
 }
@@ -483,57 +428,6 @@ int encode_get_tid_req(uint8_t instance_id, struct pldm_msg *msg)
 }
 
 LIBPLDM_ABI_STABLE
-int encode_get_tid_resp(uint8_t instance_id, uint8_t completion_code,
-			uint8_t tid, struct pldm_msg *msg)
-{
-	if (msg == NULL) {
-		return PLDM_ERROR_INVALID_DATA;
-	}
-
-	struct pldm_header_info header = { 0 };
-	header.instance = instance_id;
-	header.msg_type = PLDM_RESPONSE;
-	header.command = PLDM_GET_TID;
-
-	uint8_t rc = pack_pldm_header(&header, &(msg->hdr));
-	if (rc != PLDM_SUCCESS) {
-		return rc;
-	}
-
-	struct pldm_get_tid_resp *response =
-		(struct pldm_get_tid_resp *)msg->payload;
-	response->completion_code = completion_code;
-	response->tid = tid;
-
-	return PLDM_SUCCESS;
-}
-
-LIBPLDM_ABI_STABLE
-int decode_get_tid_resp(const struct pldm_msg *msg, size_t payload_length,
-			uint8_t *completion_code, uint8_t *tid)
-{
-	if (msg == NULL || tid == NULL || completion_code == NULL) {
-		return PLDM_ERROR_INVALID_DATA;
-	}
-
-	*completion_code = msg->payload[0];
-	if (PLDM_SUCCESS != *completion_code) {
-		return PLDM_SUCCESS;
-	}
-
-	if (payload_length != PLDM_GET_TID_RESP_BYTES) {
-		return PLDM_ERROR_INVALID_LENGTH;
-	}
-
-	struct pldm_get_tid_resp *response =
-		(struct pldm_get_tid_resp *)msg->payload;
-
-	*tid = response->tid;
-
-	return PLDM_SUCCESS;
-}
-
-LIBPLDM_ABI_STABLE
 int encode_set_tid_req(uint8_t instance_id, uint8_t tid, struct pldm_msg *msg)
 {
 	if (msg == NULL) {
@@ -583,65 +477,49 @@ int decode_set_tid_req(const struct pldm_msg *msg, size_t payload_length,
 	return pldm_msgbuf_complete_consumed(buf);
 }
 
-LIBPLDM_ABI_STABLE
-int decode_multipart_receive_req(const struct pldm_msg *msg,
-				 size_t payload_length, uint8_t *pldm_type,
-				 uint8_t *transfer_opflag,
-				 uint32_t *transfer_ctx,
-				 uint32_t *transfer_handle,
-				 uint32_t *section_offset,
-				 uint32_t *section_length)
+LIBPLDM_ABI_TESTING
+int decode_pldm_base_multipart_receive_req(
+	const struct pldm_msg *msg, size_t payload_length,
+	struct pldm_base_multipart_receive_req *req)
 {
 	PLDM_MSGBUF_RO_DEFINE_P(buf);
 	int rc;
 
-	if (msg == NULL || pldm_type == NULL || transfer_opflag == NULL ||
-	    transfer_ctx == NULL || transfer_handle == NULL ||
-	    section_offset == NULL || section_length == NULL) {
-		return PLDM_ERROR_INVALID_DATA;
+	if (msg == NULL || req == NULL) {
+		return -EINVAL;
 	}
 
 	rc = pldm_msgbuf_init_errno(buf, PLDM_MULTIPART_RECEIVE_REQ_BYTES,
 				    msg->payload, payload_length);
 	if (rc) {
-		return pldm_xlate_errno(rc);
+		return rc;
 	}
 
-	pldm_msgbuf_extract_p(buf, pldm_type);
-	pldm_msgbuf_extract_p(buf, transfer_opflag);
-	pldm_msgbuf_extract_p(buf, transfer_ctx);
-	pldm_msgbuf_extract_p(buf, transfer_handle);
-	pldm_msgbuf_extract_p(buf, section_offset);
-	pldm_msgbuf_extract_p(buf, section_length);
+	pldm_msgbuf_extract(buf, req->pldm_type);
+	pldm_msgbuf_extract(buf, req->transfer_opflag);
+	pldm_msgbuf_extract(buf, req->transfer_ctx);
+	pldm_msgbuf_extract(buf, req->transfer_handle);
+	pldm_msgbuf_extract(buf, req->section_offset);
+	pldm_msgbuf_extract(buf, req->section_length);
 
 	rc = pldm_msgbuf_complete_consumed(buf);
 	if (rc) {
-		return pldm_xlate_errno(rc);
+		return rc;
 	}
 
-	if (*pldm_type != PLDM_BASE && *pldm_type != PLDM_FILE) {
-		return PLDM_ERROR_INVALID_PLDM_TYPE;
+	if (req->transfer_opflag > PLDM_XFER_CURRENT_PART) {
+		return -EPROTO;
 	}
 
-	// Any enum value above PLDM_XFER_CURRENT_PART is invalid.
-	if (*transfer_opflag > PLDM_XFER_CURRENT_PART) {
-		return PLDM_ERROR_UNEXPECTED_TRANSFER_FLAG_OPERATION;
+	// DSP0240 v1.2.0 §9.6.6 Table 17: transfer_handle must be non-zero
+	// only when operation is PLDM_XFER_NEXT_PART.
+	if (req->transfer_handle == 0 &&
+	    req->transfer_opflag == PLDM_XFER_NEXT_PART) {
+		return -EPROTO;
 	}
 
-	// By DSP0240 v1.2.0, section 9.6.5, Table 17, transfer handle can be 0 only
-	// if the transfer flag is one of XFER_FIRST_PART, XFER_COMPLETE or
-	// XFER_ABORT. In addition, it must be allowed in PLDM_XFER_CURRENT_PART as
-	// this may be used to retry the first part, in which case the transfer handle
-	// must again be 0. Therefore, the only operation for which it cannot be 0 is
-	// PLDM_XFER_NEXT_PART.
-	if ((*transfer_handle == 0) &&
-	    (*transfer_opflag == PLDM_XFER_NEXT_PART)) {
-		return PLDM_ERROR_INVALID_DATA;
-	}
-
-	return PLDM_SUCCESS;
+	return 0;
 }
-
 LIBPLDM_ABI_STABLE
 int encode_pldm_base_multipart_receive_req(
 	uint8_t instance_id, const struct pldm_base_multipart_receive_req *req,
@@ -802,6 +680,202 @@ int encode_base_multipart_receive_resp(
 	return pldm_msgbuf_complete_used(buf, *payload_length, payload_length);
 }
 
+LIBPLDM_ABI_TESTING
+int decode_pldm_base_multipart_send_resp(
+	const struct pldm_msg *msg, size_t payload_length,
+	struct pldm_base_multipart_send_resp *resp)
+{
+	PLDM_MSGBUF_RO_DEFINE_P(buf);
+	int rc;
+
+	if (msg == NULL || resp == NULL) {
+		return -EINVAL;
+	}
+
+	rc = pldm_msg_has_error(msg, payload_length);
+	if (rc) {
+		resp->completion_code = rc;
+		return 0;
+	}
+
+	rc = pldm_msgbuf_init_errno(buf, PLDM_BASE_MULTIPART_SEND_RESP_BYTES,
+				    msg->payload, payload_length);
+	if (rc) {
+		return rc;
+	}
+
+	pldm_msgbuf_extract(buf, resp->completion_code);
+	pldm_msgbuf_extract(buf, resp->next_transfer_operation);
+
+	return pldm_msgbuf_complete_consumed(buf);
+}
+
+LIBPLDM_ABI_TESTING
+int encode_pldm_base_multipart_send_resp(
+	uint8_t instance_id, const struct pldm_base_multipart_send_resp *resp,
+	struct pldm_msg *msg, size_t *payload_length)
+{
+	struct pldm_header_info header = { 0 };
+	PLDM_MSGBUF_RW_DEFINE_P(buf);
+	int rc;
+
+	if (msg == NULL || resp == NULL || payload_length == NULL) {
+		return -EINVAL;
+	}
+
+	header.msg_type = PLDM_RESPONSE;
+	header.instance = instance_id;
+	header.pldm_type = PLDM_BASE;
+	header.command = PLDM_MULTIPART_SEND;
+
+	rc = pack_pldm_header_errno(&header, &msg->hdr);
+	if (rc != PLDM_SUCCESS) {
+		return rc;
+	}
+
+	rc = pldm_msgbuf_init_errno(buf, PLDM_BASE_MULTIPART_SEND_RESP_BYTES,
+				    msg->payload, *payload_length);
+	if (rc) {
+		return rc;
+	}
+
+	pldm_msgbuf_insert(buf, resp->completion_code);
+	pldm_msgbuf_insert(buf, resp->next_transfer_operation);
+
+	return pldm_msgbuf_complete_used(buf, *payload_length, payload_length);
+}
+
+LIBPLDM_ABI_TESTING
+int decode_pldm_base_multipart_send_req(const struct pldm_msg *msg,
+					size_t payload_length,
+					struct pldm_base_multipart_send_req *req,
+					uint32_t *data_integrity_checksum)
+{
+	PLDM_MSGBUF_RO_DEFINE_P(buf);
+	int rc;
+
+	if (msg == NULL || req == NULL || data_integrity_checksum == NULL) {
+		return -EINVAL;
+	}
+
+	rc = pldm_msgbuf_init_errno(buf, PLDM_BASE_MULTIPART_SEND_REQ_MIN_BYTES,
+				    msg->payload, payload_length);
+	if (rc) {
+		return rc;
+	}
+
+	pldm_msgbuf_extract(buf, req->pldm_type);
+	pldm_msgbuf_extract(buf, req->transfer_flag);
+	pldm_msgbuf_extract(buf, req->transfer_ctx);
+	pldm_msgbuf_extract(buf, req->transfer_handle);
+	pldm_msgbuf_extract(buf, req->next_transfer_handle);
+	pldm_msgbuf_extract(buf, req->section_offset);
+	pldm_msgbuf_extract(buf, req->section_length);
+
+	if (req->pldm_type != PLDM_BASE && req->pldm_type != PLDM_FILE) {
+		return pldm_msgbuf_discard(buf, -ENOTSUP);
+	}
+
+	// By DSP0240 v1.2.0, section 9.6.4, Table 16, SectionOffset and
+	// SectionLength should be zero if the TransferFlag is not one of
+	// START or START_AND_END.
+	if (req->transfer_flag !=
+		    PLDM_BASE_MULTIPART_SEND_TRANSFER_FLAG_START &&
+	    req->transfer_flag !=
+		    PLDM_BASE_MULTIPART_SEND_TRANSFER_FLAG_START_AND_END) {
+		if (req->section_offset != 0 || req->section_length != 0) {
+			return pldm_msgbuf_discard(buf, -EPROTO);
+		}
+	}
+
+	rc = pldm_msgbuf_extract_uint32_to_size(buf, req->data.length);
+	if (rc) {
+		return pldm_msgbuf_discard(buf, rc);
+	}
+
+	if (req->data.length > 0) {
+		req->data.ptr = NULL;
+		pldm_msgbuf_span_required(buf, req->data.length,
+					  (const void **)&req->data.ptr);
+
+		pldm_msgbuf_extract_p(buf, data_integrity_checksum);
+	}
+
+	return pldm_msgbuf_complete_consumed(buf);
+}
+
+LIBPLDM_ABI_TESTING
+int encode_pldm_base_multipart_send_req(
+	uint8_t instance_id, const struct pldm_base_multipart_send_req *req,
+	uint32_t checksum, struct pldm_msg *msg, size_t *payload_length)
+{
+	struct pldm_header_info header = { 0 };
+	PLDM_MSGBUF_RW_DEFINE_P(buf);
+	int rc;
+
+	if (!msg || !req || !payload_length) {
+		return -EINVAL;
+	}
+
+	if ((req->data.length > 0) && !req->data.ptr) {
+		return -EINVAL;
+	}
+
+	header.instance = instance_id;
+	header.msg_type = PLDM_REQUEST;
+	header.pldm_type = PLDM_BASE;
+	header.command = PLDM_MULTIPART_SEND;
+
+	rc = pack_pldm_header_errno(&header, &msg->hdr);
+	if (rc) {
+		return rc;
+	}
+
+	rc = pldm_msgbuf_init_errno(buf, PLDM_BASE_MULTIPART_SEND_REQ_MIN_BYTES,
+				    msg->payload, *payload_length);
+	if (rc) {
+		return rc;
+	}
+
+	pldm_msgbuf_insert(buf, req->pldm_type);
+	pldm_msgbuf_insert(buf, req->transfer_flag);
+	pldm_msgbuf_insert(buf, req->transfer_ctx);
+	pldm_msgbuf_insert(buf, req->transfer_handle);
+	pldm_msgbuf_insert(buf, req->next_transfer_handle);
+	pldm_msgbuf_insert(buf, req->section_offset);
+	pldm_msgbuf_insert(buf, req->section_length);
+
+	// By DSP0240 v1.2.0, section 9.6.4, Table 16, SectionOffset and
+	// SectionLength should be zero if the TransferFlag is not one of
+	// START or START_AND_END.
+	if (req->transfer_flag !=
+		    PLDM_BASE_MULTIPART_SEND_TRANSFER_FLAG_START &&
+	    req->transfer_flag !=
+		    PLDM_BASE_MULTIPART_SEND_TRANSFER_FLAG_START_AND_END) {
+		if (req->section_offset != 0 || req->section_length != 0) {
+			return pldm_msgbuf_discard(buf, -EPROTO);
+		}
+	}
+
+	pldm_msgbuf_insert_uint32(buf, req->data.length);
+	if (req->data.length == 0) {
+		// Return without encoding data payload
+		return pldm_msgbuf_complete_used(buf, *payload_length,
+						 payload_length);
+	}
+
+	rc = pldm_msgbuf_insert_array(buf, req->data.length, req->data.ptr,
+				      req->data.length);
+	if (rc) {
+		return pldm_msgbuf_discard(buf, rc);
+	}
+
+	// Checksum is present for all data parts
+	pldm_msgbuf_insert(buf, checksum);
+
+	return pldm_msgbuf_complete_used(buf, *payload_length, payload_length);
+}
+
 LIBPLDM_ABI_STABLE
 int encode_cc_only_resp(uint8_t instance_id, uint8_t type, uint8_t command,
 			uint8_t cc, struct pldm_msg *msg)
@@ -897,8 +971,6 @@ int encode_pldm_base_negotiate_transfer_params_req(
 
 	return pldm_msgbuf_complete_used(buf, *payload_length, payload_length);
 }
-
-#define PLDM_BASE_MIN_PART_SIZE 256
 
 LIBPLDM_ABI_TESTING
 int encode_pldm_base_negotiate_transfer_params_resp(
@@ -1034,4 +1106,160 @@ int decode_cc_only_resp(const struct pldm_msg *msg, size_t payload_length,
 	*completion_code = msg->payload[0];
 
 	return PLDM_SUCCESS;
+}
+
+LIBPLDM_ABI_STABLE
+int encode_pldm_base_get_tid_resp(uint8_t instance_id,
+				  const struct pldm_base_get_tid_resp *resp,
+				  struct pldm_msg *msg, size_t *payload_length)
+{
+	struct pldm_header_info header = { 0 };
+	PLDM_MSGBUF_RW_DEFINE_P(buf);
+	int rc;
+
+	if (!resp || !msg || !payload_length) {
+		return -EINVAL;
+	}
+
+	if (*payload_length < 1) {
+		return -EOVERFLOW;
+	}
+
+	header.instance = instance_id;
+	header.msg_type = PLDM_RESPONSE;
+	header.pldm_type = PLDM_BASE;
+	header.command = PLDM_GET_TID;
+
+	rc = pack_pldm_header_errno(&header, &msg->hdr);
+	if (rc) {
+		return rc;
+	}
+
+	if (resp->completion_code != PLDM_SUCCESS) {
+		msg->payload[0] = resp->completion_code;
+		*payload_length = 1;
+		return 0;
+	}
+
+	rc = pldm_msgbuf_init_errno(buf, PLDM_BASE_GET_TID_RESP_BYTES,
+				    msg->payload, *payload_length);
+	if (rc) {
+		return rc;
+	}
+
+	assert(resp->completion_code == PLDM_SUCCESS);
+	pldm_msgbuf_insert(buf, resp->completion_code);
+	pldm_msgbuf_insert(buf, resp->tid);
+
+	return pldm_msgbuf_complete_used(buf, *payload_length, payload_length);
+}
+
+LIBPLDM_ABI_STABLE
+int decode_pldm_base_get_tid_resp(const struct pldm_msg *msg,
+				  size_t payload_length,
+				  struct pldm_base_get_tid_resp *resp)
+{
+	PLDM_MSGBUF_RO_DEFINE_P(buf);
+	int rc;
+
+	if (!msg || !resp) {
+		return -EINVAL;
+	}
+
+	rc = pldm_msg_has_error(msg, payload_length);
+	if (rc) {
+		resp->completion_code = rc;
+		return 0;
+	}
+
+	rc = pldm_msgbuf_init_errno(buf, PLDM_BASE_GET_TID_RESP_BYTES,
+				    msg->payload, payload_length);
+	if (rc) {
+		return rc;
+	}
+
+	pldm_msgbuf_extract(buf, resp->completion_code);
+	pldm_msgbuf_extract(buf, resp->tid);
+
+	return pldm_msgbuf_complete_consumed(buf);
+}
+
+LIBPLDM_ABI_STABLE
+int encode_pldm_base_get_pldm_types_resp(
+	uint8_t instance_id, const struct pldm_base_get_pldm_types_resp *resp,
+	struct pldm_msg *msg, size_t *payload_length)
+{
+	struct pldm_header_info header = { 0 };
+	PLDM_MSGBUF_RW_DEFINE_P(buf);
+	int rc;
+
+	if (!resp || !msg || !payload_length) {
+		return -EINVAL;
+	}
+
+	if (*payload_length < 1) {
+		return -EOVERFLOW;
+	}
+
+	header.instance = instance_id;
+	header.msg_type = PLDM_RESPONSE;
+	header.pldm_type = PLDM_BASE;
+	header.command = PLDM_GET_PLDM_TYPES;
+
+	rc = pack_pldm_header_errno(&header, &msg->hdr);
+	if (rc) {
+		return rc;
+	}
+
+	if (resp->completion_code != PLDM_SUCCESS) {
+		msg->payload[0] = resp->completion_code;
+		*payload_length = 1;
+		return 0;
+	}
+
+	rc = pldm_msgbuf_init_errno(buf, PLDM_BASE_GET_PLDM_TYPES_RESP_BYTES,
+				    msg->payload, *payload_length);
+	if (rc) {
+		return rc;
+	}
+
+	assert(resp->completion_code == PLDM_SUCCESS);
+	pldm_msgbuf_insert(buf, resp->completion_code);
+	for (size_t i = 0; i < ARRAY_SIZE(resp->pldm_types); i++) {
+		pldm_msgbuf_insert(buf, resp->pldm_types[i].byte);
+	}
+
+	return pldm_msgbuf_complete_used(buf, *payload_length, payload_length);
+}
+
+LIBPLDM_ABI_STABLE
+int decode_pldm_base_get_pldm_types_resp(
+	const struct pldm_msg *msg, size_t payload_length,
+	struct pldm_base_get_pldm_types_resp *resp)
+{
+	PLDM_MSGBUF_RO_DEFINE_P(buf);
+	int rc;
+
+	if (!msg || !resp) {
+		return -EINVAL;
+	}
+
+	rc = pldm_msg_has_error(msg, payload_length);
+	if (rc) {
+		resp->completion_code = rc;
+		return 0;
+	}
+
+	rc = pldm_msgbuf_init_errno(buf, PLDM_BASE_GET_PLDM_TYPES_RESP_BYTES,
+				    msg->payload, payload_length);
+	if (rc) {
+		return rc;
+	}
+
+	pldm_msgbuf_extract(buf, resp->completion_code);
+	for (size_t i = 0; i < ARRAY_SIZE(resp->pldm_types); i++) {
+		pldm_msgbuf_extract(buf, resp->pldm_types[i].byte);
+	}
+
+	return pldm_msgbuf_complete_consumed(buf);
 }

@@ -1,4 +1,8 @@
-testscpp = ['firmware_update_test']
+testscpp = [
+    'firmware-update-test',
+    'firmware-update-test-v1-1-0',
+    'firmware-update-test-v1-3-0',
+]
 
 foreach t : testscpp
     test(
@@ -7,7 +11,7 @@ foreach t : testscpp
             t.underscorify(),
             t + '.cpp',
             implicit_include_directories: false,
-            include_directories: ['../../../bindings/cpp/'],
+            include_directories: ['../../../../bindings/cpp/'],
             dependencies: [gtest_dep, gmock_dep, libpldm_dep, libpldmpp_dep],
             cpp_args: test_cpp_args,
         ),

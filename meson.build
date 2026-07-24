@@ -11,8 +11,8 @@ project(
         'b_ndebug': 'if-release',
         'tests': not meson.is_subproject(),
     },
-    version: '0.15.0',
-    meson_version: '>=1.4.0',
+    version: '0.17.0',
+    meson_version: '>=1.6.0',
 )
 
 if get_option('bindings').contains('cpp') or get_option('tests')
@@ -29,6 +29,9 @@ endif
 
 if get_option('bindings').contains('cpp') or get_option('tests')
     cpp = meson.get_compiler('cpp')
+    if cpp.has_argument('-Wno-psabi')
+        add_project_arguments('-Wno-psabi', language: ['cpp'])
+    endif
 endif
 
 # avoid using different compilers across C/C++
@@ -45,6 +48,39 @@ if get_option('bindings').contains('cpp')
     endif
 endif
 
+# Fuzzing support
+if get_option('test-methods').contains('fuzz')
+    # For clang, -fcoverage-mapping requires -fprofile-instr-generate. That
+    # requirement isn't honoured by meson's strategy for feature testing which
+    # expects flags to be independent. Assume that if -fprofile-instr-generate
+    # is supported then -fcoverage-mapping is as well.
+    cc.get_supported_arguments(
+        '-fsanitize=fuzzer',
+        '-fprofile-instr-generate',
+        checked: 'require',
+    )
+    cpp.get_supported_arguments(
+        '-fsanitize=fuzzer',
+        '-fprofile-instr-generate',
+        checked: 'require',
+    )
+    add_project_arguments(
+        '-fsanitize=fuzzer',
+        '-fprofile-instr-generate',
+        '-fcoverage-mapping',
+        language: ['c', 'cpp'],
+    )
+
+    # Avoid adding -fsanitize=fuzzer to the project link arguments. Rather,
+    # require that the flag is provided in the link arguments for relevant
+    # executables. This avoids link failures due to multiple definitions of
+    # main() for executables whose purpose isn't fuzz testing.
+    add_project_link_arguments(
+        '-fprofile-instr-generate',
+        '-fcoverage-mapping',
+        language: ['c', 'cpp'],
+    )
+endif
 
 conf = configuration_data()
 conf.set10(
@@ -73,7 +109,7 @@ if get_option('oem').contains('nvidia')
     add_project_arguments('-DLIBPLDM_OEM_NVIDIA', language: ['c', 'cpp'])
 endif
 
-include_root = include_directories('include', is_system: true)
+include_root = include_directories(get_option('api'), is_system: true)
 
 subdir('include')
 subdir('src')
@@ -84,7 +120,7 @@ endif
 
 subdir('tools')
 
-doxygen = find_program('doxygen', required: false)
+doxygen = find_program('doxygen', required: get_option('documentation'))
 if doxygen.found()
     doxydata = configuration_data()
     doxydata.set('description', meson.project_name())
@@ -108,7 +144,9 @@ if doxygen.found()
         'docs',
         input: doxyfile,
         output: 'doxygen',
-        command: [doxygen, doxyfile],
+        command: [doxygen, '-q', doxyfile],
+        build_always_stale: true,
+        build_by_default: get_option('documentation').allowed(),
     )
 endif
 

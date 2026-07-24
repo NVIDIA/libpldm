@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
-#ifndef BIOS_H
-#define BIOS_H
+#pragma once
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#include <libpldm/base.h>
+#include <libpldm/pldm_types.h>
 
 #include <stddef.h>
 #include <stdint.h>
@@ -50,9 +52,6 @@ enum pldm_bios_table_types {
 	PLDM_BIOS_ATTR_TABLE,
 	PLDM_BIOS_ATTR_VAL_TABLE,
 };
-
-struct pldm_msg;
-struct variable_field;
 
 struct pldm_bios_string_table_entry {
 	uint16_t string_handle;
@@ -222,7 +221,6 @@ struct pldm_set_bios_table_resp {
  *  @note  Caller is responsible for memory alloc and dealloc of param
  *         'msg.body.payload'
  */
-
 int encode_get_date_time_req(uint8_t instance_id, struct pldm_msg *msg);
 
 /** @brief Decode a GetDateTime response message
@@ -626,5 +624,3 @@ int decode_set_bios_table_req(const struct pldm_msg *msg, size_t payload_length,
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* BIOS_H */

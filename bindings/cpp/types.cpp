@@ -44,12 +44,31 @@ bool pldm::fw_update::DescriptorData::operator==(
 	return true;
 }
 
+std::map<uint16_t, std::unique_ptr<pldm::fw_update::DescriptorData> >
+pldm::fw_update::DescriptorData::copyDescriptorMap(
+	const std::map<uint16_t,
+		       std::unique_ptr<pldm::fw_update::DescriptorData> >
+		&recordDescriptors)
+{
+	std::map<uint16_t, std::unique_ptr<pldm::fw_update::DescriptorData> >
+		res;
+	// We have to init the map here manually since the descriptor constructor
+	// is not a friend of the template which would otherwise be able to construct it.
+	for (const auto &[key, desc] : recordDescriptors) {
+		res[key] = std::unique_ptr<pldm::fw_update::DescriptorData>(
+			new pldm::fw_update::DescriptorData(*desc));
+	}
+
+	return res;
+}
+
 pldm::fw_update::ComponentImageInfo::ComponentImageInfo(
 	uint16_t componentClassification, uint16_t componentIdentifier,
 	uint32_t componentComparisonStamp, std::bitset<16> componentOptions,
 	std::bitset<16> requestedComponentActivationMethod,
 	const variable_field &componentLocation,
-	const std::string &componentVersion)
+	const std::string &componentVersion,
+	const std::vector<uint8_t> &componentOpaqueData)
 	: componentClassification(componentClassification),
 	  componentIdentifier(componentIdentifier),
 	  compComparisonStamp(componentComparisonStamp),
@@ -57,7 +76,8 @@ pldm::fw_update::ComponentImageInfo::ComponentImageInfo(
 	  requestedComponentActivationMethod(
 		  requestedComponentActivationMethod),
 	  componentLocation(componentLocation),
-	  componentVersion(componentVersion)
+	  componentVersion(componentVersion),
+	  componentOpaqueData(componentOpaqueData)
 {
 }
 
@@ -71,7 +91,8 @@ pldm::fw_update::ComponentImageInfo::ComponentImageInfo(
 	  requestedComponentActivationMethod(
 		  ref.requestedComponentActivationMethod),
 	  componentLocation(ref.componentLocation),
-	  componentVersion(ref.componentVersion)
+	  componentVersion(ref.componentVersion),
+	  componentOpaqueData(ref.componentOpaqueData)
 {
 }
 
@@ -105,6 +126,9 @@ bool pldm::fw_update::ComponentImageInfo::operator==(
 	if (CompareNEQ(&ComponentImageInfo::componentVersion, other)) {
 		return false;
 	}
+	if (CompareNEQ(&ComponentImageInfo::componentOpaqueData, other)) {
+		return false;
+	}
 	return true;
 }
 
@@ -119,22 +143,14 @@ pldm::fw_update::FirmwareDeviceIDRecord::FirmwareDeviceIDRecord(
 	const std::string &componentImageSetVersion,
 	const std::map<uint16_t, std::unique_ptr<DescriptorData> >
 		&descriptorsIn,
-	const std::vector<uint8_t> &firmwareDevicePackageData)
+	const std::vector<uint8_t> &firmwareDevicePackageData,
+	const std::optional<ReferenceManifestData> &referenceManifestData)
 	: deviceUpdateOptionFlags(deviceUpdateOptionFlags),
 	  applicableComponents(applicableComponents),
 	  componentImageSetVersionString(componentImageSetVersion),
-	  recordDescriptors([&descriptorsIn]() {
-		  std::map<uint16_t, std::unique_ptr<DescriptorData> > res;
-		  // We have to init the map here manually since the descriptor constructor
-		  // is not a friend of the template which would otherwise be able to construct it.
-		  for (const auto &[key, desc] : descriptorsIn) {
-			  res[key] = std::unique_ptr<DescriptorData>(
-				  new DescriptorData(*desc));
-		  }
-
-		  return res;
-	  }()),
-	  firmwareDevicePackageData(firmwareDevicePackageData)
+	  recordDescriptors(DescriptorData::copyDescriptorMap(descriptorsIn)),
+	  firmwareDevicePackageData(firmwareDevicePackageData),
+	  referenceManifestData(referenceManifestData)
 {
 }
 
@@ -144,18 +160,10 @@ pldm::fw_update::FirmwareDeviceIDRecord::FirmwareDeviceIDRecord(
 	: deviceUpdateOptionFlags(ref.deviceUpdateOptionFlags),
 	  applicableComponents(ref.applicableComponents),
 	  componentImageSetVersionString(ref.componentImageSetVersionString),
-	  recordDescriptors([&ref]() {
-		  std::map<uint16_t, std::unique_ptr<DescriptorData> > res;
-		  // We have to init the map here manually since the descriptor constructor
-		  // is not a friend of the template which would otherwise be able to construct it.
-		  for (const auto &[key, desc] : ref.recordDescriptors) {
-			  res[key] = std::unique_ptr<DescriptorData>(
-				  new DescriptorData(*desc));
-		  }
-
-		  return res;
-	  }()),
-	  firmwareDevicePackageData(ref.firmwareDevicePackageData)
+	  recordDescriptors(
+		  DescriptorData::copyDescriptorMap(ref.recordDescriptors)),
+	  firmwareDevicePackageData(ref.firmwareDevicePackageData),
+	  referenceManifestData(ref.referenceManifestData)
 {
 }
 
@@ -234,14 +242,171 @@ bool pldm::fw_update::FirmwareDeviceIDRecord::operator==(
 		}
 	}
 
+	return CompareEQ(&FirmwareDeviceIDRecord::referenceManifestData, other);
+}
+
+LIBPLDM_ABI_TESTING
+pldm::fw_update::DownstreamDeviceIDRecord::DownstreamDeviceIDRecord(
+	const std::bitset<32> &downstreamDeviceUpdateOptionFlags,
+	const std::optional<std::string>
+		&downstreamDeviceSelfContainedActivationMinVersionString,
+	const std::optional<uint32_t> &
+		downstreamDeviceSelfContainedActivationMinVersionComparisonStamp,
+	const std::vector<size_t> &applicableComponents,
+	const std::map<uint16_t, std::unique_ptr<DescriptorData> >
+		&recordDescriptors,
+
+	const std::vector<uint8_t> &downstreamDevicePackageData,
+	const std::optional<ReferenceManifestData>
+		&downstreamDeviceReferenceManifestData)
+	: downstreamDeviceUpdateOptionFlags(downstreamDeviceUpdateOptionFlags),
+	  downstreamDeviceApplicableComponents(applicableComponents),
+	  downstreamDeviceSelfContainedActivationMinVersionString(
+		  downstreamDeviceSelfContainedActivationMinVersionString),
+	  downstreamDeviceSelfContainedActivationMinVersionComparisonStamp(
+		  downstreamDeviceSelfContainedActivationMinVersionComparisonStamp),
+	  downstreamDeviceRecordDescriptors(
+		  DescriptorData::copyDescriptorMap(recordDescriptors)),
+	  downstreamDevicePackageData(downstreamDevicePackageData),
+	  downstreamDeviceReferenceManifestData(
+		  downstreamDeviceReferenceManifestData)
+{
+}
+
+LIBPLDM_ABI_TESTING
+pldm::fw_update::DownstreamDeviceIDRecord::DownstreamDeviceIDRecord(
+	const DownstreamDeviceIDRecord &ref)
+	: downstreamDeviceUpdateOptionFlags(
+		  ref.downstreamDeviceUpdateOptionFlags),
+	  downstreamDeviceApplicableComponents(
+		  ref.downstreamDeviceApplicableComponents),
+	  downstreamDeviceSelfContainedActivationMinVersionString(
+		  ref.downstreamDeviceSelfContainedActivationMinVersionString),
+	  downstreamDeviceSelfContainedActivationMinVersionComparisonStamp(
+		  ref.downstreamDeviceSelfContainedActivationMinVersionComparisonStamp),
+	  downstreamDeviceRecordDescriptors(DescriptorData::copyDescriptorMap(
+		  ref.downstreamDeviceRecordDescriptors)),
+	  downstreamDevicePackageData(ref.downstreamDevicePackageData),
+	  downstreamDeviceReferenceManifestData(
+		  ref.downstreamDeviceReferenceManifestData)
+
+{
+}
+
+LIBPLDM_ABI_TESTING
+pldm::fw_update::DownstreamDeviceIDRecord::~DownstreamDeviceIDRecord()
+{
+}
+
+LIBPLDM_ABI_TESTING
+bool pldm::fw_update::DownstreamDeviceIDRecord::operator==(
+	const DownstreamDeviceIDRecord &other) const
+{
+	if (CompareNEQ(
+		    &DownstreamDeviceIDRecord::downstreamDeviceUpdateOptionFlags,
+		    other)) {
+		return false;
+	}
+	if (CompareNEQ(&DownstreamDeviceIDRecord::
+			       downstreamDeviceApplicableComponents,
+		       other)) {
+		return false;
+	}
+	if (CompareNEQ(
+		    &DownstreamDeviceIDRecord::
+			    downstreamDeviceSelfContainedActivationMinVersionString,
+		    other)) {
+		return false;
+	}
+	if (CompareNEQ(
+		    &DownstreamDeviceIDRecord::
+			    downstreamDeviceSelfContainedActivationMinVersionComparisonStamp,
+		    other)) {
+		return false;
+	}
+
+	const bool selfHasddrd = HasMember(
+		&DownstreamDeviceIDRecord::downstreamDeviceRecordDescriptors);
+	const bool otherHasddrd = other.HasMember(
+		&DownstreamDeviceIDRecord::downstreamDeviceRecordDescriptors);
+
+	if (selfHasddrd != otherHasddrd) {
+		return false;
+	}
+
+	if (selfHasddrd && otherHasddrd) {
+		if (downstreamDeviceRecordDescriptors.size() !=
+		    other.downstreamDeviceRecordDescriptors.size()) {
+			return false;
+		}
+
+		for (const auto &[k, v] : downstreamDeviceRecordDescriptors) {
+			if (!other.downstreamDeviceRecordDescriptors.contains(
+				    k)) {
+				return false;
+			}
+			const auto &otherDesc =
+				other.downstreamDeviceRecordDescriptors.at(k);
+
+			if (!v.get() && !otherDesc.get()) {
+				continue;
+			}
+			if (!v.get() || !otherDesc.get()) {
+				return false;
+			}
+
+			// descriptor value comparison
+			if (*v != *otherDesc) {
+				return false;
+			}
+		}
+	}
+	if (CompareNEQ(&DownstreamDeviceIDRecord::downstreamDevicePackageData,
+		       other)) {
+		return false;
+	}
+	if (CompareNEQ(&DownstreamDeviceIDRecord::
+			       downstreamDeviceReferenceManifestData,
+		       other)) {
+		return false;
+	}
+
 	return true;
+}
+
+pldm::fw_update::ReferenceManifestData::ReferenceManifestData(
+	const uint8_t SVHID, const std::span<const uint8_t> &vendorID,
+	const std::span<const uint8_t> &data)
+	: SVHID(SVHID), vendorID(vendorID.begin(), vendorID.end()),
+	  data(data.begin(), data.end())
+{
+}
+
+pldm::fw_update::ReferenceManifestData::~ReferenceManifestData()
+{
+}
+
+pldm::fw_update::ReferenceManifestData::ReferenceManifestData(
+	const ReferenceManifestData &ref)
+	: SVHID(ref.SVHID), vendorID(ref.vendorID), data(ref.data)
+{
+}
+
+LIBPLDM_ABI_TESTING
+bool pldm::fw_update::ReferenceManifestData::operator==(
+	const ReferenceManifestData &other) const
+{
+	return SVHID == other.SVHID && vendorID == other.vendorID &&
+	       data == other.data;
 }
 
 pldm::fw_update::Package::Package(
 	const std::vector<FirmwareDeviceIDRecord> &firmwareDeviceIdRecords,
+	const std::vector<DownstreamDeviceIDRecord> &downstreamDeviceIdRecords,
 	const std::vector<ComponentImageInfo> &componentImageInformation)
 	: firmwareDeviceIdRecords(firmwareDeviceIdRecords),
-	  componentImageInformation(componentImageInformation)
+	  componentImageInformation(componentImageInformation),
+	  downstreamDeviceIdRecords(downstreamDeviceIdRecords)
 {
 }
 
@@ -252,7 +417,7 @@ pldm::fw_update::Package::Package(const Package &ref)
 {
 }
 
-LIBPLDM_ABI_TESTING
+LIBPLDM_ABI_STABLE
 pldm::fw_update::Package::~Package()
 {
 }

@@ -1,7 +1,8 @@
-#include "libpldm++/firmware_update.hpp"
-#include "libpldm++/types.hpp"
+#include <libpldm/api.h>
 
 #include <expected>
+#include <libpldm++/firmware_update.hpp>
+#include <libpldm++/types.hpp>
 #include <span>
 #include <vector>
 
@@ -14,8 +15,6 @@ namespace pldm
 {
 namespace fw_update
 {
-
-#if HAVE_LIBPLDM_ABI_TESTING
 
 const std::vector<uint8_t> fwPkgHdrSingleComponent{
     // clang-format off
@@ -91,10 +90,6 @@ const std::vector<uint8_t> fwPkgHdrSingleComponent{
     // clang-format on
 };
 
-#endif
-
-#if HAVE_LIBPLDM_ABI_TESTING
-
 TEST(PackageParserTest, ValidPkgSingleDescriptorSingleComponent)
 {
 
@@ -102,8 +97,7 @@ TEST(PackageParserTest, ValidPkgSingleDescriptorSingleComponent)
 
     std::cout << pkgSize << std::endl;
 
-    DEFINE_PLDM_PACKAGE_FORMAT_PIN_FR01H(pin);
-    auto res = PackageParser::parse(fwPkgHdrSingleComponent, pin);
+    auto res = PackageParser::parse(fwPkgHdrSingleComponent, PackagePin::v1);
 
     if (!res.has_value())
     {
@@ -112,7 +106,7 @@ TEST(PackageParserTest, ValidPkgSingleDescriptorSingleComponent)
 
     ASSERT_TRUE(res.has_value());
 
-    auto outfwDeviceIDRecords = res.value()->firmwareDeviceIdRecords;
+    const auto& outfwDeviceIDRecords = res.value()->firmwareDeviceIdRecords;
 
     std::vector<uint8_t> dd1Data{0x16, 0x20, 0x23, 0xC9, 0x3E, 0xC5,
                                  0x41, 0x15, 0x95, 0xF4, 0x48, 0x70,
@@ -127,8 +121,10 @@ TEST(PackageParserTest, ValidPkgSingleDescriptorSingleComponent)
     EXPECT_EQ(outfwDeviceIDRecords[0].componentImageSetVersionString,
               "VersionString2");
 
+#if HAVE_LIBPLDM_API_TESTING
     EXPECT_EQ(outfwDeviceIDRecords[0].getDescriptorTypes(),
               std::vector<uint16_t>({PLDM_FWUP_UUID}));
+#endif
 
     // assert for descriptor type PLDM_FWUP_UUID
     const auto& d1 =
@@ -139,7 +135,7 @@ TEST(PackageParserTest, ValidPkgSingleDescriptorSingleComponent)
     EXPECT_EQ(outfwDeviceIDRecords[0].firmwareDevicePackageData,
               std::vector<uint8_t>{});
 
-    auto outCompImageInfos = res.value()->componentImageInformation;
+    const auto& outCompImageInfos = res.value()->componentImageInformation;
 
     ASSERT_EQ(outCompImageInfos.size(), 1);
 
@@ -151,10 +147,6 @@ TEST(PackageParserTest, ValidPkgSingleDescriptorSingleComponent)
     EXPECT_EQ(outCompImageInfos[0].componentLocation.length, 1);
     EXPECT_EQ(outCompImageInfos[0].componentVersion, "VersionString3");
 }
-
-#endif
-
-#if HAVE_LIBPLDM_ABI_TESTING
 
 TEST(PackageParserTest, ValidPkgMultipleDescriptorsMultipleComponents)
 {
@@ -255,8 +247,7 @@ TEST(PackageParserTest, ValidPkgMultipleDescriptorsMultipleComponents)
 
     std::cout << pkgSize << std::endl;
 
-    DEFINE_PLDM_PACKAGE_FORMAT_PIN_FR01H(pin);
-    auto res = PackageParser::parse(fwPkgHdr, pin);
+    auto res = PackageParser::parse(fwPkgHdr, PackagePin::v1);
 
     if (!res.has_value())
     {
@@ -265,7 +256,7 @@ TEST(PackageParserTest, ValidPkgMultipleDescriptorsMultipleComponents)
 
     ASSERT_TRUE(res.has_value());
 
-    std::vector<FirmwareDeviceIDRecord> outfwDeviceIDRecords =
+    const std::vector<FirmwareDeviceIDRecord>& outfwDeviceIDRecords =
         res.value()->firmwareDeviceIdRecords;
 
     std::vector<uint8_t> dd1Data{0x12, 0x44, 0xD2, 0x64, 0x8D, 0x7D,
@@ -297,11 +288,13 @@ TEST(PackageParserTest, ValidPkgMultipleDescriptorsMultipleComponents)
     EXPECT_EQ(outfwDeviceIDRecords[0].componentImageSetVersionString,
               "VersionString2");
 
+#if HAVE_LIBPLDM_API_TESTING
     // assert record descriptor types
     const auto types = outfwDeviceIDRecords[0].getDescriptorTypes();
     EXPECT_THAT(types, ::testing::UnorderedElementsAre(
                            PLDM_FWUP_UUID, PLDM_FWUP_IANA_ENTERPRISE_ID,
                            PLDM_FWUP_VENDOR_DEFINED));
+#endif
 
     // assert record descriptor contents
     EXPECT_EQ(
@@ -341,8 +334,10 @@ TEST(PackageParserTest, ValidPkgMultipleDescriptorsMultipleComponents)
               std::bitset<32>(0));
     EXPECT_EQ(outfwDeviceIDRecords[1].componentImageSetVersionString,
               "VersionString3");
+#if HAVE_LIBPLDM_API_TESTING
     EXPECT_EQ(outfwDeviceIDRecords[1].getDescriptorTypes(),
               std::vector<uint16_t>{PLDM_FWUP_UUID});
+#endif
 
     const auto& d1 =
         outfwDeviceIDRecords[1].recordDescriptors.at(PLDM_FWUP_UUID);
@@ -361,8 +356,10 @@ TEST(PackageParserTest, ValidPkgMultipleDescriptorsMultipleComponents)
               std::bitset<32>(0));
     EXPECT_EQ(outfwDeviceIDRecords[2].componentImageSetVersionString,
               "VersionString4");
+#if HAVE_LIBPLDM_API_TESTING
     EXPECT_EQ(outfwDeviceIDRecords[2].getDescriptorTypes(),
               std::vector<uint16_t>{PLDM_FWUP_UUID});
+#endif
 
     // assert for descriptor type PLDM_FWUP_UUID
     const auto& d2 =
@@ -376,7 +373,7 @@ TEST(PackageParserTest, ValidPkgMultipleDescriptorsMultipleComponents)
 
     // end asserting fw device id records
 
-    auto outCompImageInfos = res.value()->componentImageInformation;
+    const auto& outCompImageInfos = res.value()->componentImageInformation;
 
     ASSERT_EQ(outCompImageInfos.size(), 3);
 
@@ -414,24 +411,16 @@ TEST(PackageParserTest, ValidPkgMultipleDescriptorsMultipleComponents)
     // end asserting component image info
 }
 
-#endif
-
-#if HAVE_LIBPLDM_ABI_TESTING
-
 TEST(PackageParserTest, InvalidPkgBadChecksum)
 {
     auto fwPkgHdr = fwPkgHdrSingleComponent;
     fwPkgHdr[fwPkgHdr.size() - 5] ^= 0x01;
 
-    DEFINE_PLDM_PACKAGE_FORMAT_PIN_FR01H(pin);
-
     std::expected<std::unique_ptr<Package>, PackageParserError> result =
-        PackageParser::parse(fwPkgHdr, pin);
+        PackageParser::parse(fwPkgHdr, PackagePin::v1);
 
     EXPECT_FALSE(result.has_value());
 }
-
-#endif
 
 } // namespace fw_update
 } // namespace pldm

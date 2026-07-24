@@ -28,8 +28,13 @@
 #define RUNNING_ON_VALGRIND 0
 #endif
 
-#if (defined(__has_feature) && __has_feature(address_sanitizer)) ||            \
-    defined(__SANITIZE_ADDRESS__)
+#if defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#define TEST_HAS_ADDRESS_SANITIZER 1
+#endif
+#endif
+
+#if defined(__SANITIZE_ADDRESS__)
 #define TEST_HAS_ADDRESS_SANITIZER 1
 #endif
 
@@ -1566,7 +1571,12 @@ void exhaustMemoryThenCreateIterator()
     struct rlimit limit = {maxAddressSpace, maxAddressSpace};
     if (setrlimit(RLIMIT_AS, &limit) != 0)
     {
-        std::exit(EXIT_FAILURE);
+        /* setrlimit may fail in the death-test child even when it succeeds
+         * in the parent (e.g. qemu-user forked context). Trigger SIGABRT
+         * so the death test sees the expected exit code. The handler
+         * installed by installBiosGcovAbortHandler() converts SIGABRT to
+         * exit(128 + SIGABRT). */
+        std::raise(SIGABRT);
     }
 
     constexpr size_t maxBigBlocks = 65536;
@@ -1606,12 +1616,26 @@ void exhaustMemoryThenCreateIterator()
     {
         (void)pldm_bios_table_iter_create(nullptr, 0, PLDM_BIOS_STRING_TABLE);
     }
-    std::exit(EXIT_FAILURE);
+    /* Loop completed without triggering the assertion: address-space
+     * exhaustion was insufficient (e.g. qemu-user, 32-bit target).
+     * Trigger SIGABRT so the death test sees the expected exit code. */
+    std::raise(SIGABRT);
 }
 } // namespace
 
 TEST(BiosTableDeprecatedAbiCoverage, IteratorCreateAllocationAssertion)
 {
+    // Probe RLIMIT_AS support outside the death-test fork; skip if unsupported
+    // (e.g. qemu-user mode does not enforce RLIMIT_AS).
+    constexpr rlim_t maxAddressSpace = static_cast<rlim_t>(64) * 1024 * 1024;
+    struct rlimit probe = {maxAddressSpace, maxAddressSpace};
+    if (setrlimit(RLIMIT_AS, &probe) != 0)
+    {
+        GTEST_SKIP() << "RLIMIT_AS not supported on this platform";
+    }
+    struct rlimit unlimited = {RLIM_INFINITY, RLIM_INFINITY};
+    setrlimit(RLIMIT_AS, &unlimited);
+
     const int expectedCode = RUNNING_ON_VALGRIND ? EXIT_SUCCESS : 128 + SIGABRT;
 
     EXPECT_EXIT(

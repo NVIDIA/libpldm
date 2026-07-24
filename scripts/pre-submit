@@ -1,5 +1,5 @@
 #!/usr/bin/sh
-set -eu
+set -eux
 
 # For valgrind, value is arbitrarily low-ish
 ulimit -n 2048
@@ -29,21 +29,15 @@ fi
 # Ensure the test suite passes in the default configuration. Note
 # that we don't specify -Dabi=... - the default is equivalent to
 # -Dabi=deprecated,stable,testing.
-CC=gcc CXX=g++ CFLAGS=-fanalyzer meson setup "$BUILD"
+export CC=gcc CXX=g++
+meson setup "$BUILD"
+meson configure -Dabi-compliance-check=false "$BUILD"
+meson configure -Db_sanitize=address,undefined "$BUILD"
+meson configure -Dc_args=-fanalyzer "$BUILD"
 meson compile -C "$BUILD"
 meson test -C "$BUILD"
 
-# Ensure the test suite passes in release mode. libpldm specifies
-# -Db_ndebug=if-release by default, so building with --buildtype=release passes
-# -DNDEBUG to the compiler for the library implementation. This build
-# configuration will catch any unexpected changes in the library implementation
-# and incorrect test case implementations.
-meson configure --buildtype=release "$BUILD"
-meson compile -C "$BUILD"
-meson test -C "$BUILD" --timeout-multiplier 10 --wrapper 'valgrind --error-exitcode=1'
-
 # Ensure that the test suite doesn't fail to link against the stable ABI
-meson configure --buildtype=debug "$BUILD"
 meson configure -Dabi=deprecated,stable "$BUILD"
 meson compile -C "$BUILD"
 meson test -C "$BUILD"
@@ -51,14 +45,81 @@ meson test -C "$BUILD"
 # Ensure the build completes for maintenance purposes. Note that tests are
 # disabled as we don't yet guard them appropriately.
 meson configure -Dabi=stable,testing "$BUILD"
-meson configure -Dabi-compliance-check=false "$BUILD"
 meson configure -Dtests=false "$BUILD"
 meson compile -C "$BUILD"
+
+# Ensure the test suite passes in release mode. libpldm specifies
+# -Db_ndebug=if-release by default, so building with --buildtype=release passes
+# -DNDEBUG to the compiler for the library implementation. This build
+# configuration will catch any unexpected changes in the library implementation
+# and incorrect test case implementations.
+rm -rf "$BUILD"
+meson setup --buildtype=release "$BUILD"
+meson configure -Dc_args=-fanalyzer "$BUILD"
+meson compile -C "$BUILD"
+meson test -C "$BUILD" --timeout-multiplier 10 --wrapper 'valgrind --error-exitcode=1'
+
+# Ensure the set of installed headers are relatively complete by installing the
+# headers then building the library against the installed headers
+(
+  # Use a subshell as a stack for the purpose of trap handling. This way we
+  # don't have to augment the trap configuration for the additional cleanup, we
+  # just override it directly with no effect on the parent.
+  PREFIX="$(mktemp --directory --tmpdir=.)"
+  trap 'rm -rf "$PREFIX"' EXIT
+
+  rm -rf "$BUILD"
+  meson setup -Dprefix="$(realpath "$PREFIX")" "$BUILD"
+  meson configure -Dc_args=-fanalyzer "$BUILD"
+  meson install -C "$BUILD"
+  meson configure -Dapi="$PREFIX"/include "$BUILD"
+  meson compile -C "$BUILD"
+)
 
 # Ensure that the stable ABI matches what's recorded
 rm -rf "$BUILD"
 meson setup --cross-file meson/x86_64-linux-gnu.ini "$BUILD"
+meson configure -Dc_args=-fanalyzer "$BUILD"
 meson configure -Dabi=deprecated,stable "$BUILD"
 ! command -v abi-compliance-checker > /dev/null ||
   meson configure -Dabi-compliance-check=true "$BUILD"
 meson compile -C "$BUILD"
+
+# Cross-compile to a target where SIZE_MAX < INTMAX_MAX
+(
+  : ${ARM_PREFIX:=/usr/arm-linux-gnueabihf}
+  export QEMU_LD_PREFIX="${ARM_PREFIX}"
+  rm -rf "$BUILD"
+  meson setup --cross-file meson/arm-linux-gnueabihf.ini "$BUILD"
+  meson configure -Dc_args=-fanalyzer "$BUILD"
+  meson compile -C "$BUILD"
+  meson test -C "$BUILD"
+)
+
+# Reproducible builds
+#
+# Disable documentation as doxygen builds may contain inconsistent link fragment
+# values:
+#
+# [I] 0 andrew@heihei ~/s/o/o/l/origin (main)> diff -u buildrepro{.1st,}/html/functions_vars_f.html
+# -<li>format&#160;:&#160;<a class="el" href="structpldm__package__format__pin.html#afcbfbfb5d71c14393797bb33d5c675f5">pldm_package_format_pin</a></li>
+# +<li>format&#160;:&#160;<a class="el" href="structpldm__package__format__pin.html#ab601f651b45d5cf415a9da4a4c58c7bc">pldm_package_format_pin</a></li>
+meson reprotest -- -Ddocumentation=disabled
+
+# Clang sanitizer build
+(
+  rm -rf "$BUILD"
+  export CC=clang CXX=clang++
+  meson setup -Db_sanitize=address,undefined -Db_lundef=false "$BUILD"
+  meson test -C "$BUILD"
+)
+
+# Run fuzz tests for a brief time
+(
+  rm -rf "$BUILD"
+  export CC=clang CXX=clang++
+  meson setup -Dtest-methods=fuzz -Db_sanitize=address,undefined -Db_lundef=false "$BUILD"
+  meson test -C "$BUILD"
+)
+
+./scripts/crater
