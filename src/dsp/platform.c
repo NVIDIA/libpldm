@@ -489,7 +489,7 @@ int decode_get_pdr_repository_info_resp(
 		return pldm_xlate_errno(pldm_msgbuf_discard(buf, rc));
 	}
 	if (PLDM_SUCCESS != *completion_code) {
-		return PLDM_SUCCESS;
+		return pldm_msgbuf_discard(buf, PLDM_SUCCESS);
 	}
 
 	rc = pldm_msgbuf_extract_p(buf, repository_state);
