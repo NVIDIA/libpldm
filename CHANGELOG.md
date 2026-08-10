@@ -17,6 +17,10 @@ Change categories:
 
 ## [Unreleased]
 
+### Changed
+
+- abi: regenerate x86_64 gcc baseline with CI toolchain gcc 15.2.0
+
 ### Added
 
 - platform: Added 64-bit sensor and effecter support per PLDM Type 2 v1.3.0 (DSP0248)
