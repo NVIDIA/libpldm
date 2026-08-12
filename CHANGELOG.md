@@ -20,6 +20,7 @@ Change categories:
 ### Changed
 
 - abi: regenerate x86_64 gcc baseline with CI toolchain gcc 15.2.0
+- abi: regenerate x86_64 baselines from the merged upstream-sync tree
 
 ### Added
 
