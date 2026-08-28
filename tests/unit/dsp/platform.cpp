@@ -7281,8 +7281,17 @@ TEST(decodeNumericEffecterPdrData, Uint64Test)
     EXPECT_EQ(PLDM_SUCCESS, rc);
 
     EXPECT_EQ(PLDM_EFFECTER_DATA_SIZE_UINT64, decodedPdr.effecter_data_size);
-    EXPECT_EQ(0x1122334455667788ULL, decodedPdr.max_settable.value_u64);
-    EXPECT_EQ(0ULL, decodedPdr.min_settable.value_u64);
+
+    {
+        union_effecter_data_size aligned = decodedPdr.max_settable;
+        EXPECT_EQ(0x1122334455667788ULL, aligned.value_u64);
+    }
+
+    {
+        union_effecter_data_size aligned = decodedPdr.min_settable;
+        EXPECT_EQ(0ULL, aligned.value_u64);
+    }
+
     EXPECT_EQ(PLDM_RANGE_FIELD_FORMAT_UINT64, decodedPdr.range_field_format);
     EXPECT_EQ(0x1fu, decodedPdr.range_field_support.byte);
     EXPECT_EQ(0x0102030405060708ULL, decodedPdr.nominal_value.value_u64);
@@ -7369,8 +7378,17 @@ TEST(decodeNumericEffecterPdrData, Sint64Test)
     EXPECT_EQ(PLDM_SUCCESS, rc);
 
     EXPECT_EQ(PLDM_EFFECTER_DATA_SIZE_SINT64, decodedPdr.effecter_data_size);
-    EXPECT_EQ(1234567890123, decodedPdr.max_settable.value_s64);
-    EXPECT_EQ(-1234567890123, decodedPdr.min_settable.value_s64);
+
+    {
+        union_effecter_data_size aligned = decodedPdr.max_settable;
+        EXPECT_EQ(1234567890123, aligned.value_s64);
+    }
+
+    {
+        union_effecter_data_size aligned = decodedPdr.min_settable;
+        EXPECT_EQ(-1234567890123, aligned.value_s64);
+    }
+
     EXPECT_EQ(PLDM_RANGE_FIELD_FORMAT_SINT64, decodedPdr.range_field_format);
     EXPECT_EQ(0x1f, decodedPdr.range_field_support.byte);
     EXPECT_EQ(0, decodedPdr.nominal_value.value_s64);
@@ -8133,7 +8151,7 @@ TEST(decodePldmFileDescriptorPdr, BadTestDataBufferUnderLength)
 
 TEST(GetTerminusUID, testGoodEncodeRequest)
 {
-    std::array<uint8_t, sizeof(pldm_msg_hdr)> requestMsg{};
+    std::array<uint8_t, sizeof(pldm_msg)> requestMsg{};
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto request = reinterpret_cast<pldm_msg*>(requestMsg.data());
 
