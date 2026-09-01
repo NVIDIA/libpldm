@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
-#ifndef PLDM_MSGBUF_HPP
-#define PLDM_MSGBUF_HPP
+#pragma once
 
 #include <libpldm/compiler.h>
 
@@ -199,6 +198,58 @@ LIBPLDM_CC_ALWAYS_INLINE int pldm_msgbuf_span_until(struct pldm_msgbuf_rw* ctx,
     return pldm_msgbuf_rw_span_until(ctx, trailer, cursor, length);
 }
 
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE
+int pldm_msgbuf_field_begin(struct pldm_msgbuf_ro* ctx,
+                            struct variable_field& field)
+{
+    if (!ctx->cursor)
+    {
+        return -EINVAL;
+    }
+
+    return pldm__msgbuf_field_begin(ctx->cursor, ctx->remaining, &field);
+}
+
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE
+int pldm_msgbuf_field_end(struct pldm_msgbuf_ro* ctx,
+                          struct variable_field& field)
+{
+    if (!ctx->cursor)
+    {
+        return -EINVAL;
+    }
+
+    return pldm__msgbuf_field_end(ctx->cursor, ctx->remaining, &field);
+}
+
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE
+int pldm_msgbuf_field_begin(struct pldm_msgbuf_rw* ctx,
+                            struct variable_field& field)
+{
+    if (!ctx->cursor)
+    {
+        return -EINVAL;
+    }
+
+    return pldm__msgbuf_field_begin(ctx->cursor, ctx->remaining, &field);
+}
+
+LIBPLDM_CC_NONNULL
+LIBPLDM_CC_ALWAYS_INLINE
+int pldm_msgbuf_field_end(struct pldm_msgbuf_rw* ctx,
+                          struct variable_field& field)
+{
+    if (!ctx->cursor)
+    {
+        return -EINVAL;
+    }
+
+    return pldm__msgbuf_field_end(ctx->cursor, ctx->remaining, &field);
+}
+
 #define pldm_msgbuf_extract_typecheck(ty, fn, dst, ...)                        \
     pldm_msgbuf_typecheck_##ty<decltype(dst)>(__VA_ARGS__)
 
@@ -290,5 +341,3 @@ LIBPLDM_CC_ALWAYS_INLINE int
 #pragma pop_macro("LIBPLDM_CC_ALWAYS_INLINE")
 #undef PLDM_MSGBUF_RESTORE_ALWAYS_INLINE
 #endif
-
-#endif /* BUF_HPP */

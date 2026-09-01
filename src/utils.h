@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
-#ifndef LIBPLDM_SRC_UTILS_H
-#define LIBPLDM_SRC_UTILS_H
+#pragma once
 
-#include <errno.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
@@ -21,12 +19,12 @@ int pldm_edac_crc32_validate(uint32_t expected, const void *data, size_t size);
 
 /** @brief Check whether the input time is legal
  *
- *  @param[in] seconds. Value range 0~59
- *  @param[in] minutes. Value range 0~59
- *  @param[in] hours. Value range 0~23
- *  @param[in] day. Value range 1~31
- *  @param[in] month. Value range 1~12
- *  @param[in] year. Value range 1970~
+ *  @param[in] seconds Value range 0~59
+ *  @param[in] minutes Value range 0~59
+ *  @param[in] hours Value range 0~23
+ *  @param[in] day Value range 1~31
+ *  @param[in] month Value range 1~12
+ *  @param[in] year Value range 1970~
  *  @return true if time is legal,false if time is illegal
  */
 bool is_time_legal(uint8_t seconds, uint8_t minutes, uint8_t hours, uint8_t day,
@@ -39,4 +37,3 @@ bool is_time_legal(uint8_t seconds, uint8_t minutes, uint8_t hours, uint8_t day,
  *  @return true if transfer flag is valid, false if not
  */
 bool is_transfer_flag_valid(uint8_t transfer_flag);
-#endif

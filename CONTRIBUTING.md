@@ -53,15 +53,55 @@
     - Doesn't change the public headers under `include/libpldm`
     - Doesn't change observable runtime behaviour
 
+### Build configuration and tools
+
+- [ ] Library can be built with tools from [Debian Stable][debian-releases]
+
+[debian-releases]: https://www.debian.org/releases/index.en.html
+
+## Fixing Implementation Defects
+
+- [ ] A [Fixes tag][linux-kernel-fixes-tag] is present, identifying the change
+      introducing the defect.
+
+[linux-kernel-fixes-tag]:
+  https://docs.kernel.org/process/submitting-patches.html#describe-your-changes
+
+- [ ] The change fixing the bug includes test cases demonstrating that the bug
+      is fixed.
+
 ## Adding a new API
 
-### Naming macros, functions and types
+### Organising declarations and definitions
+
+- [ ] Related macros, structs and functions are declared or defined together
+  - Avoid inserting them each at significantly different line locations
+
+- [ ] Message-length macros should immediately follow the definition of the
+      related struct.
+
+- [ ] Message-related API elements are defined in PLDM command-code order
+  - Refer to the command code tables in each specification
+
+  - This order is prefered because the PLDM command-codes must be stable, unlike
+    the organisation of sections in the specification texts.
+
+- [ ] Avoid unnecessary forward-declarations
+  - Macros using structs or functions should be declared following those structs
+    or functions, so the context is clear
+
+### Naming files, macros, functions and types
+
+- [ ] New files are named using [kebab-case][mozilla-glossary-kebab-case]
+
+[mozilla-glossary-kebab-case]:
+  https://developer.mozilla.org/en-US/docs/Glossary/Kebab_case
 
 - [ ] All publicly exposed macros, types and functions relating to the PLDM
       specifications must be prefixed with either `pldm_` or `PLDM_` as
       appropriate
-  - The only (temporary) exception are the `encode_*()` and `decode_*()`
-    function symbols
+  - The only exceptions are the `encode_*()` and `decode_*()` function symbols
+    as they embed the `pldm_` string through the related struct name.
 
 - [ ] `encode_*()` and `decode_*()` functions are named after their
       corresponding message struct type, where applicable
@@ -70,12 +110,22 @@
     - `encode_pldm_platform_cper_event()`
     - `decode_pldm_platform_cper_event()`
 
-- [ ] All publicly exposed macros, types and functions relating to the library
-      implementation must be prefixed with `libpldm_` or `LIBPLDM_`
-
 - [ ] All `pldm_`-prefixed symbols must also name the related specification. For
       example, for DSP0248 Platform Monitoring and Control, the symbol prefix
       should be `pldm_platform_`.
+
+- [ ] All structs, enums, and their members are named in accordance with the
+      corresponding identifier in the specification, where applicable
+  - [ ] Where the specification uses camelCase or PascalCase, the libpldm
+        declarations and definitions use the equivalent snake_case
+
+  - [ ] No element of a specified identifier has been abbreviated
+    - Application of abbreviation tends to be haphazard, which makes it harder
+      than necessary to map library identifiers back to those in the
+      specification
+
+- [ ] All publicly exposed macros, types and functions relating to the library
+      implementation must be prefixed with `libpldm_` or `LIBPLDM_`
 
 - [ ] All enum members must be prefixed with the type name
 
@@ -152,6 +202,35 @@
 [c17-draft-standard]:
   https://web.archive.org/web/20181230041359/http://www.open-std.org/jtc1/sc22/wg14/www/abq/c17_updated_proposed_fdis.pdf
 
+#### Constants and Enumerations
+
+- [ ] Field constant values are defined as macros and not enum members
+
+- [ ] Struct members representing enumerated types are defined as the underlying
+      unsigned integer type and not as an enum
+
+#### Strings
+
+- [ ] PLDM strings are not assumed to be `NUL`-terminated
+
+- [ ] Strings are passed-to and received-from libpldm APIs in the appropriately
+      encoded form
+  - [ ] Strings are not encoded or decoded in the libpldm implementation
+
+  - The PLDM specifications utilise multiple string encodings. We avoid
+    prescribing a string handling implementation by deferring that
+    responsibility to the caller.
+
+- [ ] Strings communicated via PLDM messages are referred to using a message
+      struct member of type `struct variable_field`.
+  - In both the message encode and decode cases `struct variable_field` points
+    to a data source: For decode operations the points to the relevant span in
+    the encoded message body.
+
+  - If the string is terminated with a `NUL` value then the span represented by
+    the `struct variable_field` shall include the `NUL` terminator appropriate
+    for the encoding.
+
 ### ABI control
 
 - [ ] New function symbols are marked with `LIBPLDM_ABI_TESTING` in the
@@ -200,8 +279,10 @@
 
 ### Testing
 
-- [ ] Test cases are provided with reasonable branch coverage of each new
-      function I've added
+- [ ] Unit tests are provided with reasonable branch coverage of each new
+      function added
+
+- [ ] Fuzz tests are provided for each new function added
 
 ### OEM/vendor-specific APIs
 
@@ -278,16 +359,24 @@ actions:
 
 - [ ] The ABI dump has been updated accordingly.
 
-## Fixing Implementation Defects
+## Replacing an API
 
-- [ ] A [Fixes tag][linux-kernel-fixes-tag] is present, identifying the change
-      introducing the defect.
+Replacing an existing API must be done over the course of several changes.
+Please submit _all_ of the necessary patches together for review. The expected
+list of commits are in order as follows:
 
-[linux-kernel-fixes-tag]:
-  https://docs.kernel.org/process/submitting-patches.html#describe-your-changes
+- [ ] Introduce the new API
+- [ ] Stabilise the new API, including necessary justification
+- [ ] Deprecate the old API
+- [ ] Remove the old API
 
-- [ ] The change fixing the bug includes test cases demonstrating that the bug
-      is fixed.
+The change to remove the old API will not be applied before a release is tagged
+after the change deprecating the old API has been applied.
+
+Please mark the pending changes as Work-in-Progress until the prior change has
+been submitted. For example, the patch to stabilise the new API (and all
+subsequent patches) should be marked as Work-in-Progress until the change
+introducing the new API has been submitted.
 
 ## Background
 
@@ -487,7 +576,9 @@ Changelog entries broadly fall into one of two cases
   For example:
 
   > - Returned error values for the following stable APIs have changed their
-  >   semantics:
+  >   semantics. No new error values will be returned, but existing error values
+  >   may be returned under new conditions:
+  >
   >   - `decode_descriptor_type_length_value()`
   >   - `decode_event_message_buffer_size_resp()`
   >   - `decode_get_numeric_effecter_value_resp()`
@@ -495,9 +586,19 @@ Changelog entries broadly fall into one of two cases
   >   - `decode_get_state_sensor_readings_resp()`
   >   - `decode_numeric_sensor_data()`
   >   - `decode_sensor_op_data()`
-  >
-  >   No new error values will be returned, but existing error values may be
-  >   returned under new conditions.
+
+### Constants and Enumerations
+
+Until [C23][c23-draft-standard] the underlying type used for storage of enum
+values is implementation-defined. This makes developing language bindings a
+tricky business. It also underspecifies the type needed to encode or decode the
+enum constant with respect to the PLDM wire format, which leads to error-prone
+casting required to get the job done.
+
+As such, prefer defining constants as macros and using explicit unsigned integer
+types to represent message content.
+
+[c23-draft-standard]: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf
 
 ## References
 
@@ -583,3 +684,9 @@ Changelog entries broadly fall into one of two cases
 
 [matthew-prast-little-proofs]:
   https://the-nerve-blog.ghost.io/to-be-a-better-programmer-write-little-proofs-in-your-head/
+
+- [An (In-)Complete Guide to C++ Object Lifetimes - Jonathan
+  Müller][jonathan-müller-c++-object-lifetimes]
+
+[jonathan-müller-c++-object-lifetimes]:
+  https://www.think-cell.com/assets/en/career/talks/pdf/think-cell_talk_lifetime.pdf

@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
-#ifndef LIBPLDM_SRC_TRANSPORT_TRANSPORT_H
-#define LIBPLDM_SRC_TRANSPORT_TRANSPORT_H
+#pragma once
 
 #include <libpldm/base.h>
 #include <libpldm/pldm.h>
@@ -9,11 +8,11 @@ struct pollfd;
 /**
  * @brief Generic PLDM transport struct
  *
- * @var name - name of the transport
- * @var version - version of transport to use
- * @var recv - pointer to the transport specific function to receive a message
- * @var send - pointer to the transport specific function to send a message
- * @var init_pollfd - pointer to the transport specific init_pollfd function
+ * @param name - name of the transport
+ * @param version - version of transport to use
+ * @param recv - pointer to the transport specific function to receive a message
+ * @param send - pointer to the transport specific function to send a message
+ * @param init_pollfd - pointer to the transport specific init_pollfd function
  */
 struct pldm_transport {
 	const char *name;
@@ -27,5 +26,3 @@ struct pldm_transport {
 	int (*init_pollfd)(struct pldm_transport *transport,
 			   struct pollfd *pollfd);
 };
-
-#endif // LIBPLDM_SRC_TRANSPORT_TRANSPORT_H

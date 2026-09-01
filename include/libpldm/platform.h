@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
-#ifndef PLATFORM_H
-#define PLATFORM_H
+#pragma once
 
 #ifdef __cplusplus
 extern "C" {
@@ -12,6 +11,7 @@ extern "C" {
 #include <stdint.h>
 #include <uchar.h>
 
+#include <libpldm/api.h>
 #include <libpldm/base.h>
 #include <libpldm/compiler.h>
 #include <libpldm/pdr.h>
@@ -854,7 +854,7 @@ struct pldm_effecter_auxiliary_names_pdr {
 
 /** @brief Encode PLDM state sensor PDR
  *
- * @param[in/out] sensor                 Structure to encode. All members of
+ * @param[in,out] sensor                 Structure to encode. All members of
  * sensor, except those mentioned in the @note below, should be initialized by
  * the caller.
  * @param[in]     allocation_size        Size of sensor allocation in bytes
@@ -1122,7 +1122,7 @@ struct pldm_platform_file_descriptor_pdr {
 
 /** @brief Encode PLDM state effecter PDR
  *
- * @param[in/out] effecter               Structure to encode. All members of
+ * @param[in,out] effecter               Structure to encode. All members of
  *                                       effecter, except those mentioned in
  *                                       the @note below, should be initialized
  *                                       by the caller.
@@ -1188,6 +1188,8 @@ struct pldm_set_state_effecter_states_req {
 	uint8_t comp_effecter_count;
 	set_effecter_state_field field[8];
 } __attribute__((packed));
+
+#define PLDM_SET_STATE_EFFECTER_STATES_MIN_REQ_BYTES 5
 
 /** @struct pldm_get_pdr_repository_info_resp
  *
@@ -1527,15 +1529,25 @@ struct pldm_get_sensor_reading_resp {
 	uint8_t present_reading[1];
 } __attribute__((packed));
 
-/** @struct pldm_set_numeric_sensor_enable_req
+/* DSP0248 v1.3.0 Table 30 and Table 40 */
+#define PLDM_PLATFORM_SET_SENSOR_EVENT_MESSAGE_NO_CHANGE		0x00
+#define PLDM_PLATFORM_SET_SENSOR_EVENT_MESSAGE_DISABLE_EVENTS		0x01
+#define PLDM_PLATFORM_SET_SENSOR_EVENT_MESSAGE_ENABLE_EVENTS		0x02
+#define PLDM_PLATFORM_SET_SENSOR_EVENT_MESSAGE_ENABLE_OP_EVENTS_ONLY	0x03
+#define PLDM_PLATFORM_SET_SENSOR_EVENT_MESSAGE_ENABLE_STATE_EVENTS_ONLY 0x04
+
+/** @struct pldm_platform_set_numeric_sensor_enable_req
  *
  *  Structure representing a SetNumericSensorEnable request
  */
-struct pldm_set_numeric_sensor_enable_req {
+struct pldm_platform_set_numeric_sensor_enable_req {
 	uint16_t sensor_id;
-	enum pldm_set_sensor_operational_state op_state;
-	enum pldm_sensor_event_message_enable event_enable;
+	uint8_t sensor_operational_state;
+	uint8_t sensor_event_message_enable;
 };
+
+#define PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_REQ_BYTES  4
+#define PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_RESP_BYTES 1
 
 /** @struct pldm_set_state_sensor_enable_field
  *
@@ -2140,7 +2152,7 @@ int decode_set_numeric_effecter_value_resp(const struct pldm_msg *msg,
  *  @param[in] instance_id - Message's instance id
  *  @param[in] sensor_id - used to identify and access the simple or composite
  *         sensor
- *  @param[in] sensorRearm - Each bit location in this field corresponds to a
+ *  @param[in] sensor_rearm - Each bit location in this field corresponds to a
  *         particular sensor within the state sensor, where bit [0] corresponds
  *         to the first state sensor (sensor offset 0) and bit [7] corresponds
  *         to the eighth sensor (sensor offset 7), sequentially
@@ -2719,6 +2731,40 @@ int decode_pldm_pdr_repository_change_record_data(
 	uint8_t *event_data_operation, uint8_t *number_of_change_entries,
 	size_t *change_entry_data_offset);
 
+/* SetNumericSensorEnable */
+
+/** @brief Encode SetNumericSensorEnable request
+ *
+ *  @param[in] instance_id - Message's instance id
+ *  @param[in] req - Request parameters
+ *  @param[out] msg - Request message
+ *  @param[in,out] payload_length - Size of the buffer on input; set to the
+ *                                  actual encoded length on output
+ *
+ *  @return error code: 0 on success
+ *                      -EINVAL if the function input parameters are incorrect
+ *                      -EOVERFLOW if payload_length is too small
+ */
+int encode_pldm_platform_set_numeric_sensor_enable_req(
+	uint8_t instance_id,
+	const struct pldm_platform_set_numeric_sensor_enable_req *req,
+	struct pldm_msg *msg, size_t *payload_length);
+
+/** @brief Decode SetNumericSensorEnable response
+ *
+ *  @param[in] msg - PLDM response message.
+ *  @param[in] payload_length - Length of response message.
+ *  @param[out] completion_code - PLDM completion code.
+ *
+ *  @return error code: 0 on success
+ *                      -EINVAL if the function input parameters are incorrect
+ *                      -EOVERFLOW if payload is too short
+ *                      -EBADMSG if payload is too long
+ */
+int decode_pldm_platform_set_numeric_sensor_enable_resp(
+	const struct pldm_msg *msg, size_t payload_length,
+	uint8_t *completion_code);
+
 /* GetSensorReading */
 
 /** @brief Encode GetSensorReading request data
@@ -2802,7 +2848,7 @@ int decode_get_event_receiver_resp(const struct pldm_msg *msg,
  *  except those mentioned in the @note below, should be initialized by
  * the caller.
  *  @param[out] msg - Argument to capture the Message
- *  @param[in/out] payload_lenght - The length of the supplied buffer for
+ *  @param[in,out] payload_length - The length of the supplied buffer for
  payload
  * @return 0 on success
  *         -EINVAL if the input parameters' memory are not allocated,
@@ -2946,7 +2992,6 @@ int decode_entity_auxiliary_names_pdr(
  *       call that API first.
  *
  *  @param[out] pdr_value - Entity auxiliary names pdr struct
- *  @param[in] names_size - Size of names data
  *  @return error code
  */
 int decode_pldm_entity_auxiliary_names_pdr_index(
@@ -2967,7 +3012,7 @@ int decode_pldm_platform_cper_event(const void *event_data,
 
 /** @brief Helper function to response CPER event event data
  *
- *  @param[in] cper_event - the decoded pldm_platform_cper_event struct
+ *  @param[in] event - the decoded pldm_platform_cper_event struct
  *  @return cper event event data array pointer
  */
 uint8_t *
@@ -2977,7 +3022,7 @@ pldm_platform_cper_event_event_data(struct pldm_platform_cper_event *event);
  *
  *  @param[in] pdr - Populated pldm_platform_file_descriptor_pdr struct
  *  @param[out] data - Pointer to a buffer to save encoded PDR data
- *  @param[in/out] data_len - Length of the response PDR buffer (data)
+ *  @param[in,out] data_len - Length of the response PDR buffer (data)
  *
  *  @return error code: 0 on success
  *          -EINVAL if the input values are invalid
@@ -3023,7 +3068,7 @@ int decode_pldm_platform_file_descriptor_pdr(
  */
 int decode_set_numeric_sensor_enable_req(
 	const struct pldm_msg *msg, size_t payload_length,
-	struct pldm_set_numeric_sensor_enable_req *req);
+	struct pldm_platform_set_numeric_sensor_enable_req *req);
 
 /** @brief Decode SetStateSensorEnables request
  *
@@ -3135,15 +3180,752 @@ int encode_get_terminus_uid_req(uint8_t instance_id, struct pldm_msg *msg);
  *  @param[in] msg - Response message.
  *  @param[in] payload_length - Length of response message payload.
  *  @param[out] completion_code - PLDM completion code.
- *  @param[out] UUID - The pointer of array for 16 bytes Terminus UID
+ *  @param[out] uuid - The pointer of array for 16 bytes Terminus UID
  *  @return pldm_completion_codes.
  */
 int decode_get_terminus_UID_resp(const struct pldm_msg *msg,
 				 size_t payload_length,
 				 uint8_t *completion_code, uint8_t *uuid);
+/** @struct pldm_platform_redfish_resource_pdr
+ *
+ *  Structure representing Redfish Resource PDR
+ */
+struct pldm_platform_redfish_resource_pdr {
+	struct pldm_value_pdr_hdr hdr;
+	uint32_t resource_id;
+	bitfield8_t resource_flags;
+	uint32_t containing_resource_id;
+	struct variable_field proposed_containing_resource_name;
+	struct variable_field sub_uri;
+	uint16_t additional_resource_id_count;
+	struct variable_field additional_resources;
+	ver32_t major_schema_version;
+	uint16_t major_schema_dictionary_length_bytes;
+	uint32_t major_schema_dictionary_signature;
+	struct variable_field major_schema_name;
+	uint16_t oem_count;
+	struct variable_field oem_names;
+};
+
+/**
+ * Minimum length of Redfish Resource PDR, including size of CommonHeader,
+ * ResourceID, ResourceFlags, ContainingResourceID,
+ * ProposedContainingResourceLengthBytes, '\0', SubURILengthBytes, '\0',
+ * AdditionalResourceIDCount, MajorSchemaVersion, MajorSchemaDictionaryLengthBytes,
+ * MajorSchemaDictionarySignature, MajorSchemaNameLength, '\0', OEMCount.
+ */
+#define PLDM_PLATFORM_REDFISH_RESOURCE_PDR_MIN_LENGTH 41
+
+/** @brief Decode date fields from Redfish Resource PDR
+ *
+ *  @param[in] data - PLDM response message which includes the Redfish Resource PDR
+ *                        from DSP0248_1.3.0 table 104.
+ *  @param[in] data_length - Length of response message payload
+ *  @param[out] pdr - Redfish resource pdr struct
+ *
+ *  @return error code
+ *
+ * Example use of the function is as follows:
+ *
+ * @code
+ * struct pldm_platform_redfish_resource_pdr pdr;
+ * struct pldm_platform_redfish_resource_pdr_additional_resource additional_resource;
+ * struct pldm_platform_redfish_resource_pdr_oem_name oem_name;
+ * int rc;
+ *
+ * rc = decode_pldm_platform_redfish_resource_pdr(data, data_length, &pdr);
+ * if (rc) {
+ *     // Handle any error from decoding the fixed-portion of response
+ * }
+ *
+ * foreach_pldm_platform_redfish_resource_pdr_additional_resource(pdr, additional_resource, rc) {
+ *     // Do something with the decoded Additional Resource
+ * }
+ *
+ * if (rc) {
+ *     // Handle any decoding error while iterating the variable-length set of
+ *     // parameter entries
+ * }
+ *
+ * foreach_pldm_platform_redfish_resource_pdr_oem_name(pdr, oem_name, rc) {
+ *     // Do something with the decoded OEMName
+ * }
+ *
+ * if (rc) {
+ *     // Handle any decoding error while iterating the variable-length set of
+ *     // parameter entries
+ * }
+ * @endcode
+ */
+int decode_pldm_platform_redfish_resource_pdr(
+	const void *data, size_t data_length,
+	struct pldm_platform_redfish_resource_pdr *pdr);
+
+/** @struct pldm_platform_redfish_resource_pdr_additional_resource
+ *
+ *  Structure representing individual AdditionalResource from the Redfish Resource PDR
+ *  defined in Table 104 - Redfish Resource PDR format from DSP0248_1.3.0
+ */
+struct pldm_platform_redfish_resource_pdr_additional_resource {
+	uint32_t id;
+	struct variable_field sub_uri;
+};
+
+struct pldm_platform_redfish_resource_pdr_additional_resource_iter {
+	struct variable_field field;
+	size_t entries;
+};
+
+LIBPLDM_ITERATOR
+struct pldm_platform_redfish_resource_pdr_additional_resource_iter
+pldm_platform_redfish_resource_pdr_additional_resource_iter_init(
+	const struct pldm_platform_redfish_resource_pdr *pdr)
+{
+	struct pldm_platform_redfish_resource_pdr_additional_resource_iter iter;
+
+	iter.field = pdr->additional_resources;
+	iter.entries = pdr->additional_resource_id_count;
+
+	return iter;
+}
+
+LIBPLDM_ITERATOR
+bool pldm_platform_redfish_resource_pdr_additional_resource_iter_end(
+	const struct pldm_platform_redfish_resource_pdr_additional_resource_iter
+		*iter)
+{
+	return iter->entries == 0;
+}
+
+LIBPLDM_ITERATOR
+bool pldm_platform_redfish_resource_pdr_additional_resource_iter_next(
+	struct pldm_platform_redfish_resource_pdr_additional_resource_iter *iter)
+{
+	if (!iter->entries) {
+		return false;
+	}
+	iter->entries--;
+	return true;
+}
+
+int decode_pldm_platform_redfish_resource_pdr_additional_resource_from_iter(
+	struct pldm_platform_redfish_resource_pdr_additional_resource_iter *iter,
+	struct pldm_platform_redfish_resource_pdr_additional_resource
+		*additional_resource);
+
+/** @brief Iterator for Additional Resources from the Redfish Resource PDR
+ *
+ * @param pdr The struct pldm_platform_redfish_resource_pdr lvalue
+ *                           used as the out-value from the corresponding call to
+ *                           decode_pldm_platform_redfish_resource_pdr()
+ * @param additional_resource The struct pldm_platform_redfish_resource_pdr_additional_resource
+ *                            lvalue into which the next parameter table entry should be decoded
+ * @param rc An lvalue of type int into which the return code from the decoding
+ *           will be placed
+ *
+ * Example use of the macro is as follows:
+ *
+ * @code
+ * struct pldm_platform_redfish_resource_pdr pdr;
+ * struct pldm_platform_redfish_resource_pdr_additional_resource additional_resource;
+ * int rc;
+ *
+ * rc = decode_pldm_platform_redfish_resource_pdr(..., &pdr);
+ * if (rc) {
+ *     // Handle any error from decoding the fixed-portion of response
+ * }
+ *
+ * foreach_pldm_platform_redfish_resource_pdr_additional_resource(pdr, additional_resource, rc) {
+ *     // Do something with the decoded Additional Resource
+ * }
+ *
+ * if (rc) {
+ *     // Handle any decoding error while iterating the variable-length set of
+ *     // parameter entries
+ * }
+ * @endcode
+ */
+#define foreach_pldm_platform_redfish_resource_pdr_additional_resource(                        \
+	pdr, additional_resource, rc)                                                          \
+	for (struct pldm_platform_redfish_resource_pdr_additional_resource_iter                \
+		     additional_resource##_iter =                                              \
+			     ((rc) = 0,                                                        \
+			     pldm_platform_redfish_resource_pdr_additional_resource_iter_init( \
+				      &(pdr)));                                                \
+	     !(rc) &&                                                                          \
+	     !pldm_platform_redfish_resource_pdr_additional_resource_iter_end(                 \
+		     &(additional_resource##_iter)) &&                                         \
+	     !((rc) = decode_pldm_platform_redfish_resource_pdr_additional_resource_from_iter( \
+		       &(additional_resource##_iter),                                          \
+		       &(additional_resource)));                                               \
+	     pldm_platform_redfish_resource_pdr_additional_resource_iter_next(                 \
+		     &(additional_resource##_iter)))
+
+/** @struct pldm_platform_redfish_resource_pdr_oem_name
+ *
+ *  Structure representing individual OEMName from the Redfish Resource PDR
+ *  defined in Table 104 - Redfish Resource PDR format from DSP0248_1.3.0
+ */
+struct pldm_platform_redfish_resource_pdr_oem_name {
+	struct variable_field name;
+};
+
+struct pldm_platform_redfish_resource_pdr_oem_name_iter {
+	struct variable_field field;
+	size_t entries;
+};
+
+LIBPLDM_ITERATOR
+struct pldm_platform_redfish_resource_pdr_oem_name_iter
+pldm_platform_redfish_resource_pdr_oem_name_iter_init(
+	const struct pldm_platform_redfish_resource_pdr *pdr)
+{
+	struct pldm_platform_redfish_resource_pdr_oem_name_iter iter;
+
+	iter.field = pdr->oem_names;
+	iter.entries = pdr->oem_count;
+
+	return iter;
+}
+
+LIBPLDM_ITERATOR
+bool pldm_platform_redfish_resource_pdr_oem_name_iter_end(
+	const struct pldm_platform_redfish_resource_pdr_oem_name_iter *iter)
+{
+	return iter->entries == 0;
+}
+
+LIBPLDM_ITERATOR
+bool pldm_platform_redfish_resource_pdr_oem_name_iter_next(
+	struct pldm_platform_redfish_resource_pdr_oem_name_iter *iter)
+{
+	if (!iter->entries) {
+		return false;
+	}
+	iter->entries--;
+	return true;
+}
+
+int decode_pldm_platform_redfish_resource_pdr_oem_name_from_iter(
+	struct pldm_platform_redfish_resource_pdr_oem_name_iter *iter,
+	struct pldm_platform_redfish_resource_pdr_oem_name *oem_name);
+
+/** @brief Iterator for OEM Names from the Redfish Resource PDR
+ *
+ * @param pdr The struct pldm_platform_redfish_resource_pdr lvalue
+ *                           used as the out-value from the corresponding call to
+ *                           decode_pldm_platform_redfish_resource_pdr()
+ * @param oem_name The struct pldm_platform_redfish_resource_pdr_oem_name lvalue
+ *                 into which the next parameter table entry should be decoded
+ * @param rc An lvalue of type int into which the return code from the decoding
+ *           will be placed
+ *
+ * Example use of the macro is as follows:
+ *
+ * @code
+ * struct pldm_platform_redfish_resource_pdr pdr;
+ * struct pldm_platform_redfish_resource_pdr_oem_name oem_name;
+ * int rc;
+ *
+ * rc = decode_pldm_platform_redfish_resource_pdr(..., &pdr);
+ * if (rc) {
+ *     // Handle any error from decoding the fixed-portion of response
+ * }
+ *
+ * foreach_pldm_platform_redfish_resource_pdr_oem_name(pdr, oem_name, rc) {
+ *     // Do something with the decoded OEMName
+ * }
+ *
+ * if (rc) {
+ *     // Handle any decoding error while iterating the variable-length set of
+ *     // parameter entries
+ * }
+ * @endcode
+ */
+#define foreach_pldm_platform_redfish_resource_pdr_oem_name(pdr, oem_name, rc)      \
+	for (struct pldm_platform_redfish_resource_pdr_oem_name_iter                \
+		     oem_name##_iter =                                              \
+			     ((rc) = 0,                                             \
+			     pldm_platform_redfish_resource_pdr_oem_name_iter_init( \
+				      &(pdr)));                                     \
+	     !(rc) &&                                                               \
+	     !pldm_platform_redfish_resource_pdr_oem_name_iter_end(                 \
+		     &(oem_name##_iter)) &&                                         \
+	     !((rc) = decode_pldm_platform_redfish_resource_pdr_oem_name_from_iter( \
+		       &(oem_name##_iter), &(oem_name)));                           \
+	     pldm_platform_redfish_resource_pdr_oem_name_iter_next(                 \
+		     &(oem_name##_iter)))
+
+/** @struct pldm_platform_redfish_action_pdr
+ *
+ *  Structure representing Redfish Action PDR
+ */
+struct pldm_platform_redfish_action_pdr {
+	struct pldm_value_pdr_hdr hdr;
+	uint8_t action_pdr_index;
+	uint16_t related_resource_count;
+	struct variable_field related_resources;
+	uint8_t action_count;
+	struct variable_field actions;
+};
+
+/**
+ * Minimum length of Redfish Action PDR, including size of CommonHeader,
+ * ActionPDRIndex, RelatedResourceCount, ActionCount.
+ */
+#define PLDM_PLATFORM_REDFISH_ACTION_PDR_MIN_LENGTH 14
+
+/** @brief Decode date fields from Redfish Action PDR
+ *
+ *  @param[in] data - PLDM response message which includes the Redfish Action PDR
+ *                        from DSP0248_1.3.0 table 106.
+ *  @param[in] data_length - Length of response message payload
+ *  @param[out] pdr - Redfish resource pdr struct
+ *
+ *  @return error code
+ *
+ * Example use of the function is as follows:
+ *
+ * @code
+ * struct pldm_platform_redfish_action_pdr pdr;
+ * uint32_t resource_id;
+ * struct pldm_platform_redfish_action_pdr_action action;
+ * int rc;
+ *
+ * rc = decode_pldm_platform_redfish_action_pdr(data, data_length, &pdr);
+ * if (rc) {
+ *     // Handle any error from decoding the fixed-portion of response
+ * }
+ *
+ * foreach_pldm_platform_redfish_action_pdr_related_resource_id(pdr, resource_id, rc) {
+ *     // Do something with the decoded related resource id
+ * }
+ *
+ * if (rc) {
+ *     // Handle any decoding error while iterating the variable-length set of
+ *     // parameter entries
+ * }
+ *
+ * foreach_pldm_platform_redfish_action_pdr_action(pdr, action, rc) {
+ *     // Do something with the decoded action
+ * }
+ *
+ * if (rc) {
+ *     // Handle any decoding error while iterating the variable-length set of
+ *     // parameter entries
+ * }
+ * @endcode
+ */
+int decode_pldm_platform_redfish_action_pdr(
+	const void *data, size_t data_length,
+	struct pldm_platform_redfish_action_pdr *pdr);
+
+struct pldm_platform_redfish_action_pdr_related_resource_id_iter {
+	struct variable_field field;
+	size_t entries;
+};
+
+LIBPLDM_ITERATOR
+struct pldm_platform_redfish_action_pdr_related_resource_id_iter
+pldm_platform_redfish_action_pdr_related_resource_id_iter_init(
+	const struct pldm_platform_redfish_action_pdr *pdr)
+{
+	struct pldm_platform_redfish_action_pdr_related_resource_id_iter iter;
+
+	iter.field = pdr->related_resources;
+	iter.entries = pdr->related_resource_count;
+
+	return iter;
+}
+
+LIBPLDM_ITERATOR
+bool pldm_platform_redfish_action_pdr_related_resource_id_iter_end(
+	const struct pldm_platform_redfish_action_pdr_related_resource_id_iter
+		*iter)
+{
+	return iter->entries == 0;
+}
+
+LIBPLDM_ITERATOR
+bool pldm_platform_redfish_action_pdr_related_resource_id_iter_next(
+	struct pldm_platform_redfish_action_pdr_related_resource_id_iter *iter)
+{
+	if (!iter->entries) {
+		return false;
+	}
+	iter->entries--;
+	return true;
+}
+
+int decode_pldm_platform_redfish_action_pdr_related_resource_id_from_iter(
+	struct pldm_platform_redfish_action_pdr_related_resource_id_iter *iter,
+	uint32_t *res);
+
+/** @brief Iterator for related resources from the Redfish Action PDR
+ *
+ * @param pdr The struct pldm_platform_redfish_action_pdr lvalue
+ *                           used as the out-value from the corresponding call to
+ *                           decode_pldm_platform_redfish_action_pdr()
+ * @param res The "uint32_t res" lvalue into which the next parameter table entry should be decoded
+ * @param rc An lvalue of type int into which the return code from the decoding
+ *           will be placed
+ *
+ * Example use of the macro is as follows:
+ *
+ * @code
+ * struct pldm_platform_redfish_action_pdr pdr;
+ * uint32_t resource_id;
+ * int rc;
+ *
+ * rc = decode_pldm_platform_redfish_action_pdr(..., &pdr);
+ * if (rc) {
+ *     // Handle any error from decoding the fixed-portion of response
+ * }
+ *
+ * foreach_pldm_platform_redfish_action_pdr_related_resource_id(pdr, resource_id, rc) {
+ *     // Do something with the decoded related resource id
+ * }
+ *
+ * if (rc) {
+ *     // Handle any decoding error while iterating the variable-length set of
+ *     // parameter entries
+ * }
+ * @endcode
+ */
+#define foreach_pldm_platform_redfish_action_pdr_related_resource_id(pdr, res,               \
+								     rc)                     \
+	for (struct pldm_platform_redfish_action_pdr_related_resource_id_iter                \
+		     res##_iter =                                                            \
+			     ((rc) = 0,                                                      \
+			     pldm_platform_redfish_action_pdr_related_resource_id_iter_init( \
+				      &(pdr)));                                              \
+	     !(rc) &&                                                                        \
+	     !pldm_platform_redfish_action_pdr_related_resource_id_iter_end(                 \
+		     &(res##_iter)) &&                                                       \
+	     !((rc) = decode_pldm_platform_redfish_action_pdr_related_resource_id_from_iter( \
+		       &(res##_iter), &(res)));                                              \
+	     pldm_platform_redfish_action_pdr_related_resource_id_iter_next(                 \
+		     &(res##_iter)))
+
+/** @struct pldm_platform_redfish_action_pdr_action
+ *
+ *  Structure representing individual Action from the Redfish Action PDR
+ *  defined in Table 106 - Redfish Action PDR format from DSP0248_1.3.0
+ */
+struct pldm_platform_redfish_action_pdr_action {
+	struct variable_field name;
+	struct variable_field path;
+};
+
+struct pldm_platform_redfish_action_pdr_action_iter {
+	struct variable_field field;
+	size_t entries;
+};
+
+LIBPLDM_ITERATOR
+struct pldm_platform_redfish_action_pdr_action_iter
+pldm_platform_redfish_action_pdr_action_iter_init(
+	struct pldm_platform_redfish_action_pdr *pdr)
+{
+	struct pldm_platform_redfish_action_pdr_action_iter iter;
+
+	iter.field = pdr->actions;
+	iter.entries = pdr->action_count;
+
+	return iter;
+}
+
+LIBPLDM_ITERATOR
+bool pldm_platform_redfish_action_pdr_action_iter_end(
+	const struct pldm_platform_redfish_action_pdr_action_iter *iter)
+{
+	return iter->entries == 0;
+}
+
+LIBPLDM_ITERATOR
+bool pldm_platform_redfish_action_pdr_action_iter_next(
+	struct pldm_platform_redfish_action_pdr_action_iter *iter)
+{
+	if (!iter->entries) {
+		return false;
+	}
+	iter->entries--;
+	return true;
+}
+
+int decode_pldm_platform_redfish_action_pdr_action_from_iter(
+	struct pldm_platform_redfish_action_pdr_action_iter *iter,
+	struct pldm_platform_redfish_action_pdr_action *action);
+
+/** @brief Iterator for actions from the Redfish Action PDR
+ *
+ * @param pdr The struct pldm_platform_redfish_action_pdr lvalue
+ *                           used as the out-value from the corresponding call to
+ *                           decode_pldm_platform_redfish_action_pdr()
+ * @param action The pldm_platform_redfish_action_pdr_action lvalue
+ *               into which the next parameter table entry should be decoded
+ * @param rc An lvalue of type int into which the return code from the decoding
+ *           will be placed
+ *
+ * Example use of the macro is as follows:
+ *
+ * @code
+ * struct pldm_platform_redfish_action_pdr pdr;
+ * struct pldm_platform_redfish_action_pdr_action action;
+ * int rc;
+ *
+ * rc = decode_pldm_platform_redfish_action_pdr(..., &pdr);
+ * if (rc) {
+ *     // Handle any error from decoding the fixed-portion of response
+ * }
+ *
+ * foreach_pldm_platform_redfish_action_pdr_action(pdr, action, rc) {
+ *     // Do something with the decoded action
+ * }
+ *
+ * if (rc) {
+ *     // Handle any decoding error while iterating the variable-length set of
+ *     // parameter entries
+ * }
+ * @endcode
+ */
+
+#define foreach_pldm_platform_redfish_action_pdr_action(pdr, action, rc)         \
+	for (struct pldm_platform_redfish_action_pdr_action_iter action##_iter = \
+		     ((rc) = 0,                                                  \
+		     pldm_platform_redfish_action_pdr_action_iter_init(          \
+			      &(pdr)));                                          \
+	     !(rc) &&                                                            \
+	     !pldm_platform_redfish_action_pdr_action_iter_end(                  \
+		     &(action##_iter)) &&                                        \
+	     !((rc) = decode_pldm_platform_redfish_action_pdr_action_from_iter(  \
+		       &(action##_iter), &(action)));                            \
+	     pldm_platform_redfish_action_pdr_action_iter_next(                  \
+		     &(action##_iter)))
+
+/**
+ * @struct pldm_platform_state_effecter_pdr_iter
+ * @brief Iterator context for traversing the possible_states array of a
+ *        PLDM State Effecter PDR
+ *
+ * This iterator provides safe traversal of the variable-length possible_states[]
+ * flexible array member within a pldm_state_effecter_pdr structure.
+ *
+ * The iterator tracks:
+ * - Current position and remaining bytes in the buffer (field)
+ * - The total number of possible_states entries (total_count)
+ * - The current iteration index
+ */
+struct pldm_platform_state_effecter_pdr_iter {
+	struct variable_field field;
+	struct variable_field current_states;
+	uint8_t total_count;
+	uint8_t current_index;
+};
+
+/**
+ * @brief Initialize iterator for State Effecter PDR possible_states array
+ *
+ * @param[in]  pdr      - Pointer to the State Effecter PDR structure
+ * @param[in]  pdr_size - Size of the PDR buffer (needed due to flexible array)
+ * @param[out] rc       - Pointer to receive return code
+ *
+ * @retval  0         - Success
+ * @retval -EINVAL    - Invalid input
+ * @retval -EOVERFLOW - Buffer too small
+ */
+struct pldm_platform_state_effecter_pdr_iter
+pldm_platform_state_effecter_pdr_iter_init(
+	const struct pldm_state_effecter_pdr *pdr, size_t pdr_size, int *rc);
+
+LIBPLDM_ITERATOR
+bool pldm_platform_state_effecter_pdr_iter_end(
+	const struct pldm_platform_state_effecter_pdr_iter *iter)
+{
+	return iter->current_index >= iter->total_count;
+}
+
+LIBPLDM_ITERATOR
+bool pldm_platform_state_effecter_pdr_iter_next(
+	struct pldm_platform_state_effecter_pdr_iter *iter)
+{
+	if (iter->current_index >= iter->total_count) {
+		return false;
+	}
+	iter->current_index++;
+	return true;
+}
+
+/**
+ * @brief Decode a state_effecter_possible_states entry from the iterator
+ *
+ * @param[in,out] iter   - Iterator previously initialized with
+ *                         pldm_platform_state_effecter_pdr_iter_init().
+ * @param[out]    states - Caller-provided storage to receive decoded entry.
+ *
+ * @retval  0          - Success.
+ * @retval -EINVAL     - Invalid input pointers.
+ * @retval -EOVERFLOW  - Buffer too small for entry.
+ */
+int decode_pldm_platform_state_effecter_pdr_from_iter(
+	struct pldm_platform_state_effecter_pdr_iter *iter,
+	struct state_effecter_possible_states *states);
+
+/**
+ * @brief Iterate over the bitfield8_t states within a
+ *        state_effecter_possible_states entry
+ *
+ * @param states A pointer to the possible_states entry
+ * @param bitfield An lvalue of type bitfield8_t that receives the
+ *                      current bitfield element
+ * @param rc An lvalue of type int that holds the status result of iteration
+ *
+ * @p rc is set to 0 on successful iteration. Otherwise, on error, @p rc is set to:
+ * - -EINVAL if parameter values are invalid
+ * - -EOVERFLOW if buffer bounds are exceeded
+ *
+ * The loop body is not executed if iterator initialization fails. After the loop
+ * completes, check @p rc to determine if iteration was successful or if an error
+ * occurred during traversal.
+ */
+#define foreach_pldm_platform_state_effecter_pdr_states(states, bitfield, rc)            \
+	for (struct pldm_platform_state_effecter_pdr_possible_states_iter                \
+		     bitfield##_iter =                                                   \
+			     pldm_platform_state_effecter_pdr_possible_states_iter_init( \
+				     &states##_iter, &(rc));                             \
+	     !(rc) &&                                                                    \
+	     !pldm_platform_state_effecter_pdr_possible_states_iter_end(                 \
+		     &bitfield##_iter) &&                                                \
+	     !((rc) = decode_pldm_platform_state_effecter_pdr_possible_states_from_iter( \
+		       &bitfield##_iter, &(bitfield)));                                  \
+	     pldm_platform_state_effecter_pdr_possible_states_iter_next(                 \
+		     &bitfield##_iter))
+
+/**
+ * @struct pldm_platform_state_effecter_pdr_possible_states_iter
+ * @brief Iterator context for traversing the bitfield8_t states array within
+ *        a state_effecter_possible_states entry
+ *
+ * This iterator provides safe traversal of the variable-length states[] array
+ * contained within a single state_effecter_possible_states structure. Each
+ * bitfield8_t element represents the possible state values (bits 0-7) for
+ * the corresponding State Set, where a set bit indicates that state value
+ * is supported by the effecter.
+ *
+ * The iterator tracks:
+ * - Current position and remaining bytes in the buffer (field)
+ * - The total number of bitfield entries (total_count)
+ * - The current iteration index
+ */
+struct pldm_platform_state_effecter_pdr_possible_states_iter {
+	struct variable_field field;
+	uint8_t total_count;
+	uint8_t current_index;
+};
+
+/**
+ * @brief Initialize iterator over bitfield8_t states within a single
+ *        state_effecter_possible_states entry.
+ *
+ * @param[in]  outer_iter - Outer iterator with current_states set by
+ *                          decode_pldm_platform_state_effecter_pdr_possible_states_from_iter().
+ * @param[out] rc         - Pointer to receive return code.
+ *
+ * @return Initialized iterator. On error, returns zeroed iterator and sets *rc:
+ * @retval -EINVAL   - outer_iter is NULL.
+ */
+struct pldm_platform_state_effecter_pdr_possible_states_iter
+pldm_platform_state_effecter_pdr_possible_states_iter_init(
+	const struct pldm_platform_state_effecter_pdr_iter *outer_iter,
+	int *rc);
+
+LIBPLDM_ITERATOR
+bool pldm_platform_state_effecter_pdr_possible_states_iter_end(
+	const struct pldm_platform_state_effecter_pdr_possible_states_iter *iter)
+{
+	return iter->current_index >= iter->total_count;
+}
+
+LIBPLDM_ITERATOR
+bool pldm_platform_state_effecter_pdr_possible_states_iter_next(
+	struct pldm_platform_state_effecter_pdr_possible_states_iter *iter)
+{
+	if (iter->current_index >= iter->total_count) {
+		return false;
+	}
+	iter->current_index++;
+	return true;
+}
+
+/**
+ * @brief Decode next bitfield8_t entry from the states iterator
+ *
+ * @param[in,out] iter  - Iterator previously initialized with
+ *                       pldm_platform_state_effecter_pdr_possible_states_iter_init().
+ * @param[out]    state - Caller-provided storage to receive current
+ *                       bitfield8_t entry.
+ *
+ * @retval  0          - Success.
+ * @retval -EINVAL     - Invalid input pointers.
+ * @retval -EOVERFLOW  - Buffer too small for entry.
+ */
+int decode_pldm_platform_state_effecter_pdr_possible_states_from_iter(
+	struct pldm_platform_state_effecter_pdr_possible_states_iter *iter,
+	bitfield8_t *state);
+
+/**
+ * @brief Iterate over the possible_states entries in a State Effecter PDR
+ *
+ * @param pdr Pointer to the State Effecter PDR
+ *                (struct pldm_state_effecter_pdr *)
+ * @param pdr_size Total size in bytes of the PDR buffer pointed to by
+ *                     @p pdr. Must be at least
+ *                     sizeof(struct pldm_state_effecter_pdr).
+ * @param states A pointer to possible_states entry
+ * @param rc An lvalue of type int that holds the status result of iteration
+ *
+ * @p rc is set to 0 on successful iteration. Otherwise, on error, @p rc is set to:
+ * - -EINVAL if parameter values are invalid
+ * - -EOVERFLOW if the PDR buffer is too small or buffer bounds are exceeded
+ *
+ * The loop body is not executed if iterator initialization fails. After the loop
+ * completes, check @p rc to determine if iteration was successful or if an error
+ * occurred during traversal.
+ *
+ * Example use of the macro is as follows:
+ *
+ * @code
+ * struct state_effecter_possible_states states;
+ * int rc;
+ *
+ * foreach_pldm_platform_state_effecter_pdr_possible_states(pdr, pdrData.size(),
+ *                                                  states, rc) {
+ *     // Process states.state_set_id, states.possible_states_size, etc.
+ *
+ *     bitfield8_t bitfield;
+ *     foreach_pldm_platform_state_effecter_pdr_states(states, bitfield, rc) {
+ *         // Process bitfield.byte
+ *     }
+ *     if (rc) {
+ *         return rc;
+ *     }
+ * }
+ * if (rc) {
+ *     return rc;
+ * }
+ * @endcode
+ */
+#define foreach_pldm_platform_state_effecter_pdr_possible_states(              \
+	pdr, pdr_size, states, rc)                                             \
+	for (struct pldm_platform_state_effecter_pdr_iter states##_iter =      \
+		     pldm_platform_state_effecter_pdr_iter_init(               \
+			     (pdr), (pdr_size), &(rc));                        \
+	     !(rc) &&                                                          \
+	     !pldm_platform_state_effecter_pdr_iter_end(&states##_iter) &&     \
+	     !((rc) = decode_pldm_platform_state_effecter_pdr_from_iter(       \
+		       &states##_iter, &(states)));                            \
+	     pldm_platform_state_effecter_pdr_iter_next(&states##_iter))
 
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* PLATFORM_H */

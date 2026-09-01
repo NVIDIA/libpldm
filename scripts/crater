@@ -1,0 +1,57 @@
+#!/bin/bash
+
+# Named after Rust's 'crater' subproject. The naming makes a lot more sense
+# there, but we're adopting it as the spirit is similar.
+#
+# https://github.com/rust-lang/crater
+
+set -eux
+LIBPLDM_DIR="$(pwd)"
+LIBPLDM_REF="HEAD"
+
+# This fork carries NVIDIA-only libpldm API changes that upstream consumers do
+# not track, so the reverse-dependency build fails by design. Skip it unless
+# CRATER_ENFORCE=true.
+if [ "${CRATER_ENFORCE:-false}" != "true" ]; then
+    echo "crater: skipped (reverse-dependency check not enforced for this fork)" >&2
+    exit 0
+fi
+
+workdir=
+
+function cleanup()
+{
+    if [ -n "${workdir}" ] && [ -d "${workdir}" ]; then
+        rm -rf "${workdir}"
+    fi
+}
+
+trap cleanup EXIT HUP INT TERM
+
+function run_crater()
+{
+    local name="$1"
+    local repo_url="$2"
+
+    workdir="$(mktemp -d --tmpdir "libpldm-crater-${name}.XXXXXX")"
+
+    git clone --depth 1 "${repo_url}" "${workdir}"
+
+    mkdir -p "${workdir}/subprojects/libpldm"
+
+    git clone --depth 1 --revision="${LIBPLDM_REF}" "file://${LIBPLDM_DIR}" "${workdir}/subprojects/libpldm"
+
+    meson setup --force-fallback-for=libpldm "${workdir}/build" "${workdir}"
+
+    meson compile -C "${workdir}/build"
+    meson test -C "${workdir}/build"
+
+    rm -rf "${workdir}"
+    workdir=
+}
+
+run_crater "pldm" \
+    "https://github.com/openbmc/pldm.git"
+
+run_crater "phosphor-bmc-code-mgmt" \
+    "https://github.com/openbmc/phosphor-bmc-code-mgmt.git"

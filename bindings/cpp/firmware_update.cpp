@@ -10,11 +10,6 @@
 
 using namespace std;
 
-LIBPLDM_ABI_STABLE
-void pldm::fw_update::stable_nop()
-{
-}
-
 pldm::fw_update::PackageParserError::PackageParserError(std::string s)
 	: msg(std::move(s))
 {
@@ -101,14 +96,144 @@ static void getApplicableComponents(std::vector<size_t> &compList,
 	}
 }
 
+std::expected<void, pldm::fw_update::PackageParserError>
+pldm::fw_update::PackageParser::helperParseDownstreamDeviceIDRecord(
+	std::vector<pldm::fw_update::DownstreamDeviceIDRecord>
+		&downstreamDeviceIdRecords,
+	struct pldm_package &package,
+	pldm_package_downstream_device_id_record &downstreamDeviceId) noexcept
+{
+	int rc;
+	std::optional<std::string> selfContainedActivationMinVersion =
+		std::nullopt;
+	auto selfContainedActivationMinVersionExpected = pldm::utils::toString(
+		downstreamDeviceId
+			.self_contained_activation_min_version_string_type,
+		downstreamDeviceId.self_contained_activation_min_version_string);
+
+	if (selfContainedActivationMinVersionExpected.has_value()) {
+		selfContainedActivationMinVersion =
+			selfContainedActivationMinVersionExpected.value();
+	}
+
+	// bit mask for 'DownstreamDeviceUpdateOptionFlags'
+	const uint8_t PLDM_DD_SELF_CONTAINED_ACTIVATION = 0b1;
+
+	std::optional<uint32_t>
+		selfContainedActivationMinVersionComparisonStamp = std::nullopt;
+
+	if (downstreamDeviceId.update_option_flags.value &
+	    PLDM_DD_SELF_CONTAINED_ACTIVATION) {
+		selfContainedActivationMinVersionComparisonStamp =
+			downstreamDeviceId
+				.self_contained_activation_min_version_comparison_stamp;
+	}
+
+	const std::bitset<32> deviceUpdateOptionFlags =
+		downstreamDeviceId.update_option_flags.value;
+
+	std::vector<size_t> componentsList;
+
+	getApplicableComponents(
+		componentsList,
+		downstreamDeviceId.applicable_components.bitmap);
+
+	std::vector<uint8_t> downstreamDevicePackageData = {
+		downstreamDeviceId.package_data.ptr,
+		downstreamDeviceId.package_data.ptr +
+			downstreamDeviceId.package_data.length
+	};
+
+	const auto refManifestData = getReferenceManifestData(
+		downstreamDeviceId.reference_manifest_data);
+
+	std::map<uint16_t, std::unique_ptr<pldm::fw_update::DescriptorData> >
+		descriptors{};
+
+	struct pldm_descriptor desc;
+
+	foreach_pldm_package_downstream_device_id_record_descriptor(
+		package, downstreamDeviceId, desc, rc)
+	{
+		auto result = helperParseFDDescriptor(&desc, descriptors);
+
+		if (!result.has_value()) {
+			return std::unexpected(
+				PackageParserError(result.error()));
+		}
+	}
+
+	if (rc) {
+		return std::unexpected(pldm::fw_update::PackageParserError(
+			"could not iterate downstream device record descriptors",
+			rc));
+	}
+
+	downstreamDeviceIdRecords.emplace_back(
+		pldm::fw_update::DownstreamDeviceIDRecord(
+			deviceUpdateOptionFlags,
+			selfContainedActivationMinVersion,
+			selfContainedActivationMinVersionComparisonStamp,
+			componentsList, descriptors,
+			downstreamDevicePackageData, refManifestData));
+
+	return {};
+}
+
+static uint8_t pinMap(pldm::fw_update::PackagePin pin)
+{
+	switch (pin) {
+	case pldm::fw_update::PackagePin::v1:
+		return PLDM_PACKAGE_HEADER_FORMAT_REVISION_FR01H;
+	case pldm::fw_update::PackagePin::v1_1_0:
+		return PLDM_PACKAGE_HEADER_FORMAT_REVISION_FR02H;
+	case pldm::fw_update::PackagePin::v1_2_0:
+		return PLDM_PACKAGE_HEADER_FORMAT_REVISION_FR03H;
+	case pldm::fw_update::PackagePin::v1_3_0:
+		return PLDM_PACKAGE_HEADER_FORMAT_REVISION_FR04H;
+	}
+
+	return PLDM_PACKAGE_HEADER_FORMAT_REVISION_FR01H;
+}
+
 pldm::fw_update::PackageParser::~PackageParser() = default;
 
-LIBPLDM_ABI_TESTING
+std::optional<pldm::fw_update::ReferenceManifestData>
+pldm::fw_update::PackageParser::getReferenceManifestData(
+	struct variable_field &reference_manifest_data) noexcept
+{
+	constexpr size_t mfstHdrMinLen = 2;
+
+	if (reference_manifest_data.length < mfstHdrMinLen) {
+		return std::nullopt;
+	}
+
+	const std::span<const uint8_t> byteView(reference_manifest_data.ptr,
+						reference_manifest_data.length);
+
+	const uint8_t vendorIDLen = byteView[1];
+
+	if (static_cast<size_t>(vendorIDLen) + mfstHdrMinLen >
+	    byteView.size()) {
+		return std::nullopt;
+	}
+
+	const std::span<const uint8_t> vendorID =
+		byteView.subspan(mfstHdrMinLen, vendorIDLen);
+
+	const size_t dataOffset = mfstHdrMinLen + vendorIDLen;
+
+	const std::span<const uint8_t> data =
+		byteView.subspan(dataOffset, byteView.size() - dataOffset);
+
+	return ReferenceManifestData(byteView[0], vendorID, data);
+}
+
+LIBPLDM_ABI_STABLE
 std::expected<std::unique_ptr<pldm::fw_update::Package>,
 	      pldm::fw_update::PackageParserError>
-pldm::fw_update::PackageParser::parse(
-	const std::span<const uint8_t> &pkg,
-	struct pldm_package_format_pin &pin) noexcept
+pldm::fw_update::PackageParser::parse(const std::span<const uint8_t> &pkg,
+				      PackagePin pin) noexcept
 {
 	const size_t pkgSize = pkg.size();
 
@@ -117,17 +242,28 @@ pldm::fw_update::PackageParser::parse(
 	pldm_package_header_information_pad hdr = {};
 	int rc;
 
-	if (pin.format.revision > PLDM_PACKAGE_HEADER_FORMAT_REVISION_FR01H) {
+	if (pin != PackagePin::v1 && pin != PackagePin::v1_1_0 &&
+	    pin != PackagePin::v1_2_0 && pin != PackagePin::v1_3_0) {
 		return std::unexpected(
 			PackageParserError("unsupported format revision"));
 	}
 
-	rc = decode_pldm_firmware_update_package(pkg.data(), pkgSize, &pin,
+	DEFINE_PLDM_PACKAGE_FORMAT_PIN_FR04H(cpin);
+
+	rc = decode_pldm_firmware_update_package(pkg.data(), pkgSize, &cpin,
 						 &hdr, &package, 0);
 
 	if (rc) {
 		return std::unexpected(PackageParserError(
 			"Failed to decode pldm package header", rc));
+	}
+
+	if (hdr.package_header_format_revision > pinMap(pin)) {
+		// actual package format revision is higher than what
+		// user code wants to support
+		return std::unexpected(PackageParserError(
+			"Actual package format revision higher than passed pin",
+			rc));
 	}
 
 	pldm_package_firmware_device_id_record deviceIdRecordData{};
@@ -187,15 +323,38 @@ pldm::fw_update::PackageParser::parse(
 				PackageParserError(imageSetVerStr.error()));
 		}
 
+		const auto referenceManifestData = getReferenceManifestData(
+			deviceIdRecordData.reference_manifest_data);
+
 		fwDeviceIDRecords.emplace_back(FirmwareDeviceIDRecord(
 			deviceUpdateOptionFlags, std::move(componentsList),
 			imageSetVerStr.value(), std::move(descriptors),
-			fwDevicePkgData));
+			fwDevicePkgData, std::move(referenceManifestData)));
 	}
 
 	if (rc) {
 		return std::unexpected(PackageParserError(
 			"could not iterate fw device descriptors", rc));
+	}
+
+	std::vector<DownstreamDeviceIDRecord> downstreamDeviceIDRecords = {};
+
+	pldm_package_downstream_device_id_record downstreamDeviceId{};
+	foreach_pldm_package_downstream_device_id_record(package,
+							 downstreamDeviceId, rc)
+	{
+		auto result = helperParseDownstreamDeviceIDRecord(
+			downstreamDeviceIDRecords, package, downstreamDeviceId);
+
+		if (!result.has_value()) {
+			return std::unexpected(
+				PackageParserError(result.error()));
+		}
+	}
+
+	if (rc) {
+		return std::unexpected(PackageParserError(
+			"could not iterate downstream device descriptors", rc));
 	}
 
 	std::vector<ComponentImageInfo> componentImageInfos = {};
@@ -217,12 +376,18 @@ pldm::fw_update::PackageParser::parse(
 				PackageParserError(compVerStr.error()));
 		}
 
+		std::vector<uint8_t> componentOpaqueData = {
+			imageInfo.component_opaque_data.ptr,
+			imageInfo.component_opaque_data.ptr +
+				imageInfo.component_opaque_data.length
+		};
+
 		componentImageInfos.emplace_back(ComponentImageInfo(
 			imageInfo.component_classification,
 			imageInfo.component_identifier,
 			imageInfo.component_comparison_stamp, compOptions,
 			reqCompActivationMethod, imageInfo.component_image,
-			compVerStr.value()));
+			compVerStr.value(), std::move(componentOpaqueData)));
 	}
 
 	if (rc) {
@@ -232,6 +397,8 @@ pldm::fw_update::PackageParser::parse(
 
 	// We cannot do a std::make_unique here since since the constructor is private.
 	// We are friends but the constructor is called inside the template which is not a friend.
-	return std::unique_ptr<Package>(new Package(
-		std::move(fwDeviceIDRecords), std::move(componentImageInfos)));
+	return std::unique_ptr<Package>(
+		new Package(std::move(fwDeviceIDRecords),
+			    std::move(downstreamDeviceIDRecords),
+			    std::move(componentImageInfos)));
 }

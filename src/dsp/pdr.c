@@ -1,13 +1,15 @@
 /* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
 #include "compiler.h"
+#include "environ/errno.h"
 #include "msgbuf.h"
+
 #include <libpldm/pdr.h>
 #include <libpldm/platform.h>
 
 #include <assert.h>
 #include <endian.h>
-#include <errno.h>
 #include <limits.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -60,7 +62,7 @@ int pldm_pdr_add(pldm_pdr *repo, const uint8_t *data, uint32_t size,
 {
 	uint32_t curr = 0;
 
-	if (!repo || !data || !size) {
+	if (!repo || !data || size < sizeof(struct pldm_pdr_hdr)) {
 		return -EINVAL;
 	}
 
@@ -1266,7 +1268,8 @@ void pldm_pdr_remove_pdrs_by_terminus_handle(pldm_pdr *repo,
 	while (record != NULL) {
 		pldm_pdr_record *next = record->next;
 		if (record->terminus_handle == terminus_handle) {
-			if (repo->first == record) {
+			if (!prev) {
+				assert(repo->first == record);
 				repo->first = next;
 			} else {
 				prev->next = next;
@@ -1317,7 +1320,8 @@ void pldm_pdr_remove_remote_pdrs(pldm_pdr *repo)
 	while (record != NULL) {
 		pldm_pdr_record *next = record->next;
 		if (record->is_remote == true) {
-			if (repo->first == record) {
+			if (!prev) {
+				assert(repo->first == record);
 				repo->first = next;
 			} else {
 				prev->next = next;
@@ -1583,7 +1587,17 @@ void pldm_entity_association_pdr_extract(const uint8_t *pdr, uint16_t pdr_len,
 		return;
 	}
 
-	if ((pdr_len - sizeof(struct pldm_pdr_hdr)) / sizeof(pldm_entity) <
+	/*
+	 * children[] begins after the fixed entity-association prefix (PDR
+	 * header plus container_id, association_type, container and
+	 * num_children), not immediately after the PDR header. Bound
+	 * num_children against the space actually remaining in the buffer so
+	 * the copy loop below cannot read past its end.
+	 */
+	if ((pdr_len -
+	     (sizeof(struct pldm_pdr_hdr) +
+	      offsetof(struct pldm_pdr_entity_association, children))) /
+		    sizeof(pldm_entity) <
 	    l_num_entities) {
 		return;
 	}

@@ -2470,6 +2470,74 @@ int decode_pldm_pdr_repository_change_record_data(
 	return PLDM_SUCCESS;
 }
 
+LIBPLDM_ABI_TESTING
+int encode_pldm_platform_set_numeric_sensor_enable_req(
+	uint8_t instance_id,
+	const struct pldm_platform_set_numeric_sensor_enable_req *req,
+	struct pldm_msg *msg, size_t *payload_length)
+{
+	struct pldm_header_info header = { 0 };
+	PLDM_MSGBUF_RW_DEFINE_P(buf);
+	int rc;
+
+	if (req == NULL || msg == NULL || payload_length == NULL) {
+		return -EINVAL;
+	}
+
+	if (req->sensor_operational_state > PLDM_SET_SENSOR_UNAVAILABLE ||
+	    req->sensor_event_message_enable >
+		    PLDM_PLATFORM_SET_SENSOR_EVENT_MESSAGE_ENABLE_STATE_EVENTS_ONLY) {
+		return -EINVAL;
+	}
+
+	header.msg_type = PLDM_REQUEST;
+	header.instance = instance_id;
+	header.pldm_type = PLDM_PLATFORM;
+	header.command = PLDM_SET_NUMERIC_SENSOR_ENABLE;
+
+	rc = pack_pldm_header_errno(&header, &msg->hdr);
+	if (rc) {
+		return rc;
+	}
+
+	rc = pldm_msgbuf_init_errno(
+		buf, PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_REQ_BYTES,
+		msg->payload, *payload_length);
+	if (rc) {
+		return rc;
+	}
+
+	pldm_msgbuf_insert(buf, req->sensor_id);
+	pldm_msgbuf_insert(buf, req->sensor_operational_state);
+	pldm_msgbuf_insert(buf, req->sensor_event_message_enable);
+
+	return pldm_msgbuf_complete_used(buf, *payload_length, payload_length);
+}
+
+LIBPLDM_ABI_TESTING
+int decode_pldm_platform_set_numeric_sensor_enable_resp(
+	const struct pldm_msg *msg, size_t payload_length,
+	uint8_t *completion_code)
+{
+	PLDM_MSGBUF_RO_DEFINE_P(buf);
+	int rc;
+
+	if (msg == NULL || completion_code == NULL) {
+		return -EINVAL;
+	}
+
+	rc = pldm_msgbuf_init_errno(
+		buf, PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_RESP_BYTES,
+		msg->payload, payload_length);
+	if (rc) {
+		return rc;
+	}
+
+	pldm_msgbuf_extract_p(buf, completion_code);
+
+	return pldm_msgbuf_complete_consumed(buf);
+}
+
 LIBPLDM_ABI_STABLE
 int encode_get_sensor_reading_req(uint8_t instance_id, uint16_t sensor_id,
 				  uint8_t rearm_event_state,
@@ -2673,11 +2741,9 @@ int decode_get_sensor_reading_req(const struct pldm_msg *msg,
 LIBPLDM_ABI_TESTING
 int decode_set_numeric_sensor_enable_req(
 	const struct pldm_msg *msg, size_t payload_length,
-	struct pldm_set_numeric_sensor_enable_req *req)
+	struct pldm_platform_set_numeric_sensor_enable_req *req)
 {
 	PLDM_MSGBUF_RO_DEFINE_P(buf);
-	uint8_t event_enable = 0;
-	uint8_t op_state = 0;
 	int rc;
 
 	if (msg == NULL || req == NULL) {
@@ -2690,24 +2756,21 @@ int decode_set_numeric_sensor_enable_req(
 	}
 
 	pldm_msgbuf_extract(buf, req->sensor_id);
-	pldm_msgbuf_extract(buf, op_state);
-	pldm_msgbuf_extract(buf, event_enable);
+	pldm_msgbuf_extract(buf, req->sensor_operational_state);
+	pldm_msgbuf_extract(buf, req->sensor_event_message_enable);
 
 	rc = pldm_msgbuf_complete_consumed(buf);
 	if (rc) {
 		return rc;
 	}
 
-	if (op_state > PLDM_SET_SENSOR_UNAVAILABLE) {
+	if (req->sensor_operational_state > PLDM_SET_SENSOR_UNAVAILABLE) {
 		return -EPROTO;
 	}
 
-	if (event_enable > PLDM_STATE_EVENTS_ONLY_ENABLED) {
+	if (req->sensor_event_message_enable > PLDM_STATE_EVENTS_ONLY_ENABLED) {
 		return -EPROTO;
 	}
-
-	req->op_state = op_state;
-	req->event_enable = event_enable;
 
 	return 0;
 }
@@ -3902,4 +3965,435 @@ int encode_pldm_platform_file_descriptor_pdr(
 	}
 
 	return pldm_msgbuf_complete_used(buf, *data_len, data_len);
+}
+
+LIBPLDM_ABI_STABLE
+int decode_pldm_platform_redfish_resource_pdr(
+	const void *data, size_t data_length,
+	struct pldm_platform_redfish_resource_pdr *pdr)
+{
+	PLDM_MSGBUF_RO_DEFINE_P(buf);
+	int rc;
+
+	if (!data || !pdr) {
+		return -EINVAL;
+	}
+
+	rc = pldm_msgbuf_init_errno(
+		buf, PLDM_PLATFORM_REDFISH_RESOURCE_PDR_MIN_LENGTH, data,
+		data_length);
+	if (rc) {
+		return rc;
+	}
+
+	rc = pldm_msgbuf_extract_value_pdr_hdr(
+		buf, &pdr->hdr, PLDM_PLATFORM_REDFISH_RESOURCE_PDR_MIN_LENGTH,
+		data_length);
+	if (rc) {
+		return pldm_msgbuf_discard(buf, rc);
+	}
+
+	pldm_msgbuf_extract(buf, pdr->resource_id);
+	pldm_msgbuf_extract(buf, pdr->resource_flags.byte);
+	pldm_msgbuf_extract(buf, pdr->containing_resource_id);
+	rc = pldm_msgbuf_extract_uint16_to_size(
+		buf, pdr->proposed_containing_resource_name.length);
+	if (rc) {
+		return pldm_msgbuf_discard(buf, rc);
+	}
+	pldm_msgbuf_span_required(
+		buf, pdr->proposed_containing_resource_name.length,
+		(const void **)&pdr->proposed_containing_resource_name.ptr);
+
+	rc = pldm_msgbuf_extract_uint16_to_size(buf, pdr->sub_uri.length);
+	if (rc) {
+		return pldm_msgbuf_discard(buf, rc);
+	}
+	pldm_msgbuf_span_required(buf, pdr->sub_uri.length,
+				  (const void **)&pdr->sub_uri.ptr);
+
+	rc = pldm_msgbuf_extract(buf, pdr->additional_resource_id_count);
+	if (rc) {
+		return pldm_msgbuf_discard(buf, rc);
+	}
+
+	pldm_msgbuf_field_begin(buf, pdr->additional_resources);
+	for (uint16_t i = 0; i < pdr->additional_resource_id_count; i++) {
+		size_t length;
+		uint32_t id;
+
+		pldm_msgbuf_extract(buf, id);
+		rc = pldm_msgbuf_extract_uint16_to_size(buf, length);
+		if (rc) {
+			return pldm_msgbuf_discard(buf, rc);
+		}
+		pldm_msgbuf_span_required(buf, length, NULL);
+	}
+	rc = pldm_msgbuf_field_end(buf, pdr->additional_resources);
+	if (rc) {
+		return pldm_msgbuf_discard(buf, rc);
+	}
+
+	pldm_msgbuf_extract(buf, pdr->major_schema_version.alpha);
+	pldm_msgbuf_extract(buf, pdr->major_schema_version.update);
+	pldm_msgbuf_extract(buf, pdr->major_schema_version.minor);
+	pldm_msgbuf_extract(buf, pdr->major_schema_version.major);
+	pldm_msgbuf_extract(buf, pdr->major_schema_dictionary_length_bytes);
+	pldm_msgbuf_extract(buf, pdr->major_schema_dictionary_signature);
+	rc = pldm_msgbuf_extract_uint8_to_size(buf,
+					       pdr->major_schema_name.length);
+	if (rc) {
+		return pldm_msgbuf_discard(buf, rc);
+	}
+	pldm_msgbuf_span_required(buf, pdr->major_schema_name.length,
+				  (const void **)&pdr->major_schema_name.ptr);
+
+	rc = pldm_msgbuf_extract(buf, pdr->oem_count);
+	if (rc) {
+		return pldm_msgbuf_discard(buf, rc);
+	}
+
+	pldm_msgbuf_field_begin(buf, pdr->oem_names);
+	for (uint16_t i = 0; i < pdr->oem_count; i++) {
+		size_t length;
+
+		rc = pldm_msgbuf_extract_uint16_to_size(buf, length);
+		if (rc) {
+			return pldm_msgbuf_discard(buf, rc);
+		}
+		pldm_msgbuf_span_required(buf, length, NULL);
+	}
+	rc = pldm_msgbuf_field_end(buf, pdr->oem_names);
+	if (rc) {
+		return pldm_msgbuf_discard(buf, rc);
+	}
+
+	return pldm_msgbuf_complete_consumed(buf);
+}
+
+LIBPLDM_ABI_STABLE
+int decode_pldm_platform_redfish_resource_pdr_additional_resource_from_iter(
+	struct pldm_platform_redfish_resource_pdr_additional_resource_iter *iter,
+	struct pldm_platform_redfish_resource_pdr_additional_resource
+		*additional_resource)
+{
+	PLDM_MSGBUF_RO_DEFINE_P(buf);
+	int rc;
+
+	if (!iter || !(iter->field.ptr) || !additional_resource) {
+		return -EINVAL;
+	}
+
+	// At least AdditionalResourceID (u32), AdditionalResourceSubURILengthBytes (u16)
+	// and empty string '\0' (u8) should be present
+	rc = pldm_msgbuf_init_errno(
+		buf, sizeof(uint32_t) + sizeof(uint16_t) + sizeof(uint8_t),
+		iter->field.ptr, iter->field.length);
+	if (rc) {
+		return rc;
+	}
+
+	pldm_msgbuf_extract(buf, additional_resource->id);
+	rc = pldm_msgbuf_extract_uint16_to_size(
+		buf, additional_resource->sub_uri.length);
+	if (rc) {
+		return pldm_msgbuf_discard(buf, rc);
+	}
+	pldm_msgbuf_span_required(
+		buf, additional_resource->sub_uri.length,
+		(const void **)&additional_resource->sub_uri.ptr);
+
+	pldm_msgbuf_span_remaining(buf, (const void **)&iter->field.ptr,
+				   &iter->field.length);
+
+	return pldm_msgbuf_complete_consumed(buf);
+}
+
+LIBPLDM_ABI_STABLE
+int decode_pldm_platform_redfish_resource_pdr_oem_name_from_iter(
+	struct pldm_platform_redfish_resource_pdr_oem_name_iter *iter,
+	struct pldm_platform_redfish_resource_pdr_oem_name *oem_name)
+{
+	PLDM_MSGBUF_RO_DEFINE_P(buf);
+	int rc;
+
+	if (!iter || !(iter->field.ptr) || !oem_name) {
+		return -EINVAL;
+	}
+
+	// At least OEMNameLengthBytes (u16) and empty string '\0' (u8) should be present
+	rc = pldm_msgbuf_init_errno(buf, sizeof(uint16_t) + sizeof(uint8_t),
+				    iter->field.ptr, iter->field.length);
+	if (rc) {
+		return rc;
+	}
+
+	rc = pldm_msgbuf_extract_uint16_to_size(buf, oem_name->name.length);
+	if (rc) {
+		return pldm_msgbuf_discard(buf, rc);
+	}
+	pldm_msgbuf_span_required(buf, oem_name->name.length,
+				  (const void **)&oem_name->name.ptr);
+
+	pldm_msgbuf_span_remaining(buf, (const void **)&iter->field.ptr,
+				   &iter->field.length);
+
+	return pldm_msgbuf_complete_consumed(buf);
+}
+
+LIBPLDM_ABI_STABLE
+int decode_pldm_platform_redfish_action_pdr(
+	const void *data, size_t data_length,
+	struct pldm_platform_redfish_action_pdr *pdr)
+{
+	PLDM_MSGBUF_RO_DEFINE_P(buf);
+	int rc;
+
+	if (!data || !pdr) {
+		return -EINVAL;
+	}
+
+	rc = pldm_msgbuf_init_errno(buf,
+				    PLDM_PLATFORM_REDFISH_ACTION_PDR_MIN_LENGTH,
+				    data, data_length);
+	if (rc) {
+		return rc;
+	}
+
+	rc = pldm_msgbuf_extract_value_pdr_hdr(
+		buf, &pdr->hdr, PLDM_PLATFORM_REDFISH_ACTION_PDR_MIN_LENGTH,
+		data_length);
+	if (rc) {
+		return pldm_msgbuf_discard(buf, rc);
+	}
+
+	pldm_msgbuf_extract(buf, pdr->action_pdr_index);
+
+	rc = pldm_msgbuf_extract(buf, pdr->related_resource_count);
+	if (rc) {
+		return pldm_msgbuf_discard(buf, rc);
+	}
+
+	pldm_msgbuf_field_begin(buf, pdr->related_resources);
+	for (uint16_t i = 0; i < pdr->related_resource_count; i++) {
+		pldm_msgbuf_span_required(buf, sizeof(uint32_t), NULL);
+	}
+	rc = pldm_msgbuf_field_end(buf, pdr->related_resources);
+	if (rc) {
+		return pldm_msgbuf_discard(buf, rc);
+	}
+
+	rc = pldm_msgbuf_extract(buf, pdr->action_count);
+	if (rc) {
+		return pldm_msgbuf_discard(buf, rc);
+	}
+
+	pldm_msgbuf_field_begin(buf, pdr->actions);
+	for (uint16_t i = 0; i < pdr->action_count; i++) {
+		size_t length;
+
+		rc = pldm_msgbuf_extract_uint8_to_size(buf, length);
+		if (rc) {
+			return pldm_msgbuf_discard(buf, rc);
+		}
+
+		pldm_msgbuf_span_required(buf, length, NULL);
+
+		rc = pldm_msgbuf_extract_uint8_to_size(buf, length);
+		if (rc) {
+			return pldm_msgbuf_discard(buf, rc);
+		}
+		pldm_msgbuf_span_required(buf, length, NULL);
+	}
+	rc = pldm_msgbuf_field_end(buf, pdr->actions);
+	if (rc) {
+		return pldm_msgbuf_discard(buf, rc);
+	}
+
+	return pldm_msgbuf_complete_consumed(buf);
+}
+
+LIBPLDM_ABI_STABLE
+int decode_pldm_platform_redfish_action_pdr_related_resource_id_from_iter(
+	struct pldm_platform_redfish_action_pdr_related_resource_id_iter *iter,
+	uint32_t *res)
+{
+	PLDM_MSGBUF_RO_DEFINE_P(buf);
+	int rc;
+
+	if (!iter || !(iter->field.ptr) || !res) {
+		return -EINVAL;
+	}
+
+	rc = pldm_msgbuf_init_errno(buf, sizeof(uint32_t), iter->field.ptr,
+				    iter->field.length);
+	if (rc) {
+		return rc;
+	}
+
+	pldm_msgbuf_extract_p(buf, res);
+
+	pldm_msgbuf_span_remaining(buf, (const void **)&iter->field.ptr,
+				   &iter->field.length);
+
+	return pldm_msgbuf_complete_consumed(buf);
+}
+
+LIBPLDM_ABI_STABLE
+int decode_pldm_platform_redfish_action_pdr_action_from_iter(
+	struct pldm_platform_redfish_action_pdr_action_iter *iter,
+	struct pldm_platform_redfish_action_pdr_action *action)
+{
+	PLDM_MSGBUF_RO_DEFINE_P(buf);
+	int rc;
+
+	if (!iter || !(iter->field.ptr) || !action) {
+		return -EINVAL;
+	}
+
+	// At least ActionNameLengthBytes (u8), empty action name string '\0' (u8),
+	// ActionPathLengthBytes (u8) and empty path string '\0' (u8) should be present
+	rc = pldm_msgbuf_init_errno(buf, 4 * sizeof(uint8_t), iter->field.ptr,
+				    iter->field.length);
+	if (rc) {
+		return rc;
+	}
+
+	rc = pldm_msgbuf_extract_uint8_to_size(buf, action->name.length);
+	if (rc) {
+		return pldm_msgbuf_discard(buf, rc);
+	}
+	pldm_msgbuf_span_required(buf, action->name.length,
+				  (const void **)&action->name.ptr);
+	rc = pldm_msgbuf_extract_uint8_to_size(buf, action->path.length);
+	if (rc) {
+		return pldm_msgbuf_discard(buf, rc);
+	}
+	pldm_msgbuf_span_required(buf, action->path.length,
+				  (const void **)&action->path.ptr);
+
+	pldm_msgbuf_span_remaining(buf, (const void **)&iter->field.ptr,
+				   &iter->field.length);
+
+	return pldm_msgbuf_complete_consumed(buf);
+}
+
+LIBPLDM_ABI_TESTING
+struct pldm_platform_state_effecter_pdr_iter
+pldm_platform_state_effecter_pdr_iter_init(
+	const struct pldm_state_effecter_pdr *pdr, size_t pdr_size, int *rc)
+{
+	struct pldm_platform_state_effecter_pdr_iter iter = { 0 };
+
+	if (!pdr) {
+		*rc = -EINVAL;
+		return iter;
+	}
+
+	if (pdr_size < sizeof(struct pldm_state_effecter_pdr)) {
+		*rc = -EOVERFLOW;
+		return iter;
+	}
+
+	iter.field.ptr = pdr->possible_states;
+	/*
+	 * Calculate the size of the flexible array region.
+	 * struct pldm_state_effecter_pdr contains possible_states[1] as a
+	 * flexible array marker, so we add back its size.
+	 */
+	iter.field.length = pdr_size - (sizeof(struct pldm_state_effecter_pdr) -
+					sizeof(pdr->possible_states));
+	iter.total_count = pdr->composite_effecter_count;
+	iter.current_index = 0;
+	*rc = 0;
+	return iter;
+}
+
+LIBPLDM_ABI_TESTING
+int decode_pldm_platform_state_effecter_pdr_from_iter(
+	struct pldm_platform_state_effecter_pdr_iter *iter,
+	struct state_effecter_possible_states *states)
+{
+	PLDM_MSGBUF_RO_DEFINE_P(ctx);
+	int rc;
+
+	if (!iter || !iter->field.ptr || !states) {
+		return -EINVAL;
+	}
+
+	rc = pldm_msgbuf_init_errno(ctx, 0, iter->field.ptr,
+				    iter->field.length);
+	if (rc) {
+		return rc;
+	}
+
+	pldm_msgbuf_extract(ctx, states->state_set_id);
+	rc = pldm_msgbuf_extract(ctx, states->possible_states_size);
+	if (rc) {
+		return pldm_msgbuf_discard(ctx, rc);
+	}
+
+	rc = pldm_msgbuf_span_required(
+		ctx, states->possible_states_size,
+		(const void **)&iter->current_states.ptr);
+	if (rc) {
+		return pldm_msgbuf_discard(ctx, rc);
+	}
+
+	iter->current_states.length = states->possible_states_size;
+	pldm_msgbuf_span_remaining(ctx, (const void **)&iter->field.ptr,
+				   &iter->field.length);
+
+	return pldm_msgbuf_complete_consumed(ctx);
+}
+
+LIBPLDM_ABI_TESTING
+struct pldm_platform_state_effecter_pdr_possible_states_iter
+pldm_platform_state_effecter_pdr_possible_states_iter_init(
+	const struct pldm_platform_state_effecter_pdr_iter *outer_iter, int *rc)
+{
+	struct pldm_platform_state_effecter_pdr_possible_states_iter iter = {
+		0
+	};
+
+	if (!outer_iter || !outer_iter->current_states.ptr) {
+		*rc = -EINVAL;
+		return iter;
+	}
+
+	iter.field.ptr = outer_iter->current_states.ptr;
+	iter.field.length = outer_iter->current_states.length;
+	iter.total_count = outer_iter->current_states.length;
+	iter.current_index = 0;
+	*rc = 0;
+	return iter;
+}
+
+LIBPLDM_ABI_TESTING
+int decode_pldm_platform_state_effecter_pdr_possible_states_from_iter(
+	struct pldm_platform_state_effecter_pdr_possible_states_iter *iter,
+	bitfield8_t *state)
+{
+	PLDM_MSGBUF_RO_DEFINE_P(ctx);
+	int rc;
+
+	if (!iter || !state) {
+		return -EINVAL;
+	}
+
+	if (!iter->field.ptr) {
+		return -EINVAL;
+	}
+
+	rc = pldm_msgbuf_init_errno(ctx, 0, iter->field.ptr,
+				    iter->field.length);
+	if (rc) {
+		return rc;
+	}
+
+	pldm_msgbuf_extract(ctx, state->byte);
+	pldm_msgbuf_span_remaining(ctx, (const void **)&iter->field.ptr,
+				   &iter->field.length);
+
+	return pldm_msgbuf_complete_consumed(ctx);
 }

@@ -11,7 +11,7 @@
 
 TEST(GetFruRecordTableMetadata, testGoodEncodeRequest)
 {
-    std::array<uint8_t, sizeof(pldm_msg_hdr)> requestMsg{};
+    std::array<uint8_t, sizeof(pldm_msg)> requestMsg{};
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto requestPtr = reinterpret_cast<pldm_msg*>(requestMsg.data());
     auto rc = encode_get_fru_record_table_metadata_req(
@@ -235,11 +235,31 @@ TEST(GetFruRecordTableMetadata, testGoodEncodeResponse)
     ASSERT_EQ(response->completion_code, PLDM_SUCCESS);
     ASSERT_EQ(response->fru_data_major_version, 0x12u);
     ASSERT_EQ(response->fru_data_minor_version, 0x21u);
-    ASSERT_EQ(response->fru_table_maximum_size, 0x1234abcdu);
-    ASSERT_EQ(response->fru_table_length, 0x56781234u);
-    ASSERT_EQ(response->total_record_set_identifiers, 0x34efu);
-    ASSERT_EQ(response->total_table_records, 0xeeefu);
-    ASSERT_EQ(response->checksum, 0x6543fa71u);
+
+    {
+        uint32_t aligned = response->fru_table_maximum_size;
+        ASSERT_EQ(aligned, 0x1234abcdu);
+    }
+
+    {
+        uint32_t aligned = response->fru_table_length;
+        ASSERT_EQ(aligned, 0x56781234u);
+    }
+
+    {
+        uint16_t aligned = response->total_record_set_identifiers;
+        ASSERT_EQ(aligned, 0x34efu);
+    }
+
+    {
+        uint16_t aligned = response->total_table_records;
+        ASSERT_EQ(aligned, 0xeeefu);
+    }
+
+    {
+        uint32_t aligned = response->checksum;
+        ASSERT_EQ(aligned, 0x6543fa71u);
+    }
 
     response->fru_data_major_version = 0;
     response->fru_data_major_version = 0x00;
@@ -263,11 +283,31 @@ TEST(GetFruRecordTableMetadata, testGoodEncodeResponse)
     ASSERT_EQ(completion_code, PLDM_ERROR_INVALID_DATA);
     ASSERT_EQ(response->fru_data_major_version, 0x00u);
     ASSERT_EQ(response->fru_data_minor_version, 0x00u);
-    ASSERT_EQ(response->fru_table_maximum_size, 0x00000000u);
-    ASSERT_EQ(response->fru_table_length, 0x00000000u);
-    ASSERT_EQ(response->total_record_set_identifiers, 0x0000u);
-    ASSERT_EQ(response->total_table_records, 0x0000u);
-    ASSERT_EQ(response->checksum, 0x00000000u);
+
+    {
+        uint32_t aligned = response->fru_table_maximum_size;
+        ASSERT_EQ(aligned, 0);
+    }
+
+    {
+        uint32_t aligned = response->fru_table_length;
+        ASSERT_EQ(aligned, 0);
+    }
+
+    {
+        uint16_t aligned = response->fru_table_length;
+        ASSERT_EQ(aligned, 0);
+    }
+
+    {
+        uint16_t aligned = response->total_table_records;
+        ASSERT_EQ(aligned, 0);
+    }
+
+    {
+        uint32_t aligned = response->checksum;
+        ASSERT_EQ(aligned, 0);
+    }
 }
 
 TEST(GetFruRecordTableMetadata, testBadEncodeResponse)
@@ -300,11 +340,31 @@ TEST(GetFruRecordTableMetadata, testBadEncodeResponse)
     ASSERT_EQ(completion_code, PLDM_SUCCESS);
     ASSERT_EQ(response->fru_data_major_version, 0x00u);
     ASSERT_EQ(response->fru_data_minor_version, 0x00u);
-    ASSERT_EQ(response->fru_table_maximum_size, 0x00000000u);
-    ASSERT_EQ(response->fru_table_length, 0x00000000u);
-    ASSERT_EQ(response->total_record_set_identifiers, 0x0000u);
-    ASSERT_EQ(response->total_table_records, 0x0000u);
-    ASSERT_EQ(response->checksum, 0x00000000u);
+
+    {
+        uint32_t aligned = response->fru_table_maximum_size;
+        ASSERT_EQ(aligned, 0);
+    }
+
+    {
+        uint32_t aligned = response->fru_table_length;
+        ASSERT_EQ(aligned, 0);
+    }
+
+    {
+        uint16_t aligned = response->fru_table_length;
+        ASSERT_EQ(aligned, 0);
+    }
+
+    {
+        uint16_t aligned = response->total_table_records;
+        ASSERT_EQ(aligned, 0);
+    }
+
+    {
+        uint32_t aligned = response->checksum;
+        ASSERT_EQ(aligned, 0);
+    }
 }
 
 TEST(GetFruRecordTable, testGoodDecodeRequest)
@@ -365,7 +425,7 @@ TEST(GetFruRecordTable, testGoodEncodeResponse)
     uint32_t next_data_transfer_handle = 32;
     uint8_t transfer_flag = PLDM_START_AND_END;
 
-    std::vector<uint8_t> responseMsg(sizeof(pldm_msg_hdr) +
+    std::vector<uint8_t> responseMsg(sizeof(pldm_msg) +
                                      PLDM_GET_FRU_RECORD_TABLE_MIN_RESP_BYTES);
 
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
@@ -443,7 +503,12 @@ TEST(GetFruRecordTable, testGoodEncodeRequest)
     ASSERT_EQ(requestPtr->hdr.instance_id, 0u);
     ASSERT_EQ(requestPtr->hdr.type, PLDM_FRU);
     ASSERT_EQ(requestPtr->hdr.command, PLDM_GET_FRU_RECORD_TABLE);
-    ASSERT_EQ(le32toh(data_transfer_handle), request->data_transfer_handle);
+
+    {
+        uint32_t reqDataTransferHandle = request->data_transfer_handle;
+        ASSERT_EQ(le32toh(data_transfer_handle), reqDataTransferHandle);
+    }
+
     ASSERT_EQ(transfer_operation_flag, request->transfer_operation_flag);
 }
 
@@ -1100,4 +1165,233 @@ TEST(GetFruRecordByOption, testFilterByRsi)
         table.data(), table.size(), outputTable.data(), &outputSize, 999, 0, 0);
     EXPECT_EQ(rc, PLDM_SUCCESS);
     EXPECT_EQ(outputSize, 0);
+}
+
+TEST(GetFruRecordByOption, badArgs)
+{
+    // Bad input table pointer
+    {
+        uint8_t record_table{};
+        size_t record_size{};
+
+        EXPECT_NE(PLDM_SUCCESS,
+                  get_fru_record_by_option(NULL, 0, &record_table, &record_size,
+                                           0, 0, 0));
+    }
+
+    // Unreasonably small input table length
+    {
+        uint8_t record_table{};
+        size_t record_size{};
+        uint8_t table{};
+
+        EXPECT_EQ(PLDM_ERROR_INVALID_LENGTH,
+                  get_fru_record_by_option(&table, sizeof(table), &record_table,
+                                           &record_size, 0, 0, 0));
+    }
+
+    // Unreasonably large input table length
+    {
+        uint8_t record_table{};
+        size_t record_size{};
+        uint8_t table{};
+
+        EXPECT_EQ(PLDM_ERROR_INVALID_LENGTH,
+                  get_fru_record_by_option(&table, SIZE_MAX, &record_table,
+                                           &record_size, 0, 0, 0));
+    }
+
+    // Reasonable input table length, unreasonably small record size
+    {
+        struct pldm_fru_record_data_format table{};
+        uint8_t record_table{};
+        size_t record_size{};
+
+        EXPECT_EQ(PLDM_ERROR_INVALID_LENGTH,
+                  get_fru_record_by_option((uint8_t*)&table, sizeof(table),
+                                           &record_table, &record_size, 0, 0,
+                                           0));
+    }
+
+    // Bad record table pointer
+    {
+        struct pldm_fru_record_data_format table{};
+        size_t record_size{};
+
+        EXPECT_EQ(PLDM_ERROR,
+                  get_fru_record_by_option((uint8_t*)&table, sizeof(table),
+                                           NULL, &record_size, 0, 0, 0));
+    }
+
+    // Bad record size pointer
+    {
+        struct pldm_fru_record_data_format table{};
+        uint8_t record_table{};
+
+        EXPECT_EQ(PLDM_ERROR,
+                  get_fru_record_by_option((uint8_t*)&table, sizeof(table),
+                                           &record_table, NULL, 0, 0, 0));
+    }
+
+    // Unreasonably large record size
+    {
+        struct pldm_fru_record_data_format table{};
+        uint8_t record_table{};
+        size_t record_size = SIZE_MAX;
+
+        EXPECT_EQ(PLDM_ERROR_INVALID_LENGTH,
+                  get_fru_record_by_option((uint8_t*)&table, sizeof(table),
+                                           &record_table, &record_size, 0, 0,
+                                           0));
+    }
+}
+
+TEST(GetFruRecordByOption, matchBadTlvLength)
+{
+    std::vector<uint8_t> malformed_table = {
+        // Header
+        0x01, 0x00, 0x01, 0x01, 0x01,
+
+        // TLV: Type 5, Length 200 (0xc8), but only 1 byte follows
+        0x05, 0xc8, 0xff};
+
+    uint8_t output[512];
+    size_t output_size = sizeof(output);
+
+    int rc =
+        get_fru_record_by_option(malformed_table.data(), malformed_table.size(),
+                                 output, &output_size, 1, 1, 0);
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
+}
+
+TEST(GetFruRecordByOption, mismatch)
+{
+    std::vector<uint8_t> table = {0x02, 0x00, 0x01, 0x01,
+                                  0x01, 0x05, 0x01, 0xff};
+
+    uint8_t output[512];
+    size_t output_size = sizeof(output);
+
+    int rc = get_fru_record_by_option(table.data(), table.size(), output,
+                                      &output_size, 1, 1, 0);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(output_size, 0);
+}
+
+TEST(GetFruRecordByOption, match)
+{
+    std::vector<uint8_t> table = {
+        0x01, 0x00, 0x01, 0x01, 0x01, 0x05, 0x01, 0xff,
+    };
+
+    uint8_t output[512];
+    size_t output_size = sizeof(output);
+
+    int rc = get_fru_record_by_option(table.data(), table.size(), output,
+                                      &output_size, 1, 1, 0);
+
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(output_size, 8);
+}
+
+TEST(GetFruRecordByOption, matchFirst)
+{
+    std::vector<uint8_t> table = {
+        0x01, 0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0xff,
+        0x02, 0x00, 0x02, 0x01, 0x01, 0x02, 0x01, 0xfe,
+    };
+
+    uint8_t output[512];
+    size_t output_size = sizeof(output);
+
+    int rc = get_fru_record_by_option(table.data(), table.size(), output,
+                                      &output_size, 1, 1, 0);
+
+    ASSERT_EQ(rc, PLDM_SUCCESS);
+    ASSERT_EQ(output_size, 8);
+    /* Spot-check */
+    EXPECT_EQ(output[0], 0x01);
+    EXPECT_EQ(output[7], 0xff);
+}
+
+TEST(GetFruRecordByOption, rsiMatchSecond)
+{
+    std::vector<uint8_t> table = {
+        0x01, 0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0xff,
+        0x02, 0x00, 0x02, 0x01, 0x01, 0x02, 0x01, 0xfe,
+    };
+
+    uint8_t output[512];
+    size_t output_size = sizeof(output);
+
+    int rc = get_fru_record_by_option(table.data(), table.size(), output,
+                                      &output_size, 2, 2, 0);
+
+    ASSERT_EQ(rc, PLDM_SUCCESS);
+    ASSERT_EQ(output_size, 8);
+    /* Spot-check */
+    EXPECT_EQ(output[0], 0x02);
+    EXPECT_EQ(output[7], 0xfe);
+}
+
+TEST(GetFruRecordByOption, mismatchFruFieldAndLengthOverrun)
+{
+    std::vector<uint8_t> table = {
+        0x01, 0x00, 0x01, 0x02, 0x01, 0x01, 0x02, 0xff,
+    };
+
+    uint8_t output[512];
+    size_t output_size = sizeof(output);
+
+    int rc = get_fru_record_by_option(table.data(), table.size(), output,
+                                      &output_size, 2, 2, 0);
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
+}
+
+TEST(GetFruRecordByOption, mismatchFruFieldLengthExcessive)
+{
+    std::vector<uint8_t> table = {
+        0x01, 0x00, 0x01, 0x02, 0x01, 0x01, 0x09, 0xff,
+    };
+
+    uint8_t output[512];
+    size_t output_size = sizeof(output);
+
+    int rc = get_fru_record_by_option(table.data(), table.size(), output,
+                                      &output_size, 2, 2, 0);
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
+}
+
+TEST(GetFruRecordByOption, matchSmallOutputBufferStatic)
+{
+    std::vector<uint8_t> table = {
+        0x01, 0x00, 0x01, 0x01, 0x01, 0x05, 0x01, 0xff,
+    };
+
+    uint8_t output;
+    size_t output_size = sizeof(output);
+
+    int rc = get_fru_record_by_option(table.data(), table.size(), &output,
+                                      &output_size, 1, 1, 0);
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
+}
+
+TEST(GetFruRecordByOption, matchSmallOutputBufferDynamic)
+{
+    std::vector<uint8_t> table = {
+        0x01, 0x00, 0x01, 0x01, 0x01, 0x05, 0x02, 0xff, 0xfe,
+    };
+
+    uint8_t output[8];
+    size_t output_size = sizeof(output);
+
+    int rc = get_fru_record_by_option(table.data(), table.size(), output,
+                                      &output_size, 1, 1, 0);
+
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
 }

@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
-#ifndef TRANSPORT_PLDM_H
-#define TRANSPORT_PLDM_H
+#pragma once
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,7 +38,7 @@ int pldm_transport_poll(struct pldm_transport *transport, int timeout);
  * 	TID to transport specific identifier mapping, this must already be set
  * 	up.
  *
- * @param[in] ctx - pldm transport instance
+ * @param[in] transport - pldm transport instance
  * @param[in] tid - destination PLDM TID
  * @param[in] pldm_msg - caller owned pointer to PLDM msg. If this is NULL,
  * 	      PLDM_REQUESTER_INVALID_SETUP is returned.
@@ -64,7 +63,7 @@ pldm_requester_rc_t pldm_transport_send_msg(struct pldm_transport *transport,
  * 	TID to transport specific identifier mapping, this must already be set
  * 	up.
  *
- * @param[in] ctx - pldm transport instance
+ * @param[in] transport - pldm transport instance
  * @param[out] tid - source PLDM TID
  * @param[out] pldm_msg - *pldm_msg will point to the received PLDM msg if
  * 	       return code is PLDM_REQUESTER_SUCCESS; otherwise, NULL. On
@@ -97,7 +96,7 @@ pldm_requester_rc_t pldm_transport_recv_msg(struct pldm_transport *transport,
  * 	TID to transport specific identifier mapping, this must already be set
  * 	up.
  *
- * @param[in] ctx - pldm transport instance with a registered transport
+ * @param[in] transport - pldm transport instance with a registered transport
  * @param[in] tid - destination PLDM TID
  * @param[in] pldm_req_msg - caller owned pointer to PLDM request msg or async
  * 	      notification. If NULL, PLDM_REQUESTER_INVALID_SETUP is returned.
@@ -123,5 +122,3 @@ pldm_transport_send_recv_msg(struct pldm_transport *transport, pldm_tid_t tid,
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* TRANSPORT_PLDM_H */

@@ -20,6 +20,7 @@ Change categories:
 ### Changed
 
 - abi: regenerate x86_64 gcc baseline with CI toolchain gcc 15.2.0
+- abi: regenerate x86_64 baselines from the merged upstream-sync tree
 
 ### Added
 
@@ -44,6 +45,77 @@ Change categories:
   - Added comprehensive test coverage for `decode_numeric_sensor_event_data()`
     with 18 test cases covering all data sizes (UINT8/SINT8/UINT16/SINT16/
     UINT32/SINT32/UINT64/SINT64), error conditions, and boundary values
+- libpldm++ support for fw update pkg v1.1.0
+- libpldm++ support for fw update pkg v1.2.0
+- libpldm++ support for fw update pkg v1.3.0
+
+### Changed
+
+- doxygen: Enable warnings as errors
+
+  Many header files were modified to fix issues identified in the documentation.
+  There is no change in behaviour.
+
+### Deprecated
+
+### Removed
+
+- dsp: base: Remove `{en,de}code_get_tid_resp()` and associated types
+- dsp: base: Remove `decode_multipart_receive_req()`
+
+### Fixed
+
+- dsp: pdr: Bound children read in `pldm_entity_association_pdr_extract()`
+
+### Security
+
+## [v0.17.0] - 2026-07-05
+
+### Added
+
+- dsp: base: Introduce `encode_pldm_base_get_tid_resp()`
+- dsp: base: Introduce `decode_pldm_base_get_tid_resp()`
+- dsp: base: Add `decode_pldm_base_multipart_receive_req()`
+- dsp: base: Expose `PLDM_BASE_MIN_PART_SIZE` in the public header
+- dsp: file: Introduce `decode_pldm_file_df_heartbeat_req()`
+- dsp: file: Introduce `encode_pldm_file_df_heartbeat_resp()`
+
+### Changed
+
+- dsp: base: Stabilise `decode_pldm_base_get_tid_resp()`
+- dsp: base: Stabilise `encode_pldm_base_get_tid_resp()`
+- dsp: base: Stabilise `decode_pldm_platform_redfish_resource_pdr*()` functions
+- dsp: base: Stabilise `decode_pldm_platform_redfish_action_pdr*()` functions
+- libpldm: Improve application of the IWYU principle
+
+### Deprecated
+
+- dsp: base: Deprecate `decode_multipart_receive_req()`
+
+  Users should switch to `decode_pldm_base_multipart_receive_req()`
+
+- dsp: base: Deprecate `encode_get_tid_resp()`
+
+  Users should switch to `encode_pldm_base_get_tid_resp()`
+
+- dsp: base: Deprecate `decode_get_tid_resp()`
+
+  Users should switch to `decode_pldm_base_get_tid_resp()`
+
+### Fixed
+
+- dsp: pdr: Enforce minimum size as a precondition for pldm_pdr_add()
+- control: Use the correct type in error responses
+- dsp: fwup: Reject reserved package format revision
+- control: fix typos in control API documentation
+
+## [v0.16.0] - 2026-06-13
+
+### Added
+
+- dsp: base: Introduce `encode_pldm_base_get_pldm_types_resp()`
+- dsp: base: Introduce `decode_pldm_base_get_pldm_types_resp()`
+- dsp: platform: Add requester APIs for SetNumericSensorEnable
 - transport: Add AF_MCTP fully qualified endpoint (FQE) mapping support
   - Add `pldm_transport_af_mctp_map_tid_fqe()` to map TID to network and EID
   - Add `pldm_transport_af_mctp_unmap_tid_fqe()` to remove TID-to-FQE mappings
@@ -67,39 +139,75 @@ Change categories:
 - dsp: firmware_update: Add Update Security Revision from DSP0267 v1.3.0
 - include: Added header file for Redfish Device Enablement (DSP0218 v1.2.0)
 - include: Added header file for SMBIOS Data Transfer (DSP0246 v1.0.1)
-- bindings:
-  - Add libpldm++ library for the C++ binding
+- Add libpldm++ library for the C++ binding
 - dsp: platform: Add pldm_platform_file_class enum
+- platform: Add functions to decode Redfish Resource PDR (DSP0248 v1.3.0)
+- platform: Add functions to decode Redfish Action PDR (DSP0248 v1.3.0)
+- dsp: platform: Iterator macros for State Effecter PDR
+- base: Added PLDM Base MultipartSend support
+- dsp: platform: add PLDM_SET_STATE_EFFECTER_STATES_MIN_REQ_BYTES
 
 ### Changed
 
 - OWNERS: Tidy up throughout the tree
+
 - Rename `PLDM_HAS_POLL` test macro to `HAVE_POLL_H` and define it
   unconditionally
 
 - Rework ABI control macros to also enable API control
 - transport: Eliminate poll guards from headers
+- include: Use own "byteorder.h" file instead of <asm/byteorder.h>
+
+- include: Added definitions needed for Zephyr support:
+  - Endianness related: `HTOLE32`, `HTOLE16`, `LE32TOH`, `LE16TOH`,
+    `__LITTLE_ENDIAN_BITFIELD`, `__BIG_ENDIAN_BITFIELD`;
+  - Missing definitions, such as `BUILD_ASSERT`, `EUCLEAN` and `SSIZE_MAX`;
+  - Note that those should only affect Zephyr based builds.
+
+- libpldm: api: Don't diagnose implementation use of unstable features
+- Use #pragma once include guards everywhere
+
+#### Stabilisations in libpldm
+
+- dsp: base: Stabilise `encode_pldm_base_get_pldm_types_resp()`
+- dsp: base: Stabilise `decode_pldm_base_get_pldm_types_resp()`
+
 - dsp: firmware_update: Stabilise Update Security Revision APIs
   - `decode_pldm_fwup_update_security_revision_resp`
   - `encode_pldm_fwup_update_security_revision_req`
+
 - transport: af-mctp: Stabilize FQE TID mapping APIs
   - `pldm_transport_af_mctp_map_tid_fqe()`
   - `pldm_transport_af_mctp_unmap_tid_fqe()`
 
+#### Stabilisations in libpldm++
+
+- pldm::fw_update::PackageParser::parse is stable
+- pldm::fw_update::Package::~Package is stable
+
 ### Deprecated
 
+- dsp: base: Deprecate `encode_get_types_resp()`
+
+  Users should switch to `encode_pldm_base_get_pldm_types_resp()`
+
+- dsp: base: Deprecate `decode_get_types_resp()`
+
+  Users should switch to `decode_pldm_base_get_pldm_types_resp()`
+
+- `struct pldm_get_types_resp`
 - Misspelled PLDM_STATE_SET_BOOT_PROG_STATE_PCI_RESORUCE_CONFIG member of the
   pldm_state_set_boot_progress_state_values enum
 - Misspelled PLDM_ENTITY_SOLID_STATE_SRIVE, PLDM_ENTITY_FIBRECHANEL,
   PLDM_ENTITY_OMINIPATH members of the pldm_entity_id_codes enum
+- dsp: bios_table: Mark pldm_bios_table_attr_value_copy_and_update() unsafe
 
 ### Removed
 
+- dsp: base: Remove `{en,de}code_get_types_resp()` and associated types
 - `PLDM_HAS_POLL` and `HAVE_POLL_H` configuration macros
 
   These are unnecessary now that build targets are enabled by header tests
-
-#### Headers, declarations and definitions
 
 - `pldm_base_ver2str()` removed from `libpldm/utils.h` - users should include
   `libpldm/base.h` instead.
@@ -121,6 +229,9 @@ Change categories:
 
 - platform: Discard active message buffers for GetPDRRepositoryInfo error
   responses
+- Drop LIBPLDM_API_TESTING annotation from
+  `struct pldm_platform_set_numeric_sensor_enable_req`
+- meson: Install byteorder.h header
 - pdr: Fix NULL pointer dereference in `pldm_entity_association_tree_visit()`
 - pdr: Fix infinite loop in `pldm_pdr_delete_by_effecter_id()`
 - pdr: Fix infinite loop in `pldm_pdr_delete_by_sensor_id()`
@@ -133,8 +244,11 @@ Change categories:
 - abi: Refresh stable C and C++ ABI dumps for the current public API surface
 - libpldm: Fix spelling mistakes using codespell
 - transport: af-mctp: Fix TID lookup with MCTP_NET_ANY
+- control: added cpp linkage specification guard
 
 ### Security
+
+- dsp: fru: Harden get_fru_record_by_option() implementation
 
 ## [v0.15.0] - 2026-01-16
 

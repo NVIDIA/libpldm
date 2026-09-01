@@ -1,15 +1,15 @@
 /* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
-#ifndef FILEIO_H
-#define FILEIO_H
+#pragma once
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#include <libpldm/base.h>
+
 #include <stddef.h>
 #include <stdint.h>
 
-struct pldm_msg;
 /** @brief PLDM Commands in IBM OEM type
  */
 enum pldm_fileio_commands {
@@ -219,7 +219,7 @@ struct pldm_file_attr_table_entry {
  *
  *  @param[in] msg - Pointer to PLDM request message
  *  @param[in] payload_length - Length of request payload
- *  @param[out] trasnfer_handle - the handle of data
+ *  @param[out] transfer_handle - the handle of data
  *  @param[out] transfer_opflag - Transfer operation flag
  *  @param[out] table_type - the type of file table
  *  @return pldm_completion_codes
@@ -916,5 +916,3 @@ int encode_new_file_with_metadata_resp(uint8_t instance_id,
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* FILEIO_H */

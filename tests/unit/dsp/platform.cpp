@@ -1,6 +1,7 @@
 #include "msgbuf.hpp"
 
 #include <endian.h>
+#include <libpldm/api.h>
 #include <libpldm/base.h>
 #include <libpldm/entity.h>
 #include <libpldm/platform.h>
@@ -980,8 +981,17 @@ TEST(GetPDR, testGoodDecodeResponseSafe)
                                   sizeof(resp_data) - sizeof(*resp), &crc);
     ASSERT_EQ(rc, 0);
     EXPECT_EQ(resp->completion_code, PLDM_SUCCESS);
-    EXPECT_EQ(resp->next_record_handle, 0u);
-    EXPECT_EQ(resp->next_data_transfer_handle, 0u);
+
+    {
+        uint32_t aligned = resp->next_record_handle;
+        EXPECT_EQ(aligned, 0u);
+    }
+
+    {
+        uint32_t aligned = resp->next_data_transfer_handle;
+        EXPECT_EQ(aligned, 0u);
+    }
+
     EXPECT_EQ(resp->transfer_flag, PLDM_END);
     ASSERT_EQ(resp->response_count, sizeof(recordData) - 1);
     EXPECT_EQ(crc, 96u);
@@ -1438,7 +1448,11 @@ TEST(SetNumericEffecterValue, testGoodEncodeRequest)
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         reinterpret_cast<struct pldm_set_numeric_effecter_value_req*>(
             request->payload);
-    EXPECT_EQ(effecter_id, req->effecter_id);
+    {
+        uint16_t aligned = req->effecter_id;
+        EXPECT_EQ(effecter_id, aligned);
+    }
+
     EXPECT_EQ(effecter_data_size, req->effecter_data_size);
     uint16_t* val = (uint16_t*)req->effecter_value;
     *val = le16toh(*val);
@@ -3661,9 +3675,9 @@ TEST(GetNumericEffecterValue, testBadDecodeRequest)
 
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto request = reinterpret_cast<pldm_msg*>(requestMsg.data());
-    struct pldm_set_numeric_effecter_value_req* req =
+    struct pldm_get_numeric_effecter_value_req* req =
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-        reinterpret_cast<struct pldm_set_numeric_effecter_value_req*>(
+        reinterpret_cast<struct pldm_get_numeric_effecter_value_req*>(
             request->payload);
 
     uint16_t effecter_id = 0x1a;
@@ -4621,7 +4635,7 @@ TEST(GetSensorReading, testDecodeRejectsInvalidReadingSize)
 TEST(SetNumericSensorEnable, testDecodeRequest)
 {
     int rc;
-    struct pldm_set_numeric_sensor_enable_req decoded;
+    struct pldm_platform_set_numeric_sensor_enable_req decoded;
 
     const std::array<uint8_t, hdrSize + 5> req
         // PLDM header
@@ -4640,8 +4654,8 @@ TEST(SetNumericSensorEnable, testDecodeRequest)
     rc = decode_set_numeric_sensor_enable_req(msg, 4, &decoded);
     EXPECT_EQ(rc, 0);
     EXPECT_EQ(decoded.sensor_id, 0x4567);
-    EXPECT_EQ(decoded.op_state, PLDM_SET_SENSOR_ENABLED);
-    EXPECT_EQ(decoded.event_enable, PLDM_EVENTS_DISABLED);
+    EXPECT_EQ(decoded.sensor_operational_state, PLDM_SET_SENSOR_ENABLED);
+    EXPECT_EQ(decoded.sensor_event_message_enable, PLDM_EVENTS_DISABLED);
 
     // Fail short
     rc = decode_set_numeric_sensor_enable_req(msg, 3, &decoded);
@@ -4656,7 +4670,7 @@ TEST(SetNumericSensorEnable, testDecodeRequest)
 TEST(SetNumericSensorEnable, testDecodeInvalidOpRequest)
 {
     int rc;
-    struct pldm_set_numeric_sensor_enable_req decoded;
+    struct pldm_platform_set_numeric_sensor_enable_req decoded;
 
     const std::array<uint8_t, hdrSize + 4> req
         // PLDM header
@@ -4679,7 +4693,7 @@ TEST(SetNumericSensorEnable, testDecodeInvalidOpRequest)
 TEST(SetNumericSensorEnable, testDecodeInvalidEventRequest)
 {
     int rc;
-    struct pldm_set_numeric_sensor_enable_req decoded;
+    struct pldm_platform_set_numeric_sensor_enable_req decoded;
 
     const std::array<uint8_t, hdrSize + 4> req
         // PLDM header
@@ -4789,7 +4803,7 @@ TEST(SetStateSensorEnables, testDecodeInvalidEventRequest)
 #if HAVE_LIBPLDM_ABI_TESTING
 TEST(GetEventReceiver, testGoodEncodeRequest)
 {
-    std::array<uint8_t, hdrSize> requestMsg{};
+    std::array<uint8_t, sizeof(pldm_msg)> requestMsg{};
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto request = new (requestMsg.data()) pldm_msg;
     auto rc =
@@ -4908,6 +4922,178 @@ TEST(GetEventReceiver, testBadDecodeResponse)
     EXPECT_EQ(rc, -ENOTSUP);
 }
 #endif
+
+#if HAVE_LIBPLDM_API_TESTING
+TEST(SetNumericSensorEnable, testGoodEncodeRequest)
+{
+    PLDM_MSG_DEFINE_P(msg, PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_REQ_BYTES);
+    constexpr uint8_t instanceID = 0x0A;
+    struct pldm_platform_set_numeric_sensor_enable_req req = {
+        .sensor_id = 0x1123,
+        .sensor_operational_state = PLDM_SET_SENSOR_UNAVAILABLE,
+        .sensor_event_message_enable =
+            PLDM_PLATFORM_SET_SENSOR_EVENT_MESSAGE_ENABLE_STATE_EVENTS_ONLY,
+    };
+
+    size_t payload_length = PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_REQ_BYTES;
+    auto rc = encode_pldm_platform_set_numeric_sensor_enable_req(
+        instanceID, &req, msg, &payload_length);
+
+    ASSERT_EQ(rc, 0);
+    EXPECT_EQ(payload_length,
+              PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_REQ_BYTES);
+    EXPECT_EQ(msg->hdr.command, PLDM_SET_NUMERIC_SENSOR_ENABLE);
+    EXPECT_EQ(msg->hdr.type, PLDM_PLATFORM);
+    EXPECT_EQ(msg->hdr.request, 1);
+    EXPECT_EQ(msg->hdr.datagram, 0);
+    EXPECT_EQ(msg->hdr.instance_id, instanceID);
+
+    struct pldm_platform_set_numeric_sensor_enable_req decoded = {};
+    ASSERT_EQ(
+        decode_set_numeric_sensor_enable_req(
+            msg, PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_REQ_BYTES, &decoded),
+        0);
+    EXPECT_EQ(decoded.sensor_id, req.sensor_id);
+    EXPECT_EQ(decoded.sensor_operational_state, req.sensor_operational_state);
+    EXPECT_EQ(decoded.sensor_event_message_enable,
+              req.sensor_event_message_enable);
+
+    // Over-sized buffer: succeeds and payload_length is written back to actual
+    // encoded size
+    PLDM_MSG_DEFINE_P(msg2,
+                      PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_REQ_BYTES + 1);
+    size_t oversized_length =
+        PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_REQ_BYTES + 1;
+    rc = encode_pldm_platform_set_numeric_sensor_enable_req(
+        instanceID, &req, msg2, &oversized_length);
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(oversized_length,
+              PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_REQ_BYTES);
+}
+#endif // LIBPLDM_API_TESTING
+
+#if HAVE_LIBPLDM_API_TESTING
+TEST(SetNumericSensorEnable, testBadEncodeRequest)
+{
+    int rc;
+    PLDM_MSG_DEFINE_P(msg, PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_REQ_BYTES);
+    constexpr uint8_t instanceID = 0x0A;
+    struct pldm_platform_set_numeric_sensor_enable_req req = {
+        .sensor_id = 0x1123,
+        .sensor_operational_state = PLDM_SET_SENSOR_UNAVAILABLE,
+        .sensor_event_message_enable =
+            PLDM_PLATFORM_SET_SENSOR_EVENT_MESSAGE_ENABLE_STATE_EVENTS_ONLY,
+    };
+
+    size_t pl;
+
+    // Test null msg pointer
+    pl = PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_REQ_BYTES;
+    rc = encode_pldm_platform_set_numeric_sensor_enable_req(instanceID, &req,
+                                                            NULL, &pl);
+    EXPECT_EQ(rc, -EINVAL);
+
+    // Test null req pointer
+    pl = PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_REQ_BYTES;
+    rc = encode_pldm_platform_set_numeric_sensor_enable_req(instanceID, NULL,
+                                                            msg, &pl);
+    EXPECT_EQ(rc, -EINVAL);
+
+    // Test invalid operational state
+    struct pldm_platform_set_numeric_sensor_enable_req invalidOpStateReq = req;
+    invalidOpStateReq.sensor_operational_state =
+        PLDM_SET_SENSOR_UNAVAILABLE + 1;
+    pl = PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_REQ_BYTES;
+    rc = encode_pldm_platform_set_numeric_sensor_enable_req(
+        instanceID, &invalidOpStateReq, msg, &pl);
+    EXPECT_EQ(rc, -EINVAL);
+
+    // Test invalid event enable
+    struct pldm_platform_set_numeric_sensor_enable_req invalidEventReq = req;
+    invalidEventReq.sensor_event_message_enable =
+        PLDM_PLATFORM_SET_SENSOR_EVENT_MESSAGE_ENABLE_STATE_EVENTS_ONLY + 1;
+    pl = PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_REQ_BYTES;
+    rc = encode_pldm_platform_set_numeric_sensor_enable_req(
+        instanceID, &invalidEventReq, msg, &pl);
+    EXPECT_EQ(rc, -EINVAL);
+
+    // Test under-sized payload
+    pl = PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_REQ_BYTES - 1;
+    rc = encode_pldm_platform_set_numeric_sensor_enable_req(instanceID, &req,
+                                                            msg, &pl);
+    EXPECT_EQ(rc, -EOVERFLOW);
+}
+#endif // LIBPLDM_API_TESTING
+
+#if HAVE_LIBPLDM_API_TESTING
+TEST(SetNumericSensorEnable, testGoodDecodeResponse)
+{
+    PLDM_MSG_DEFINE_P(response,
+                      PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_RESP_BYTES);
+
+    uint8_t completionCode = PLDM_SUCCESS;
+    response->payload[0] = completionCode;
+
+    uint8_t resp = 0;
+    auto rc = decode_pldm_platform_set_numeric_sensor_enable_resp(
+        response, PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_RESP_BYTES, &resp);
+
+    ASSERT_EQ(rc, 0);
+    EXPECT_EQ(resp, completionCode);
+}
+#endif // LIBPLDM_API_TESTING
+
+#if HAVE_LIBPLDM_API_TESTING
+TEST(SetNumericSensorEnable, testGoodDecodeResponseInvalidSensorID)
+{
+    PLDM_MSG_DEFINE_P(response,
+                      PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_RESP_BYTES);
+
+    uint8_t completionCode = PLDM_PLATFORM_INVALID_SENSOR_ID;
+    response->payload[0] = completionCode;
+
+    uint8_t resp = 0;
+    auto rc = decode_pldm_platform_set_numeric_sensor_enable_resp(
+        response, PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_RESP_BYTES, &resp);
+
+    ASSERT_EQ(rc, 0);
+    EXPECT_EQ(resp, completionCode);
+}
+#endif // LIBPLDM_API_TESTING
+
+#if HAVE_LIBPLDM_API_TESTING
+TEST(SetNumericSensorEnable, testBadDecodeResponse)
+{
+    PLDM_MSG_DEFINE_P(response,
+                      PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_RESP_BYTES);
+
+    uint8_t completionCode = PLDM_SUCCESS;
+    response->payload[0] = completionCode;
+
+    uint8_t resp = 0;
+
+    // Test NULL message pointer
+    auto rc = decode_pldm_platform_set_numeric_sensor_enable_resp(
+        nullptr, PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_RESP_BYTES, &resp);
+    EXPECT_EQ(rc, -EINVAL);
+
+    // Test NULL resp pointer
+    rc = decode_pldm_platform_set_numeric_sensor_enable_resp(
+        response, PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_RESP_BYTES, nullptr);
+    EXPECT_EQ(rc, -EINVAL);
+
+    // Test zero-length payload
+    rc =
+        decode_pldm_platform_set_numeric_sensor_enable_resp(response, 0, &resp);
+    EXPECT_EQ(rc, -EOVERFLOW);
+
+    // Test over-length payload
+    rc = decode_pldm_platform_set_numeric_sensor_enable_resp(
+        response, PLDM_PLATFORM_SET_NUMERIC_SENSOR_ENABLE_RESP_BYTES + 1,
+        &resp);
+    EXPECT_EQ(rc, -EBADMSG);
+}
+#endif // LIBPLDM_API_TESTING
 
 TEST(SetEventReceiver, testGoodEncodeRequest)
 {
@@ -6754,8 +6940,17 @@ TEST(decodeNumericEffecterPdrData, Uint32Test)
     EXPECT_EQ(PLDM_SUCCESS, rc);
 
     EXPECT_EQ(PLDM_EFFECTER_DATA_SIZE_UINT32, decodedPdr.effecter_data_size);
-    EXPECT_EQ(4096u, decodedPdr.max_settable.value_u32);
-    EXPECT_EQ(0u, decodedPdr.min_settable.value_u32);
+
+    {
+        union_effecter_data_size aligned = decodedPdr.max_settable;
+        EXPECT_EQ(4096u, aligned.value_u32);
+    }
+
+    {
+        union_effecter_data_size aligned = decodedPdr.min_settable;
+        EXPECT_EQ(0u, aligned.value_u32);
+    }
+
     EXPECT_EQ(PLDM_RANGE_FIELD_FORMAT_UINT32, decodedPdr.range_field_format);
     EXPECT_EQ(0x1fu, decodedPdr.range_field_support.byte);
     EXPECT_EQ(5000000u, decodedPdr.nominal_value.value_u32);
@@ -6864,8 +7059,17 @@ TEST(decodeNumericEffecterPdrData, Sint32Test)
         decode_numeric_effecter_pdr_data(pdr1.data(), pdr1.size(), &decodedPdr);
     EXPECT_EQ(PLDM_SUCCESS, rc);
     EXPECT_EQ(PLDM_EFFECTER_DATA_SIZE_SINT32, decodedPdr.effecter_data_size);
-    EXPECT_EQ(100000, decodedPdr.max_settable.value_s32);
-    EXPECT_EQ(-100000, decodedPdr.min_settable.value_s32);
+
+    {
+        union_effecter_data_size aligned = decodedPdr.max_settable;
+        EXPECT_EQ(100000, aligned.value_u32);
+    }
+
+    {
+        union_effecter_data_size aligned = decodedPdr.min_settable;
+        EXPECT_EQ(-100000, aligned.value_u32);
+    }
+
     EXPECT_EQ(PLDM_RANGE_FIELD_FORMAT_SINT32, decodedPdr.range_field_format);
     EXPECT_EQ(0x1f, decodedPdr.range_field_support.byte);
     EXPECT_EQ(0, decodedPdr.nominal_value.value_s32);
@@ -6978,8 +7182,17 @@ TEST(decodeNumericEffecterPdrData, Real32Test)
     EXPECT_EQ(PLDM_EFFECTER_DATA_SIZE_SINT32, decodedPdr.effecter_data_size);
     EXPECT_FLOAT_EQ(1.0f, decodedPdr.state_transition_interval);
     EXPECT_FLOAT_EQ(1.0f, decodedPdr.transition_interval);
-    EXPECT_EQ(100000, decodedPdr.max_settable.value_s32);
-    EXPECT_EQ(-100000, decodedPdr.min_settable.value_s32);
+
+    {
+        union_effecter_data_size aligned = decodedPdr.max_settable;
+        EXPECT_EQ(100000, aligned.value_u32);
+    }
+
+    {
+        union_effecter_data_size aligned = decodedPdr.min_settable;
+        EXPECT_EQ(-100000, aligned.value_u32);
+    }
+
     EXPECT_EQ(PLDM_RANGE_FIELD_FORMAT_REAL32, decodedPdr.range_field_format);
     EXPECT_EQ(0x1f, decodedPdr.range_field_support.byte);
     EXPECT_FLOAT_EQ(0, decodedPdr.nominal_value.value_f32);
@@ -7068,8 +7281,17 @@ TEST(decodeNumericEffecterPdrData, Uint64Test)
     EXPECT_EQ(PLDM_SUCCESS, rc);
 
     EXPECT_EQ(PLDM_EFFECTER_DATA_SIZE_UINT64, decodedPdr.effecter_data_size);
-    EXPECT_EQ(0x1122334455667788ULL, decodedPdr.max_settable.value_u64);
-    EXPECT_EQ(0ULL, decodedPdr.min_settable.value_u64);
+
+    {
+        union_effecter_data_size aligned = decodedPdr.max_settable;
+        EXPECT_EQ(0x1122334455667788ULL, aligned.value_u64);
+    }
+
+    {
+        union_effecter_data_size aligned = decodedPdr.min_settable;
+        EXPECT_EQ(0ULL, aligned.value_u64);
+    }
+
     EXPECT_EQ(PLDM_RANGE_FIELD_FORMAT_UINT64, decodedPdr.range_field_format);
     EXPECT_EQ(0x1fu, decodedPdr.range_field_support.byte);
     EXPECT_EQ(0x0102030405060708ULL, decodedPdr.nominal_value.value_u64);
@@ -7156,8 +7378,17 @@ TEST(decodeNumericEffecterPdrData, Sint64Test)
     EXPECT_EQ(PLDM_SUCCESS, rc);
 
     EXPECT_EQ(PLDM_EFFECTER_DATA_SIZE_SINT64, decodedPdr.effecter_data_size);
-    EXPECT_EQ(1234567890123, decodedPdr.max_settable.value_s64);
-    EXPECT_EQ(-1234567890123, decodedPdr.min_settable.value_s64);
+
+    {
+        union_effecter_data_size aligned = decodedPdr.max_settable;
+        EXPECT_EQ(1234567890123, aligned.value_s64);
+    }
+
+    {
+        union_effecter_data_size aligned = decodedPdr.min_settable;
+        EXPECT_EQ(-1234567890123, aligned.value_s64);
+    }
+
     EXPECT_EQ(PLDM_RANGE_FIELD_FORMAT_SINT64, decodedPdr.range_field_format);
     EXPECT_EQ(0x1f, decodedPdr.range_field_support.byte);
     EXPECT_EQ(0, decodedPdr.nominal_value.value_s64);
@@ -7920,7 +8151,7 @@ TEST(decodePldmFileDescriptorPdr, BadTestDataBufferUnderLength)
 
 TEST(GetTerminusUID, testGoodEncodeRequest)
 {
-    std::array<uint8_t, sizeof(pldm_msg_hdr)> requestMsg{};
+    std::array<uint8_t, sizeof(pldm_msg)> requestMsg{};
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto request = reinterpret_cast<pldm_msg*>(requestMsg.data());
 
@@ -8257,7 +8488,7 @@ TEST(PlatformTestingAbiCoverage, SensorEnableDecoderErrors)
         storage{};
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto* msg = reinterpret_cast<pldm_msg*>(storage.data());
-    pldm_set_numeric_sensor_enable_req numericReq{};
+    pldm_platform_set_numeric_sensor_enable_req numericReq{};
     pldm_set_state_sensor_enables_req stateReq{};
 
     EXPECT_EQ(decode_set_numeric_sensor_enable_req(nullptr, 0, &numericReq),
@@ -9249,5 +9480,541 @@ TEST(EncodePldmFileDescriptorPdr, BadParamBufferTooSmall)
     EXPECT_EQ(encode_pldm_platform_file_descriptor_pdr(&pdr, buffer.data(),
                                                        &bufferSize),
               -EOVERFLOW);
+}
+#endif
+
+TEST(decodeRedfishResourcePdr, GoodTest)
+{
+    std::vector<uint8_t> pdr1{
+        // Common PDR Header
+        // clang-format off
+        0x1, 0x0, 0x0, 0x0,        // record handle
+        0x1,                       // PDRHeaderVersion
+        PLDM_REDFISH_RESOURCE_PDR, // PDRType
+        0x1, 0x0,                  // recordChangeNumber
+        0x76, 0x0,                 // dataLength
+        /* Redfish Resource PDR Data */
+        0x11, 0x22, 0x33, 0x44,       // ResourceID
+        0x7,                          // ResourceFlags
+        0x1, 0x2, 0x3, 0x4,           // ContainingResourceID
+        0xa, 0x0,                     // ProposedContainingResourceLengthBytes
+        0x54, 0x65, 0x73, 0x74, 0x2e, // ProposedContainingResourceName
+        0x54, 0x65, 0x73, 0x74, 0x0,
+        // "Test.Test"
+        0x8, 0x0,                                      // SubURILengthBytes
+        0x4d, 0x65, 0x74, 0x72, 0x69, 0x63, 0x73, 0x0, // SubURI
+        // "Metrics"
+        0x2, 0x0,           // AdditionalResourceIDCount
+        0x1, 0x2, 0x3, 0x4, // AdditionalResourceID[0]
+        0x7, 0x0,           // AdditionalResourceSubURILengthBytes[0]
+        0x30, 0x2f, 0x54, 0x65, 0x73, 0x74, 0x0, // AdditionalResourceSubURI[0]
+        // "0/Test"
+        0xa, 0xb, 0xc, 0xd, // AdditionalResourceID[1]
+        0x7, 0x0,           // AdditionalResourceSubURILengthBytes[1]
+        0x31, 0x2f, 0x54, 0x65, 0x73, 0x74, 0x0, // AdditionalResourceSubURI[1]
+        // "1/Test"
+        0x0, 0xf3, 0xf2, 0xf1,              // MajorSchemaVersion
+        0x11, 0x22,                         // MajorSchemaDictionaryLengthBytes
+        0xca, 0xfe, 0xbe, 0xef,             // MajorSchemaDictionarySignature
+        0x18,                               // MajorSchemaNameLength
+        0x54, 0x65, 0x73, 0x74, 0x4d, 0x65, // MajorSchemaName
+        0x74, 0x72, 0x69, 0x63, 0x73, 0x2e,
+        0x54, 0x65, 0x73, 0x74, 0x4d, 0x65,
+        0x74, 0x72, 0x69, 0x63, 0x73, 0x00,
+        // "TestMetrics.TestMetrics"
+        0x02, 0x00,         // OEMCount
+        0x09, 0x00,         // OEMNameLengthBytes[0]
+        0x4f, 0x45, 0x4d, 0x54, 0x65, 0x73, // OEMName [0]
+        0x74, 0x30, 0x00,
+        // "OEMTest0"
+        0x09, 0x00,         // OEMNameLengthBytes[1]
+        0x4f, 0x45, 0x4d, 0x54, 0x65, 0x73, 0x74, 0x31, 0x00 // OEMName [1]
+        // "OEMTest1"
+        // clang-format on
+    };
+
+    std::array<pldm_platform_redfish_resource_pdr_additional_resource, 2>
+        additionalResources = {
+            {{0x04030201,
+              {static_cast<const uint8_t*>(static_cast<const void*>("0/Test")),
+               sizeof("0/Test")}},
+             {0x0d0c0b0a,
+              {static_cast<const uint8_t*>(static_cast<const void*>("1/Test")),
+               sizeof("1/Test")}}}};
+
+    std::array<pldm_platform_redfish_resource_pdr_oem_name, 2> OEMNames = {
+        {{{static_cast<const uint8_t*>(static_cast<const void*>("OEMTest0")),
+           sizeof("OEMTest0")}},
+         {{static_cast<const uint8_t*>(static_cast<const void*>("OEMTest1")),
+           sizeof("OEMTest1")}}}};
+
+    struct pldm_platform_redfish_resource_pdr decodedPdr;
+    struct pldm_platform_redfish_resource_pdr_additional_resource
+        additional_resource;
+    struct pldm_platform_redfish_resource_pdr_oem_name oem_name;
+    auto rc = decode_pldm_platform_redfish_resource_pdr(
+        pdr1.data(), pdr1.size(), &decodedPdr);
+    EXPECT_EQ(PLDM_SUCCESS, rc);
+    EXPECT_EQ(1u, decodedPdr.hdr.record_handle);
+    EXPECT_EQ(1u, decodedPdr.hdr.version);
+    EXPECT_EQ(PLDM_REDFISH_RESOURCE_PDR, decodedPdr.hdr.type);
+    EXPECT_EQ(1u, decodedPdr.hdr.record_change_num);
+    EXPECT_EQ(pdr1.size() - sizeof(struct pldm_pdr_hdr), decodedPdr.hdr.length);
+    EXPECT_EQ(0x44332211, decodedPdr.resource_id);
+    EXPECT_EQ(0x07, decodedPdr.resource_flags.byte);
+    EXPECT_EQ(0x04030201, decodedPdr.containing_resource_id);
+
+    EXPECT_EQ(sizeof("Test.Test"),
+              decodedPdr.proposed_containing_resource_name.length);
+    EXPECT_EQ(memcmp("Test.Test",
+                     decodedPdr.proposed_containing_resource_name.ptr,
+                     decodedPdr.proposed_containing_resource_name.length),
+              0);
+
+    EXPECT_EQ(sizeof("Metrics"), decodedPdr.sub_uri.length);
+    EXPECT_EQ(
+        memcmp("Metrics", decodedPdr.sub_uri.ptr, decodedPdr.sub_uri.length),
+        0);
+
+    EXPECT_EQ(decodedPdr.additional_resource_id_count, 2);
+
+    size_t additionalResourceIndex = 0;
+    foreach_pldm_platform_redfish_resource_pdr_additional_resource(
+        decodedPdr, additional_resource, rc)
+    {
+        EXPECT_EQ(additionalResources[additionalResourceIndex].id,
+                  additional_resource.id);
+        EXPECT_EQ(additionalResources[additionalResourceIndex].sub_uri.length,
+                  additional_resource.sub_uri.length);
+        EXPECT_EQ(
+            memcmp(additionalResources[additionalResourceIndex].sub_uri.ptr,
+                   additional_resource.sub_uri.ptr,
+                   additional_resource.sub_uri.length),
+            0);
+
+        additionalResourceIndex++;
+    }
+    EXPECT_EQ(additionalResourceIndex, 2);
+    EXPECT_EQ(PLDM_SUCCESS, rc);
+
+    EXPECT_EQ(decodedPdr.major_schema_version.major, 0xf1);
+    EXPECT_EQ(decodedPdr.major_schema_version.minor, 0xf2);
+    EXPECT_EQ(decodedPdr.major_schema_version.update, 0xf3);
+    EXPECT_EQ(decodedPdr.major_schema_version.alpha, 0x00);
+
+    EXPECT_EQ(decodedPdr.major_schema_dictionary_length_bytes, 0x2211);
+    EXPECT_EQ(decodedPdr.major_schema_dictionary_signature, 0xefbefeca);
+
+    EXPECT_EQ(sizeof("TestMetrics.TestMetrics"),
+              decodedPdr.major_schema_name.length);
+    EXPECT_EQ(memcmp("TestMetrics.TestMetrics",
+                     decodedPdr.major_schema_name.ptr,
+                     decodedPdr.major_schema_name.length),
+              0);
+
+    EXPECT_EQ(decodedPdr.oem_count, 2);
+
+    size_t OEMNameIndex = 0;
+    foreach_pldm_platform_redfish_resource_pdr_oem_name(decodedPdr, oem_name,
+                                                        rc)
+    {
+        EXPECT_EQ(OEMNames[OEMNameIndex].name.length, oem_name.name.length);
+        EXPECT_EQ(memcmp(OEMNames[OEMNameIndex].name.ptr, oem_name.name.ptr,
+                         oem_name.name.length),
+                  0);
+        OEMNameIndex++;
+    }
+    EXPECT_EQ(OEMNameIndex, 2);
+    EXPECT_EQ(PLDM_SUCCESS, rc);
+}
+
+TEST(decodeRedfishActionPdr, GoodTest)
+{
+    std::vector<uint8_t> pdr1{
+        // Common PDR Header
+        // clang-format off
+        0x1, 0x0, 0x0, 0x0,      // record handle
+        0x1,                     // PDRHeaderVersion
+        PLDM_REDFISH_ACTION_PDR, // PDRType
+        0x1, 0x0,                // recordChangeNumber
+        0x54, 0x0,               // dataLength
+        /* Redfish Action PDR Data */
+        0x1,                     // ActionPDRIndex
+        0x2, 0x0,                // RelatedResourceCount
+        0x4, 0x3, 0x2, 0x1,      // RelatedResourceID[0]
+        0xf, 0xe, 0xd, 0xc,      // RelatedResourceID[1]
+        0x2,                     // ActionCount
+        0x6,                     // ActionNameLengthBytes[0]
+        0x52, 0x65, 0x73, 0x65, 0x74, 0x0,  // ActionName[0]
+        // "Reset"
+        0x13,                    // ActionPathLengthBytes[0]
+        0x41, 0x63, 0x74, 0x69, 0x6f, 0x6e, // ActionPath[0]
+        0x73, 0x2f, 0x54, 0x65, 0x73, 0x74,
+        0x2e, 0x52, 0x65, 0x73, 0x65, 0x74,
+        0x0,
+        // "Actions/Test.Reset"
+        0xf,                     // ActionNameLengthBytes[1]
+        0x52, 0x65, 0x73, 0x65, 0x74, 0x54, // ActionName[1]
+        0x6f, 0x44, 0x65, 0x66, 0x61, 0x75,
+        0x6c, 0x74, 0x00,
+        // "ResetToDefault"
+        0x1c, // ActionPathLengthBytes[1]
+        0x41, 0x63, 0x74, 0x69, 0x6f, 0x6e, // ActionPath[1]
+        0x73, 0x2f, 0x54, 0x65, 0x73, 0x74,
+        0x2e, 0x52, 0x65, 0x73, 0x65, 0x74,
+        0x54, 0x6f, 0x44, 0x65, 0x66, 0x61,
+        0x75, 0x6c, 0x74, 0x0,
+        // "Actions/Test.ResetToDefault"
+        // clang-format on
+    };
+
+    std::array<uint32_t, 2> relatedResourceIds = {{0x01020304, 0x0c0d0e0f}};
+
+    std::array<pldm_platform_redfish_action_pdr_action, 2> actions = {
+        {{{static_cast<const uint8_t*>(static_cast<const void*>("Reset")),
+           sizeof("Reset")},
+          {static_cast<const uint8_t*>(
+               static_cast<const void*>("Actions/Test.Reset")),
+           sizeof("Actions/Test.Reset")}},
+         {{static_cast<const uint8_t*>(
+               static_cast<const void*>("ResetToDefault")),
+           sizeof("ResetToDefault")},
+          {static_cast<const uint8_t*>(
+               static_cast<const void*>("Actions/Test.ResetToDefault")),
+           sizeof("Actions/Test.ResetToDefault")}}}};
+
+    struct pldm_platform_redfish_action_pdr_action action;
+    struct pldm_platform_redfish_action_pdr decodedPdr;
+    uint32_t resourceId;
+    auto rc = decode_pldm_platform_redfish_action_pdr(pdr1.data(), pdr1.size(),
+                                                      &decodedPdr);
+    EXPECT_EQ(PLDM_SUCCESS, rc);
+    EXPECT_EQ(1u, decodedPdr.hdr.record_handle);
+    EXPECT_EQ(1u, decodedPdr.hdr.version);
+    EXPECT_EQ(PLDM_REDFISH_ACTION_PDR, decodedPdr.hdr.type);
+    EXPECT_EQ(1u, decodedPdr.hdr.record_change_num);
+    EXPECT_EQ(pdr1.size() - sizeof(struct pldm_pdr_hdr), decodedPdr.hdr.length);
+
+    EXPECT_EQ(0x1, decodedPdr.action_pdr_index);
+
+    EXPECT_EQ(decodedPdr.related_resource_count, 2);
+
+    size_t relatedResourceIndex = 0;
+    foreach_pldm_platform_redfish_action_pdr_related_resource_id(decodedPdr,
+                                                                 resourceId, rc)
+    {
+        EXPECT_EQ(relatedResourceIds[relatedResourceIndex], resourceId);
+        relatedResourceIndex++;
+    }
+    EXPECT_EQ(relatedResourceIndex, 2);
+    EXPECT_EQ(PLDM_SUCCESS, rc);
+
+    EXPECT_EQ(decodedPdr.action_count, 2);
+
+    size_t actionIndex = 0;
+    foreach_pldm_platform_redfish_action_pdr_action(decodedPdr, action, rc)
+    {
+        EXPECT_EQ(actions[actionIndex].name.length, action.name.length);
+        EXPECT_EQ(memcmp(actions[actionIndex].name.ptr, action.name.ptr,
+                         action.name.length),
+                  0);
+        EXPECT_EQ(actions[actionIndex].path.length, action.path.length);
+        EXPECT_EQ(memcmp(actions[actionIndex].path.ptr, action.path.ptr,
+                         action.path.length),
+                  0);
+        actionIndex++;
+    }
+    EXPECT_EQ(actionIndex, 2);
+    EXPECT_EQ(PLDM_SUCCESS, rc);
+}
+
+#if HAVE_LIBPLDM_API_TESTING
+TEST(StateEffecterPDR, testExtractPossibleStates)
+{
+    constexpr size_t pdrSize = sizeof(pldm_state_effecter_pdr) -
+                               1 +                          // fixed header
+                               (sizeof(uint16_t) + 1 + 1) + // entry 0
+                               (sizeof(uint16_t) + 1 + 2);  // entry 1
+    alignas(pldm_state_effecter_pdr) unsigned char pdrBuf[pdrSize] = {};
+    auto* pdr = new (pdrBuf) pldm_state_effecter_pdr;
+    PLDM_MSGBUF_RW_DEFINE_P(buf);
+
+    pdr->hdr.record_handle = htole32(1);
+    pdr->hdr.type = PLDM_STATE_EFFECTER_PDR;
+    pdr->composite_effecter_count = 2;
+
+    int rc = pldm_msgbuf_init_errno(buf, 0, pdr->possible_states,
+                                    pdrSize - sizeof(pldm_state_effecter_pdr) +
+                                        sizeof(pdr->possible_states));
+    ASSERT_EQ(rc, 0);
+
+    // possible_states[0]: state_set_id=100, size=1, bits=0x0F
+    pldm_msgbuf_insert_uint16(buf, 100);
+    pldm_msgbuf_insert_uint8(buf, 1);
+    pldm_msgbuf_insert_uint8(buf, 0x0F);
+
+    // possible_states[1]: state_set_id=200, size=2, bits={0xAA, 0x55}
+    pldm_msgbuf_insert_uint16(buf, 200);
+    pldm_msgbuf_insert_uint8(buf, 2);
+    pldm_msgbuf_insert_uint8(buf, 0xAA);
+    pldm_msgbuf_insert_uint8(buf, 0x55);
+
+    ASSERT_EQ(pldm_msgbuf_complete_consumed(buf), 0);
+
+    std::vector<uint16_t> ids;
+    std::vector<uint8_t> sizes;
+    std::vector<std::vector<uint8_t>> bitLists;
+
+    state_effecter_possible_states states{};
+
+    foreach_pldm_platform_state_effecter_pdr_possible_states(pdr, pdrSize,
+                                                             states, rc)
+    {
+        ids.push_back(states.state_set_id);
+        sizes.push_back(states.possible_states_size);
+
+        std::vector<uint8_t> bytes;
+        bitfield8_t bf{};
+
+        foreach_pldm_platform_state_effecter_pdr_states(states, bf, rc)
+        {
+            bytes.push_back(bf.byte);
+        }
+
+        if (rc)
+        {
+            break;
+        }
+
+        bitLists.push_back(std::move(bytes));
+    }
+
+    EXPECT_EQ(rc, 0) << "Iterator failed with rc=" << rc;
+
+    ASSERT_EQ(ids.size(), 2);
+    ASSERT_EQ(bitLists.size(), 2);
+
+    EXPECT_EQ(le16toh(ids[0]), 100);
+    EXPECT_EQ(le16toh(ids[1]), 200);
+
+    EXPECT_EQ(sizes[0], 1);
+    ASSERT_EQ(bitLists[0].size(), 1);
+    EXPECT_EQ(bitLists[0][0], 0x0F);
+
+    EXPECT_EQ(sizes[1], 2);
+    ASSERT_EQ(bitLists[1].size(), 2);
+    EXPECT_EQ(bitLists[1][0], 0xAA);
+    EXPECT_EQ(bitLists[1][1], 0x55);
+}
+#endif
+
+#if HAVE_LIBPLDM_API_TESTING
+TEST(StateEffecterPDR, testInvalidBufferTooSmall)
+{
+    alignas(pldm_state_effecter_pdr) unsigned char
+        pdrBuf[sizeof(pldm_state_effecter_pdr)] = {};
+    auto* pdr = new (pdrBuf) pldm_state_effecter_pdr;
+
+    int rc;
+    state_effecter_possible_states states{};
+
+    foreach_pldm_platform_state_effecter_pdr_possible_states(pdr, 10, states,
+                                                             rc)
+    {
+        FAIL() << "Should not iterate with invalid buffer";
+    }
+
+    EXPECT_EQ(rc, -EOVERFLOW) << "Expected EOVERFLOW for small buffer";
+}
+#endif
+
+#if HAVE_LIBPLDM_API_TESTING
+TEST(StateEffecterPDR, testNullPointer)
+{
+    int rc;
+    state_effecter_possible_states states{};
+
+    foreach_pldm_platform_state_effecter_pdr_possible_states(nullptr, 100,
+                                                             states, rc)
+    {
+        FAIL() << "Should not iterate with null pointer";
+    }
+
+    EXPECT_EQ(rc, -EINVAL) << "Expected EINVAL for null pointer";
+}
+#endif
+
+#if HAVE_LIBPLDM_API_TESTING
+TEST(StateEffecterPDR, testZeroCount)
+{
+    constexpr size_t pdrSize = sizeof(pldm_state_effecter_pdr);
+    alignas(pldm_state_effecter_pdr) unsigned char pdrBuf[pdrSize] = {};
+    auto* pdr = new (pdrBuf) pldm_state_effecter_pdr;
+    pdr->composite_effecter_count = 0;
+
+    int rc;
+    state_effecter_possible_states states{};
+    size_t count = 0;
+
+    foreach_pldm_platform_state_effecter_pdr_possible_states(pdr, pdrSize,
+                                                             states, rc)
+    {
+        count++;
+    }
+
+    EXPECT_EQ(count, 0) << "Should not iterate when count is 0";
+    EXPECT_EQ(rc, 0) << "Expected success (rc=0), got rc=" << rc;
+}
+#endif
+
+#if HAVE_LIBPLDM_API_TESTING
+TEST(StateEffecterPDR, testSingleEntry)
+{
+    constexpr size_t pdrSize = sizeof(pldm_state_effecter_pdr) -
+                               1 +                         // fixed header
+                               (sizeof(uint16_t) + 1 + 3); // single entry
+    alignas(pldm_state_effecter_pdr) unsigned char pdrBuf[pdrSize] = {};
+    auto* pdr = new (pdrBuf) pldm_state_effecter_pdr;
+    PLDM_MSGBUF_RW_DEFINE_P(buf);
+
+    pdr->hdr.type = PLDM_STATE_EFFECTER_PDR;
+    pdr->composite_effecter_count = 1;
+
+    int rc = pldm_msgbuf_init_errno(buf, 0, pdr->possible_states,
+                                    pdrSize - sizeof(pldm_state_effecter_pdr) +
+                                        sizeof(pdr->possible_states));
+    ASSERT_EQ(rc, 0);
+
+    // Single entry: state_set_id=42, size=3, bits={0x01, 0x02, 0x04}
+    pldm_msgbuf_insert_uint16(buf, 42);
+    pldm_msgbuf_insert_uint8(buf, 3);
+    pldm_msgbuf_insert_uint8(buf, 0x01);
+    pldm_msgbuf_insert_uint8(buf, 0x02);
+    pldm_msgbuf_insert_uint8(buf, 0x04);
+
+    ASSERT_EQ(pldm_msgbuf_complete_consumed(buf), 0);
+
+    state_effecter_possible_states states{};
+    size_t entryCount = 0;
+
+    foreach_pldm_platform_state_effecter_pdr_possible_states(pdr, pdrSize,
+                                                             states, rc)
+    {
+        entryCount++;
+        EXPECT_EQ(le16toh(states.state_set_id), 42);
+        EXPECT_EQ(states.possible_states_size, 3);
+
+        std::vector<uint8_t> bytes;
+        bitfield8_t bf{};
+
+        foreach_pldm_platform_state_effecter_pdr_states(states, bf, rc)
+        {
+            bytes.push_back(bf.byte);
+        }
+
+        if (rc)
+        {
+            break;
+        }
+
+        ASSERT_EQ(bytes.size(), 3);
+        EXPECT_EQ(bytes[0], 0x01);
+        EXPECT_EQ(bytes[1], 0x02);
+        EXPECT_EQ(bytes[2], 0x04);
+    }
+
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(entryCount, 1);
+}
+#endif
+
+#if HAVE_LIBPLDM_API_TESTING
+TEST(StateEffecterPDR, testTruncatedEntry)
+{
+    /* Entry claims size=5 but buffer only has room for 2 state bytes */
+    constexpr size_t pdrSize = sizeof(pldm_state_effecter_pdr) -
+                               1 +                         // fixed header
+                               (sizeof(uint16_t) + 1 + 2); // truncated entry
+    alignas(pldm_state_effecter_pdr) unsigned char pdrBuf[pdrSize] = {};
+    auto* pdr = new (pdrBuf) pldm_state_effecter_pdr;
+    PLDM_MSGBUF_RW_DEFINE_P(buf);
+
+    pdr->composite_effecter_count = 1;
+
+    int rc = pldm_msgbuf_init_errno(buf, 0, pdr->possible_states,
+                                    pdrSize - sizeof(pldm_state_effecter_pdr) +
+                                        sizeof(pdr->possible_states));
+    ASSERT_EQ(rc, 0);
+
+    pldm_msgbuf_insert_uint16(buf, 100);
+    pldm_msgbuf_insert_uint8(buf, 5);    // Claims 5 bytes
+    pldm_msgbuf_insert_uint8(buf, 0xFF); // Only 2 bytes provided
+    pldm_msgbuf_insert_uint8(buf, 0xFF);
+
+    ASSERT_EQ(pldm_msgbuf_complete_consumed(buf), 0);
+
+    state_effecter_possible_states states{};
+
+    foreach_pldm_platform_state_effecter_pdr_possible_states(pdr, pdrSize,
+                                                             states, rc)
+    {
+        FAIL() << "Should not successfully iterate truncated entry";
+    }
+
+    EXPECT_EQ(rc, -EOVERFLOW) << "Expected EOVERFLOW for truncated entry";
+}
+#endif
+
+#if HAVE_LIBPLDM_API_TESTING
+TEST(StateEffecterPDR, testZeroPossibleStatesSize)
+{
+    constexpr size_t pdrSize =
+        sizeof(pldm_state_effecter_pdr) - 1 + // fixed header
+        (sizeof(uint16_t) + 1);               // entry with size=0, no bits
+    alignas(pldm_state_effecter_pdr) unsigned char pdrBuf[pdrSize] = {};
+    auto* pdr = new (pdrBuf) pldm_state_effecter_pdr;
+    PLDM_MSGBUF_RW_DEFINE_P(buf);
+
+    pdr->composite_effecter_count = 1;
+
+    int rc = pldm_msgbuf_init_errno(buf, 0, pdr->possible_states,
+                                    pdrSize - sizeof(pldm_state_effecter_pdr) +
+                                        sizeof(pdr->possible_states));
+    ASSERT_EQ(rc, 0);
+
+    pldm_msgbuf_insert_uint16(buf, 100);
+    pldm_msgbuf_insert_uint8(buf, 0); // set possible_states_size as 0
+
+    ASSERT_EQ(pldm_msgbuf_complete_consumed(buf), 0);
+
+    state_effecter_possible_states states{};
+    size_t entryCount = 0;
+
+    foreach_pldm_platform_state_effecter_pdr_possible_states(pdr, pdrSize,
+                                                             states, rc)
+    {
+        entryCount++;
+        EXPECT_EQ(le16toh(states.state_set_id), 100);
+        EXPECT_EQ(states.possible_states_size, 0);
+
+        size_t bfCount = 0;
+        bitfield8_t bf{};
+
+        foreach_pldm_platform_state_effecter_pdr_states(states, bf, rc)
+        {
+            bfCount++;
+        }
+
+        EXPECT_EQ(bfCount, 0)
+            << "Should not iterate when possible_states_size is 0";
+
+        if (rc)
+        {
+            break;
+        }
+    }
+
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(entryCount, 1);
 }
 #endif

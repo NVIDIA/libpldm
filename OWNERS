@@ -35,12 +35,23 @@ owners:
 - andrew@codeconstruct.com.au
 
 reviewers:
-- manojkiran.eda@gmail.com
-- rushtotom@gmail.com
-- pavithrabarithaya07@gmail.com
+- alexander.hansen@9elements.com
+- bradleyb@fuzziesquirrel.com
 - chaul@amperecomputing.com
+- ederson.desouza@intel.com
+- manojkiran.eda@gmail.com
+- pavithrabarithaya07@gmail.com
+- rushtotom@gmail.com
 
 matchers:
+- exact: CHANGELOG.md
+  owners:
+  - alexander.hansen@9elements.com
+- exact: tests/fuzz/fuzz++.cpp
+  owners:
+  - alexander.hansen@9elements.com
+  reviewers:
+  - molberding@nvidia.com
 - partial_regex: /dsp/(file|base)\.
   reviewers:
   - chaul@amperecomputing.com
@@ -52,6 +63,9 @@ openbmc:
 - name: Andrew Jeffery
   email: andrew@codeconstruct.com.au
   discord: arj
+- name: Brad Bishop
+  email: bradleyb@fuzziesquirrel.com
+  discord: radsquirrel
 - name: Chau Ly
   email: chaul@amperecomputing.com
   discord: T.Chau Ly

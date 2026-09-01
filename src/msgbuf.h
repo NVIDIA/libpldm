@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
-#ifndef PLDM_MSGBUF_H
-#define PLDM_MSGBUF_H
+#pragma once
 
 #include "msgbuf/core.h"
 
@@ -246,7 +245,7 @@ pldm__msgbuf_extract_int64(struct pldm_msgbuf_ro *ctx, void *dst)
 /**
  * Insert an array of data into the msgbuf instance
  *
- * @param ctx - The msgbuf instance into which the array of data should be
+ * @param dst - The msgbuf instance into which the array of data should be
  *              inserted
  * @param count - The number of array elements to insert
  * @param src - The array object from which elements should be inserted into
@@ -263,4 +262,14 @@ pldm__msgbuf_extract_int64(struct pldm_msgbuf_ro *ctx, void *dst)
 		char: pldm_msgbuf_insert_array_char)(dst, count, src,          \
 						     src_count)
 
-#endif /* BUF_H */
+/**
+ * Functions to fill `struct variable_field` variable without ctx modification
+ *
+ * @param ctx - The msgbuf context object
+ * @param field - The `struct variable_field` variable to fill
+ */
+#define pldm_msgbuf_field_begin(ctx, field)                                    \
+	pldm__msgbuf_field_begin((ctx)->cursor, (ctx)->remaining, &(field))
+
+#define pldm_msgbuf_field_end(ctx, field)                                      \
+	pldm__msgbuf_field_end((ctx)->cursor, (ctx)->remaining, &(field))

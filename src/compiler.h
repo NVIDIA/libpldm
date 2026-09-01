@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
-#ifndef PLDM_COMPILER_H
-#define PLDM_COMPILER_H
+#pragma once
 
 #include <libpldm/compiler.h>
 
@@ -9,6 +8,21 @@
 #endif
 
 #include <assert.h>
+
+#ifdef __ZEPHYR__
+#include <zephyr/toolchain.h>
+
+#if !defined(__cplusplus) || __cplusplus < 201103L
+
+#ifndef static_assert
+#define static_assert BUILD_ASSERT
+#endif /* static_assert */
+
+#endif /* !defined(__cplusplus) || __cplusplus < 201103L */
+
+#define SSIZE_MAX INT_MAX
+
+#endif /* __ZEPHYR__ */
 
 static struct {
 	static_assert(__has_attribute(always_inline),
@@ -76,5 +90,3 @@ static struct {
 	((void)(sizeof(                                                        \
 		struct { char buf[_Generic((obj), type: 1, default: -1)]; })))
 // NOLINTEND(bugprone-macro-parentheses)
-
-#endif

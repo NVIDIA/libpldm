@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
 #include <libpldm/edac.h>
 
-#include <asm-generic/errno.h>
+#include <compiler.h>
+
+#include "environ/errno.h"
 
 /** CRC32 code derived from work by Gary S. Brown.
  *  http://web.mit.edu/freebsd/head/sys/libkern/crc32.c
@@ -100,7 +102,8 @@ uint32_t pldm_edac_crc32_extend(const void *data, size_t size, uint32_t crc)
 	return crc ^ ~0U;
 }
 
-int pldm_edac_crc32_validate(uint32_t expected, const void *data, size_t size)
+LIBPLDM_ABI_TESTING LIBPLDM_CC_WEAK int
+pldm_edac_crc32_validate(uint32_t expected, const void *data, size_t size)
 {
 	if (!data && size) { /* data is NULL but size is not zero */
 		return -EINVAL;
