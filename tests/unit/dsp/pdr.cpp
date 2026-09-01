@@ -277,6 +277,11 @@ TEST(EntityAssociationPDR, testDeprecatedPreconditionAssertions)
 #if HAVE_LIBPLDM_ABI_STABLE && !TEST_HAS_ADDRESS_SANITIZER
 TEST(PDRAccess, testStableAllocationFailures)
 {
+    if (RUNNING_ON_VALGRIND)
+    {
+        GTEST_SKIP() << "allocation stress test unsupported under valgrind";
+    }
+
     // Probe RLIMIT_AS support outside the death-test fork; skip if unsupported
     // (e.g. qemu-user mode does not enforce RLIMIT_AS).
     constexpr rlim_t maxAddressSpace = static_cast<rlim_t>(64) * 1024 * 1024;
