@@ -9728,6 +9728,120 @@ TEST(decodeRedfishActionPdr, GoodTest)
     EXPECT_EQ(PLDM_SUCCESS, rc);
 }
 
+TEST(decodeRedfishResourcePdr, decodeErrorBranches)
+{
+    // Backing buffer that is deliberately too short for any entry, so the
+    // per-entry decoders fail their msgbuf length check.
+    uint8_t tiny[1] = {};
+
+    // Top-level decode rejects NULL input.
+    struct pldm_platform_redfish_resource_pdr pdr = {};
+    EXPECT_EQ(-EINVAL,
+              decode_pldm_platform_redfish_resource_pdr(nullptr, 0, &pdr));
+
+    // Additional-resource entry decoder: NULL iterator guard, then a
+    // too-short backing buffer (msgbuf init failure).
+    struct pldm_platform_redfish_resource_pdr_additional_resource ar = {};
+    EXPECT_EQ(
+        -EINVAL,
+        decode_pldm_platform_redfish_resource_pdr_additional_resource_from_iter(
+            nullptr, &ar));
+    struct pldm_platform_redfish_resource_pdr_additional_resource_iter arIter =
+        {};
+    arIter.field.ptr = tiny;
+    arIter.field.length = sizeof(tiny);
+    arIter.entries = 1;
+    EXPECT_NE(
+        0,
+        decode_pldm_platform_redfish_resource_pdr_additional_resource_from_iter(
+            &arIter, &ar));
+
+    // OEM-name entry decoder: same two error branches.
+    struct pldm_platform_redfish_resource_pdr_oem_name oem = {};
+    EXPECT_EQ(-EINVAL,
+              decode_pldm_platform_redfish_resource_pdr_oem_name_from_iter(
+                  nullptr, &oem));
+    struct pldm_platform_redfish_resource_pdr_oem_name_iter oemIter = {};
+    oemIter.field.ptr = tiny;
+    oemIter.field.length = sizeof(tiny);
+    oemIter.entries = 1;
+    EXPECT_NE(0, decode_pldm_platform_redfish_resource_pdr_oem_name_from_iter(
+                     &oemIter, &oem));
+}
+
+TEST(decodeRedfishActionPdr, decodeErrorBranches)
+{
+    uint8_t tiny[1] = {};
+
+    // Top-level decode rejects NULL input.
+    struct pldm_platform_redfish_action_pdr pdr = {};
+    EXPECT_EQ(-EINVAL,
+              decode_pldm_platform_redfish_action_pdr(nullptr, 0, &pdr));
+
+    // Related-resource-id entry decoder: NULL iterator guard, then a
+    // too-short backing buffer.
+    uint32_t res = 0;
+    EXPECT_EQ(
+        -EINVAL,
+        decode_pldm_platform_redfish_action_pdr_related_resource_id_from_iter(
+            nullptr, &res));
+    struct pldm_platform_redfish_action_pdr_related_resource_id_iter rrIter =
+        {};
+    rrIter.field.ptr = tiny;
+    rrIter.field.length = sizeof(tiny);
+    rrIter.entries = 1;
+    EXPECT_NE(
+        0,
+        decode_pldm_platform_redfish_action_pdr_related_resource_id_from_iter(
+            &rrIter, &res));
+
+    // Action entry decoder: same two error branches.
+    struct pldm_platform_redfish_action_pdr_action act = {};
+    EXPECT_EQ(-EINVAL, decode_pldm_platform_redfish_action_pdr_action_from_iter(
+                           nullptr, &act));
+    struct pldm_platform_redfish_action_pdr_action_iter actIter = {};
+    actIter.field.ptr = tiny;
+    actIter.field.length = sizeof(tiny);
+    actIter.entries = 1;
+    EXPECT_NE(0, decode_pldm_platform_redfish_action_pdr_action_from_iter(
+                     &actIter, &act));
+}
+
+#if HAVE_LIBPLDM_API_TESTING
+TEST(StateEffecterPDR, decodeErrorBranches)
+{
+    uint8_t tiny[1] = {};
+
+    // Outer state-effecter entry decoder: NULL iterator guard, then a
+    // too-short backing buffer.
+    struct state_effecter_possible_states states = {};
+    EXPECT_EQ(-EINVAL, decode_pldm_platform_state_effecter_pdr_from_iter(
+                           nullptr, &states));
+    struct pldm_platform_state_effecter_pdr_iter outerIter = {};
+    outerIter.field.ptr = tiny;
+    outerIter.field.length = sizeof(tiny);
+    EXPECT_NE(0, decode_pldm_platform_state_effecter_pdr_from_iter(&outerIter,
+                                                                   &states));
+
+    // Inner possible-states entry decoder: both input guards.
+    bitfield8_t bf = {};
+    EXPECT_EQ(-EINVAL,
+              decode_pldm_platform_state_effecter_pdr_possible_states_from_iter(
+                  nullptr, &bf));
+    struct pldm_platform_state_effecter_pdr_possible_states_iter innerIter = {};
+    EXPECT_EQ(-EINVAL,
+              decode_pldm_platform_state_effecter_pdr_possible_states_from_iter(
+                  &innerIter, &bf));
+
+    // possible-states sub-iterator init rejects a NULL outer iterator.
+    int rc = 0;
+    auto it = pldm_platform_state_effecter_pdr_possible_states_iter_init(
+        nullptr, &rc);
+    (void)it;
+    EXPECT_EQ(-EINVAL, rc);
+}
+#endif
+
 #if HAVE_LIBPLDM_API_TESTING
 TEST(StateEffecterPDR, testExtractPossibleStates)
 {
