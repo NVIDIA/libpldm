@@ -1,3 +1,5 @@
+#include "testpkg-util.hpp"
+
 #include <libpldm/api.h>
 
 #include <expected>
@@ -16,88 +18,39 @@ namespace pldm
 namespace fw_update
 {
 
-const std::vector<uint8_t> fwPkgHdrSingleComponent{
-    // clang-format off
-    0xF0, 0x18, 0x87, 0x8C, 0xCB, 0x7D, 0x49, 0x43,
-    0x98, 0x00, 0xA0, 0x2F, 0x05, 0x9A, 0xCA, 0x02, // UUID
-
-    0x01,       // pkg header format revision
-    0x8b, 0x00, // pkg header size
-
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x19, 0x0C, 0xE5, 0x07,
-    0x00,       // pkg release date time (13 bytes, timestamp104)
-
-    0x08, 0x00, // component bitmap bit length
-
-    0x01,       // package version string type
-
-    0x0E,       // package version string length
-
-    0x56, 0x65, 0x72, 0x73, 0x69, 0x6F,
-    0x6E, 0x53, 0x74, 0x72, 0x69, 0x6E,
-    0x67, 0x31, // package version string
-
-    0x01,       // device id record count
-
-    0x2E, 0x00, // record 0: record length
-
-    0x01,                   // record 0: descriptor count
-    0x01, 0x00, 0x00, 0x00, // record 0: device update options flags
-
-    0x01,       // record 0: component image set version string type
-    0x0E,       // record 0: component image set version string length
-    0x00, 0x00, // record 0: firmware device package data length
-
-    0x01,       // applicable components
-
-    0x56, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E,
-    0x53, 0x74, 0x72, 0x69, 0x6E, 0x67,
-    0x32,       // component image set version string (14 bytes)
-
-    // record descriptors below
-    0x02, 0x00, // record 0: descriptor type: UUID
-
-    0x10, 0x00, // record 0: InitialDescriptorLength (16 bytes)
-
-    0x16, 0x20, 0x23, 0xC9, 0x3E, 0xC5, 0x41,
-    0x15, 0x95, 0xF4, 0x48, 0x70, 0x1D, 0x49,
-    0xD6, 0x75, // record 0: InitialDescriptorData (UUID)
-
-    // firmware device package data (empty here)
-
-    // component image info area
-    0x01, 0x00,             // component image count
-
-    0x0A, 0x00,             // component classification
-    0x64, 0x00,             // component identifier
-    0xFF, 0xFF, 0xFF, 0xFF, // component comparison stamp
-    0x00, 0x00,             // component options
-
-    0x00, 0x00,             // requested component activation method
-    0x8B, 0x00, 0x00, 0x00, // component location offset
-    0x01, 0x00, 0x00, 0x00, // component size
-    0x01,                   // component version string type
-    0x0E,                   // component version string length
-
-    0x56, 0x65, 0x72, 0x73, 0x69, 0x6F,
-    0x6E, 0x53, 0x74, 0x72, 0x69, 0x6E,
-    0x67, 0x33,             // component version string
-
-    0x54, 0x9d, 0x7d, 0xe1, // package header checksum
-
-    0x00,                   // component image
-    // clang-format on
-};
-
 TEST(PackageParserTest, ValidPkgSingleDescriptorSingleComponent)
 {
+    std::vector<uint8_t> pkg;
 
-    uintmax_t pkgSize = fwPkgHdrSingleComponent.size();
+    appendPackageHeaderIdentifier(pkg, pldm::fw_update::PackagePin::v1);
 
-    std::cout << pkgSize << std::endl;
+    // pkg header size
+    appendLE16(pkg, 0x8b);
 
-    auto res = PackageParser::parse(fwPkgHdrSingleComponent, PackagePin::v1);
+    // pkg release date time (13 bytes, timestamp104)
+    appendTimestamp104(pkg);
+
+    // component bitmap bit length
+    appendLE16(pkg, 0x08);
+
+    // package version string
+    appendTypeLengthString(
+        pkg, std::vector<uint8_t>{0x56, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E,
+                                  0x53, 0x74, 0x72, 0x69, 0x6E, 0x67, 0x31});
+
+    // device id record count
+    pkg.push_back(0x01);
+
+    appendFirmwareDeviceIdRecord1(pkg);
+
+    appendComponentImageInfoArea1(pkg);
+
+    appendCRC(pkg);
+
+    // component image
+    pkg.push_back(0x00);
+
+    auto res = PackageParser::parse(pkg, PackagePin::v1);
 
     if (!res.has_value())
     {
@@ -150,104 +103,34 @@ TEST(PackageParserTest, ValidPkgSingleDescriptorSingleComponent)
 
 TEST(PackageParserTest, ValidPkgMultipleDescriptorsMultipleComponents)
 {
-    std::vector<uint8_t> fwPkgHdr{
-        // clang-format off
-        0xF0, 0x18, 0x87, 0x8C, 0xCB, 0x7D, 0x49, 0x43, 0x98, 0x00, 0xA0, 0x2F,
-        0x05, 0x9A, 0xCA, 0x02, // UUID
+    std::vector<uint8_t> pkg;
 
-        0x01,       // header format revision
-        0x46, 0x01, // pkg header size
+    appendPackageHeaderIdentifier(pkg, pldm::fw_update::PackagePin::v1);
 
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x19, 0x0C, 0xE5, 0x07,
-        0x00, // pkg release date time, 13 bytes, timestamp104
+    // pkg header size
+    appendLE16(pkg, 0x0146);
 
-        0x08, 0x00, // component bitmap bit length
-        0x01,       // package version string type
-        0x0E,       // package version string length
+    // pkg release date time, 13 bytes, timestamp104
+    appendTimestamp104(pkg);
 
-        0x56, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E, 0x53, 0x74, 0x72, 0x69, 0x6E,
-        0x67, 0x31, // package version string
+    // component bitmap bit length
+    appendLE16(pkg, 0x08);
 
-        0x03, // device id record count
+    // package version string
+    appendTypeLengthString(
+        pkg, std::vector<uint8_t>{0x56, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E,
+                                  0x53, 0x74, 0x72, 0x69, 0x6E, 0x67, 0x31});
 
-        0x45, 0x00, // record 0: record length
+    appendFirmwareDeviceIdArea1(pkg);
 
-        0x03,                   // record 0: descriptor count
-        0x01, 0x00, 0x00, 0x00, // record 0: device update options flags
-        0x01,       // record 0: component image set version string type
-        0x0E,       // record 0: component image set version string length
-        0x00, 0x00, // record 0: firmware device package data length
-        0x03,       // applicable components:
+    appendComponentImageInfoArea2(pkg);
 
-        0x56, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E, 0x53, 0x74, 0x72, 0x69, 0x6E,
-        0x67, 0x32, // component image set version string (14 bytes)
+    appendCRC(pkg);
 
-        0x02, 0x00, // record 0: record descriptor type: uuid
-        0x10, 0x00, 0x12, 0x44, 0xD2, 0x64, 0x8D, 0x7D, 0x47, 0x18, 0xA0, 0x30,
-        0xFC, 0x8A, 0x56, 0x58, 0x7D, 0x5B, 0x01, 0x00, 0x04, 0x00, 0x47, 0x16,
-        0x00, 0x00, 0xFF, 0xFF, 0x0B, 0x00, 0x01, 0x07, 0x4F, 0x70, 0x65, 0x6E,
-        0x42, 0x4D, 0x43, 0x12, 0x34, 0x2E, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
-        0x01, 0x0E, 0x00, 0x00, 0x07, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E,
-        0x53, 0x74, 0x72, 0x69, 0x6E, 0x67, 0x33, 0x02, 0x00, 0x10, 0x00, 0x12,
-        0x44, 0xD2, 0x64, 0x8D, 0x7D, 0x47, 0x18, 0xA0, 0x30, 0xFC, 0x8A, 0x56,
-        0x58, 0x7D, 0x5C, 0x2E, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x0E,
-        0x00, 0x00, 0x01, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E, 0x53, 0x74,
-        0x72, 0x69, 0x6E, 0x67, 0x34, 0x02, 0x00, 0x10, 0x00, 0x12, 0x44, 0xD2,
-        0x64, 0x8D, 0x7D, 0x47, 0x18, 0xA0, 0x30, 0xFC, 0x8A, 0x56, 0x58, 0x7D,
-        0x5D,
+    // component image
+    pkg.push_back(0x00);
 
-        0x03, 0x00, // component image count
-
-        0x0A, 0x00,             // component classification
-        0x64, 0x00,             // component identifier
-        0xFF, 0xFF, 0xFF, 0xFF, // component comparison stamp
-        0x00, 0x00,             // component options
-
-        0x00, 0x00,             // requested component activation method
-        0x46, 0x01, 0x00, 0x00, // component location offset
-        0x01, 0x00, 0x00, 0x00, // component size
-        0x01,                   // component version string type
-        0x0E,                   // component version string length
-
-        0x56, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E, 0x53, 0x74, 0x72, 0x69, 0x6E,
-        0x67, 0x35, // component version string (14 bytes)
-
-        0x0A, 0x00,             // component classification
-        0xC8, 0x00,             // component identifier
-        0xFF, 0xFF, 0xFF, 0xFF, // component comparison stamp
-        0x00, 0x00,             // component options
-
-        0x01, 0x00,             // requested component activation method
-        0x46, 0x01, 0x00, 0x00, // component location offset
-        0x01, 0x00, 0x00, 0x00, // component size
-        0x01,                   // component version string type
-        0x0E,                   // component version string length
-        0x56, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E, 0x53, 0x74, 0x72, 0x69, 0x6E,
-        0x67, 0x36, // component version string
-
-        0xB,  0x00,             // component classification
-        0x2C, 0x01,             // component identifier
-        0xFF, 0xFF, 0xFF, 0xFF, // component comparison stamp
-        0x01, 0x00,             // component options
-
-        0x0C, 0x00,             // requested component activation method
-        0x46, 0x01, 0x00, 0x00, // component location offset
-        0x01, 0x00, 0x00, 0x00, // component size
-        0x01,                   // component version string type
-        0x0E,                   // component version string length
-        0x56, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E, 0x53, 0x74, 0x72, 0x69, 0x6E,
-        0x67, 0x37, // component version string
-
-        0x14, 0xa9, 0xbf, 0x39, // package checksum
-        0x00                    // component image
-        // clang-format on
-    };
-
-    const uintmax_t pkgSize = fwPkgHdr.size();
-
-    std::cout << pkgSize << std::endl;
-
-    auto res = PackageParser::parse(fwPkgHdr, PackagePin::v1);
+    auto res = PackageParser::parse(pkg, PackagePin::v1);
 
     if (!res.has_value())
     {
@@ -409,6 +292,54 @@ TEST(PackageParserTest, ValidPkgMultipleDescriptorsMultipleComponents)
     EXPECT_EQ(outCompImageInfos[2].componentVersion, "VersionString7");
 
     // end asserting component image info
+}
+
+TEST(PackageParserTest,
+     InValidPkgSingleDescriptorSingleComponentApplicableComponentOOB)
+{
+    // failure: the applicable component is out of bounds
+    std::vector<uint8_t> pkg;
+
+    appendPackageHeaderIdentifier(pkg, pldm::fw_update::PackagePin::v1);
+
+    // pkg header size
+    appendLE16(pkg, 0x8b);
+
+    // pkg release date time (13 bytes, timestamp104)
+    appendTimestamp104(pkg);
+
+    // component bitmap bit length
+    appendLE16(pkg, 0x08);
+
+    // package version string
+    appendTypeLengthString(
+        pkg, std::vector<uint8_t>{0x56, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E,
+                                  0x53, 0x74, 0x72, 0x69, 0x6E, 0x67, 0x31});
+
+    // device id record count
+    pkg.push_back(0x01);
+
+    // describes an applicable component which does not exist in the package
+    appendFirmwareDeviceIdRecord1InvalidApplicableComponentOOB(pkg);
+
+    appendComponentImageInfoArea1(pkg);
+
+    appendCRC(pkg);
+
+    // component image
+    pkg.push_back(0x00);
+
+    auto res = PackageParser::parse(pkg, PackagePin::v1);
+
+    if (!res.has_value())
+    {
+        std::cout << res.error().msg << std::endl;
+
+        EXPECT_EQ(res.error().msg,
+                  "applicable component index 3 is out of bounds");
+    }
+
+    ASSERT_FALSE(res.has_value());
 }
 
 TEST(PackageParserTest, InvalidPkgBadChecksum)
