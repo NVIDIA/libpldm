@@ -942,7 +942,15 @@ struct pldm_request_downstream_device_update_resp {
 	uint8_t downstream_device_will_send_get_package_data;
 	uint16_t get_package_data_maximum_transfer_size;
 };
+/* GetPackageDataMaximumTransferSize is only present on the wire when
+ * DDWillSendGetPackageDataCommand is
+ * PLDM_DOWNSTREAM_DEVICE_WILL_SEND_GET_PACKAGE_DATA
+ */
+#define PLDM_DOWNSTREAM_DEVICE_UPDATE_RESPONSE_MIN_BYTES 4
+
 #define PLDM_DOWNSTREAM_DEVICE_UPDATE_RESPONSE_BYTES 6
+
+#define PLDM_DOWNSTREAM_DEVICE_WILL_SEND_GET_PACKAGE_DATA 2
 
 /** @struct pldm_pass_component_table_req
  *
@@ -1637,6 +1645,10 @@ int decode_request_downstream_device_update_req(
 
 /** @brief Create PLDM response message for RequestDownstreamDeviceUpdate
  *
+ *  @note get_package_data_maximum_transfer_size is only encoded when
+ *        downstream_device_will_send_get_package_data is
+ *        PLDM_DOWNSTREAM_DEVICE_WILL_SEND_GET_PACKAGE_DATA
+ *
  *  @param[in] instance_id - Message's instance id
  *  @param[in] resp_data - Response data
  *  @param[out] msg - Message will be written to this
@@ -1660,6 +1672,11 @@ int encode_request_downstream_device_update_resp(
  *  @param[in] msg - Response message
  *  @param[in] payload_length - Length of response message payload
  *  @param[out] resp_data - RequestDownstreamDeviceUpdate respond parameters
+ *
+ *  @note get_package_data_maximum_transfer_size is only present on the wire
+ *        when downstream_device_will_send_get_package_data is
+ *        PLDM_DOWNSTREAM_DEVICE_WILL_SEND_GET_PACKAGE_DATA, and
+ *        is left unmodified otherwise (DSP0267 v1.3.0, section 12.17)
  *
  *  @return 0 on success,
  *		-EINVAL if any argument is invalid,

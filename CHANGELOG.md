@@ -17,6 +17,15 @@ Change categories:
 
 ## [Unreleased]
 
+### Fixed
+
+- firmware_update: `decode_request_downstream_device_update_resp()` and
+  `encode_request_downstream_device_update_resp()` no longer require
+  `GetPackageDataMaximumTransferSize` on the wire unless
+  `DDWillSendGetPackageDataCommand` is 2, per DSP0267 v1.3.0 section 12.17
+  - Added `PLDM_DOWNSTREAM_DEVICE_UPDATE_RESPONSE_MIN_BYTES` and
+    `PLDM_DOWNSTREAM_DEVICE_WILL_SEND_GET_PACKAGE_DATA`
+
 ### Changed
 
 - abi: regenerate x86_64 gcc baseline with CI toolchain gcc 15.2.0
