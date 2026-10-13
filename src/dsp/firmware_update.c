@@ -2012,8 +2012,8 @@ int encode_request_downstream_device_update_resp(
 	}
 
 	rc = pldm_msgbuf_init_errno(
-		buf, PLDM_DOWNSTREAM_DEVICE_UPDATE_RESPONSE_BYTES, msg->payload,
-		*payload_length);
+		buf, PLDM_DOWNSTREAM_DEVICE_UPDATE_RESPONSE_MIN_BYTES,
+		msg->payload, *payload_length);
 	if (rc) {
 		return rc;
 	}
@@ -2022,8 +2022,12 @@ int encode_request_downstream_device_update_resp(
 	pldm_msgbuf_insert(buf, resp_data->downstream_device_meta_data_length);
 	pldm_msgbuf_insert(
 		buf, resp_data->downstream_device_will_send_get_package_data);
-	pldm_msgbuf_insert(buf,
-			   resp_data->get_package_data_maximum_transfer_size);
+
+	if (resp_data->downstream_device_will_send_get_package_data ==
+	    PLDM_DOWNSTREAM_DEVICE_WILL_SEND_GET_PACKAGE_DATA) {
+		pldm_msgbuf_insert(
+			buf, resp_data->get_package_data_maximum_transfer_size);
+	}
 
 	return pldm_msgbuf_complete_used(buf, *payload_length, payload_length);
 }
@@ -2048,8 +2052,8 @@ int decode_request_downstream_device_update_resp(
 	}
 
 	rc = pldm_msgbuf_init_errno(
-		buf, PLDM_DOWNSTREAM_DEVICE_UPDATE_RESPONSE_BYTES, msg->payload,
-		payload_length);
+		buf, PLDM_DOWNSTREAM_DEVICE_UPDATE_RESPONSE_MIN_BYTES,
+		msg->payload, payload_length);
 	if (rc) {
 		return rc;
 	}
@@ -2058,8 +2062,12 @@ int decode_request_downstream_device_update_resp(
 	pldm_msgbuf_extract(buf, resp_data->downstream_device_meta_data_length);
 	pldm_msgbuf_extract(
 		buf, resp_data->downstream_device_will_send_get_package_data);
-	pldm_msgbuf_extract(buf,
-			    resp_data->get_package_data_maximum_transfer_size);
+
+	if (resp_data->downstream_device_will_send_get_package_data ==
+	    PLDM_DOWNSTREAM_DEVICE_WILL_SEND_GET_PACKAGE_DATA) {
+		pldm_msgbuf_extract(
+			buf, resp_data->get_package_data_maximum_transfer_size);
+	}
 
 	return pldm_msgbuf_complete_consumed(buf);
 }
