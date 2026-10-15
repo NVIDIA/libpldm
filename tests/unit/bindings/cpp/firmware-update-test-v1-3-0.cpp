@@ -1,3 +1,5 @@
+#include "testpkg-util.hpp"
+
 #include <libpldm/api.h>
 #include <libpldm/edac.h>
 
@@ -19,164 +21,118 @@ namespace fw_update
 #if HAVE_LIBPLDM_API_TESTING
 static std::vector<uint8_t> makePkgV1_3_0()
 {
+    std::vector<uint8_t> header;
 
-    const std::vector<uint8_t> headerUUID{
-        // clang-format off
-    0x7B, 0x29, 0x1C, 0x99, 0x6D, 0xB6, 0x42, 0x08,
-    0x80, 0x1B, 0x02, 0x02, 0x6E, 0x46, 0x3C, 0x78, // UUID
-        // clang-format on
-    };
+    // pkg header size, this is updated later
+    appendLE16(header, 0x8b);
 
-    const std::vector<uint8_t> header{
-        // clang-format off
-    0x8b, 0x00, // pkg header size, this is updated later
+    // pkg release date time (13 bytes, timestamp104)
+    appendTimestamp104(header);
 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x19, 0x0C, 0xE5, 0x07,
-    0x00,       // pkg release date time (13 bytes, timestamp104)
+    // component bitmap bit length
+    appendLE16(header, 0x08);
 
-    0x08, 0x00, // component bitmap bit length
+    // package version string
+    appendTypeLengthString(
+        header, std::vector<uint8_t>{0x56, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E,
+                                     0x53, 0x74, 0x72, 0x69, 0x6E, 0x67, 0x31});
 
-    0x01,       // package version string type
+    std::vector<uint8_t> ddevidarea{};
 
-    0x0E,       // package version string length
-
-    0x56, 0x65, 0x72, 0x73, 0x69, 0x6F,
-    0x6E, 0x53, 0x74, 0x72, 0x69, 0x6E,
-    0x67, 0x31, // package version string
-        // clang-format on
-    };
-
-    const std::vector<uint8_t> fwdevidarea{
-        // Firmware Device Identification Area
-
-        // clang-format off
-    0x01,       // device id record count
-
-    0x3a, 0x00, // record 0: record length
-
-    0x01,                   // record 0: descriptor count
-    0x01, 0x00, 0x00, 0x00, // record 0: device update options flags
-
-    0x01,       // record 0: component image set version string type
-    0x0E,       // record 0: component image set version string length
-    0x00, 0x00, // record 0: firmware device package data length
-
-    0x08, 0x00, 0x00, 0x00, // record 0: ReferenceManifestLength
-
-    0x01,       // applicable components
-
-    0x56, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E,
-    0x53, 0x74, 0x72, 0x69, 0x6E, 0x67,
-    0x32,       // component image set version string (14 bytes)
-
-    // record descriptors below
-    0x02, 0x00, // record 0: descriptor type: UUID
-
-    0x10, 0x00, // record 0: InitialDescriptorLength (16 bytes)
-
-    0x16, 0x20, 0x23, 0xC9, 0x3E, 0xC5, 0x41,
-    0x15, 0x95, 0xF4, 0x48, 0x70, 0x1D, 0x49,
-    0xD6, 0x75, // record 0: InitialDescriptorData (UUID)
-
-    // firmware device package data (empty here)
-    // ReferenceManifestData
-    0x03, // SVHID,  (e.g. PCI SIG)
-    0x02, // VendorIDLen
-    0x20, 0xaf, // (e.g. Accelink)
-    // actual manifest data (completely made up and without meaning)
-    0x21, 0x22, 0x23, 0x24,
-        // clang-format on
-    };
-
-    std::vector<uint8_t> downstreamdevidarea{
-        // clang-format off
     // Downstream Device Identification Area
-    0x00, 0x10, // DownstreamDeviceRecordLength
-    0x01, // DownstreamDeviceDescriptorCount
-    0x01, 0x00, 0x00, 0x00, // DownstreamDeviceUpdateOptionFlags
 
-    0x01,       // DownstreamDeviceSelfContainedActivationMinVersionStringType
-    0x0E,       // DownstreamDeviceSelfContainedActivationMinVersionStringLength
+    // DownstreamDeviceRecordLength
+    appendLE16(ddevidarea, 0x1000);
 
-    0x03, 0x00, // DownstreamDevicePackageDataLength
-    0x08, 0x00, 0x00, 0x00, // DownstreamDeviceReferenceManifestLength
+    // DownstreamDeviceDescriptorCount
+    ddevidarea.push_back(0x01);
 
-    0x01, // DownstreamDeviceApplicableComponents
+    // DownstreamDeviceUpdateOptionFlags
+    appendLE32(ddevidarea, 0x01);
 
-    0x56, 0x65, 0x72, 0x73, 0x69, 0x6F,
-    0x6E, 0x53, 0x74, 0x72, 0x69, 0x6E,
-    0x67, 0x31, // DownstreamDeviceSelfContainedActivationMinVersionString
+    // DownstreamDeviceSelfContainedActivationMinVersionStringType
+    ddevidarea.push_back(0x01);
 
-    0x09, 0xa, 0x9, 0xa, // DownstreamDeviceSelfContainedActivationMinVersionComparisonStamp
+    // DownstreamDeviceSelfContainedActivationMinVersionStringLength
+    ddevidarea.push_back(0x0E);
+
+    // DownstreamDevicePackageDataLength
+    appendLE16(ddevidarea, 0x03);
+
+    // DownstreamDeviceReferenceManifestLength
+    appendLE32(ddevidarea, 0x08);
+
+    // DownstreamDeviceApplicableComponents
+    ddevidarea.push_back(0x01);
+
+    // DownstreamDeviceSelfContainedActivationMinVersionString
+    const std::vector<uint8_t> ddscamvs = {
+        0x56, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E,
+        0x53, 0x74, 0x72, 0x69, 0x6E, 0x67, 0x31,
+    };
+    ddevidarea.insert(ddevidarea.end(), ddscamvs.begin(), ddscamvs.end());
+
+    // DownstreamDeviceSelfContainedActivationMinVersionComparisonStamp
+    appendLE32(ddevidarea, 0x0a090a09);
 
     // DownstreamDeviceRecordDescriptors
     // record descriptors below
-    0x02, 0x00, // record 0: descriptor type: UUID
 
-    0x10, 0x00, // record 0: InitialDescriptorLength (16 bytes)
+    // record 0: descriptor type: UUID
+    appendLE16(ddevidarea, 0x0002);
 
-    0x16, 0x20, 0x23, 0xC9, 0x3E, 0xC5, 0x41,
-    0x15, 0x95, 0xF4, 0x48, 0x70, 0x1D, 0x49,
-    0xD6, 0x75, // record 0: InitialDescriptorData (UUID)
+    // record 0: InitialDescriptorLength (16 bytes)
+    appendLE16(ddevidarea, 0x0010);
+
+    // record 0: InitialDescriptorData (UUID)
+    const std::vector<uint8_t> idd = {
+        0x16, 0x20, 0x23, 0xC9, 0x3E, 0xC5, 0x41, 0x15,
+        0x95, 0xF4, 0x48, 0x70, 0x1D, 0x49, 0xD6, 0x75,
+    };
+    ddevidarea.insert(ddevidarea.end(), idd.begin(), idd.end());
 
     // DownstreamDevicePackageData
-    0xde, 0xde, 0xfe,
+    const std::vector<uint8_t> ddpd = {0xde, 0xde, 0xfe};
+    ddevidarea.insert(ddevidarea.end(), ddpd.begin(), ddpd.end());
 
     // DownstreamDeviceReferenceManifestData (as per Table 10)
-    0x03, // SVHID,  (e.g. PCI SIG)
-    0x02, // VendorIDLen
-    0x1d, 0xa0, // (e.g. 3M Company)
-    // actual manifest data (completely made up and without meaning)
-    0x31, 0x32, 0x33, 0x34,
+    // SVHID,  (e.g. PCI SIG)
+    ddevidarea.push_back(0x03);
 
-        // clang-format on
-    };
+    // VendorIDLen
+    ddevidarea.push_back(0x02);
+
+    // (e.g. 3M Company)
+    ddevidarea.push_back(0x1d);
+    ddevidarea.push_back(0xa0);
+
+    // actual manifest data (completely made up and without meaning)
+    const std::vector<uint8_t> rmd = {0x31, 0x32, 0x33, 0x34};
+    ddevidarea.insert(ddevidarea.end(), rmd.begin(), rmd.end());
 
     // set DownstreamDeviceRecordLength
-    const uint16_t downstreamdevidareaLength = downstreamdevidarea.size();
-    downstreamdevidarea[0] = downstreamdevidareaLength & 0xff;
-    downstreamdevidarea[1] = (downstreamdevidareaLength >> 8) & 0xff;
-
-    const std::vector<uint8_t> componentimageinfoarea{
-        // clang-format off
-    // Component Image Information Area
-    0x01, 0x00,             // component image count
-
-    0x0A, 0x00,             // component classification
-    0x64, 0x00,             // component identifier
-    0xFF, 0xFF, 0xFF, 0xFF, // component comparison stamp
-    0x00, 0x00,             // component options
-
-    0x00, 0x00,             // requested component activation method
-    0x8B, 0x00, 0x00, 0x00, // component location offset
-    0x01, 0x00, 0x00, 0x00, // component size
-    0x01,                   // component version string type
-    0x0E,                   // component version string length
-
-    0x56, 0x65, 0x72, 0x73, 0x69, 0x6F,
-    0x6E, 0x53, 0x74, 0x72, 0x69, 0x6E,
-    0x67, 0x33,             // component version string
-    0x5, 0x00, 0x00, 0x00, // ComponentOpaqueDataLength
-    0x05, 0x04, 0x03, 0x02, 0x01, // ComponentOpaqueData
-        // clang-format on
-    };
+    const uint16_t downstreamdevidareaLength = ddevidarea.size();
+    ddevidarea[0] = downstreamdevidareaLength & 0xff;
+    ddevidarea[1] = (downstreamdevidareaLength >> 8) & 0xff;
 
     std::vector<uint8_t> pkg{};
 
-    pkg.insert(pkg.end(), headerUUID.begin(), headerUUID.end());
-    pkg.insert(pkg.end(), 0x04); // pkg header format revision
+    appendPackageHeaderIdentifier(pkg, pldm::fw_update::PackagePin::v1_3_0);
+
     const size_t packageHeaderSizeOffset = pkg.size();
     pkg.insert(pkg.end(), header.begin(), header.end());
-    pkg.insert(pkg.end(), fwdevidarea.begin(), fwdevidarea.end());
+
+    // Firmware Device Identification Area
+    pkg.push_back(0x01); // device id record count
+    appendFirmwareDeviceIdRecord3(pkg);
 
     // DownstreamDeviceIDRecordCount
     pkg.push_back(0x01);
-    pkg.insert(pkg.end(), downstreamdevidarea.begin(),
-               downstreamdevidarea.end());
+    pkg.insert(pkg.end(), ddevidarea.begin(), ddevidarea.end());
 
-    pkg.insert(pkg.end(), componentimageinfoarea.begin(),
-               componentimageinfoarea.end());
+    appendComponentImageInfoArea1(pkg);
+
+    appendComponentOpaqueData(pkg);
 
     // count in the checksum bytes still to be added
     const uint16_t finalSize = pkg.size() + 8;
@@ -184,16 +140,7 @@ static std::vector<uint8_t> makePkgV1_3_0()
     pkg[packageHeaderSizeOffset] = finalSize & 0xff;
     pkg[packageHeaderSizeOffset + 1] = (finalSize >> 8) & 0xff;
 
-    // actual checksum
-    const uint32_t check = pldm_edac_crc32(pkg.data(), pkg.size());
-
-    // PackageHeaderChecksum
-    auto checksum =
-        std::vector<uint8_t>{static_cast<uint8_t>(check & 0xff),
-                             static_cast<uint8_t>((check >> 8) & 0xff),
-                             static_cast<uint8_t>((check >> 16) & 0xff),
-                             static_cast<uint8_t>((check >> 24) & 0xff)};
-    pkg.insert(pkg.end(), checksum.begin(), checksum.end());
+    appendCRC(pkg);
 
     // PLDMFWPackagePayloadChecksum
     auto payloadChecksum = std::vector<uint8_t>{0x8d, 0xef, 0x02, 0xd2};

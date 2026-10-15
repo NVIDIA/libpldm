@@ -2948,7 +2948,7 @@ int decode_numeric_effecter_pdr_data(
 	const void *pdr_data, size_t pdr_data_length,
 	struct pldm_numeric_effecter_value_pdr *pdr_value);
 
-/** @brief Decode date fields from Entity Auxiliary name PDR
+/** @brief Decode data fields from Entity Auxiliary name PDR
  *
  *  @note Use case:
  *        1. Call `decode_entity_auxiliary_names_pdr()` to decode the Entity
@@ -3035,7 +3035,7 @@ int encode_pldm_platform_file_descriptor_pdr(
 	const struct pldm_platform_file_descriptor_pdr *pdr, void *data,
 	size_t *data_len);
 
-/** @brief Decode date fields from File Descriptor PDR
+/** @brief Decode data fields from File Descriptor PDR
  *
  *  @param[in] data - PLDM response message which includes the File
  *                        Descriptor PDR in DSP0248_1.3.0 table 108.
@@ -3216,7 +3216,7 @@ struct pldm_platform_redfish_resource_pdr {
  */
 #define PLDM_PLATFORM_REDFISH_RESOURCE_PDR_MIN_LENGTH 41
 
-/** @brief Decode date fields from Redfish Resource PDR
+/** @brief Decode data fields from Redfish Resource PDR
  *
  *  @param[in] data - PLDM response message which includes the Redfish Resource PDR
  *                        from DSP0248_1.3.0 table 104.
@@ -3475,7 +3475,7 @@ struct pldm_platform_redfish_action_pdr {
  */
 #define PLDM_PLATFORM_REDFISH_ACTION_PDR_MIN_LENGTH 14
 
-/** @brief Decode date fields from Redfish Action PDR
+/** @brief Decode data fields from Redfish Action PDR
  *
  *  @param[in] data - PLDM response message which includes the Redfish Action PDR
  *                        from DSP0248_1.3.0 table 106.
@@ -3625,7 +3625,7 @@ struct pldm_platform_redfish_action_pdr_action_iter {
 LIBPLDM_ITERATOR
 struct pldm_platform_redfish_action_pdr_action_iter
 pldm_platform_redfish_action_pdr_action_iter_init(
-	struct pldm_platform_redfish_action_pdr *pdr)
+	const struct pldm_platform_redfish_action_pdr *pdr)
 {
 	struct pldm_platform_redfish_action_pdr_action_iter iter;
 
