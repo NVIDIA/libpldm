@@ -2611,7 +2611,10 @@ int decode_get_numeric_effecter_value_resp(const struct pldm_msg *msg,
  * this field
  *  @param[out] change_record_data_offset - Identifies where changeRecord data
  * is located within event_data
- *  @return pldm_completion_codes
+ *  @return pldm_completion_codes. PLDM_ERROR_INVALID_LENGTH if event_data_size
+ * cannot hold the headers of number_of_change_records changeRecords.
+ * PLDM_ERROR_INVALID_DATA if event_data_format is REFRESH_ENTIRE_REPOSITORY
+ * and number_of_change_records is not zero
  *  @note  Caller is responsible for memory alloc and dealloc of param
  *         'event_data'
  */

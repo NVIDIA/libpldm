@@ -4216,6 +4216,73 @@ TEST(PldmPDRRepositoryChgEventEvent, testBadDecodeRequest)
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
 }
 
+TEST(PldmPDRRepositoryChgEventEvent, testGoodDecodeChangeRecordsHeadersFit)
+{
+    uint8_t eventDataFormat{};
+    uint8_t numberOfChangeRecords{};
+    size_t changeRecordDataOffset{};
+
+    // refreshEntireRepository carries no change records
+    const std::array<uint8_t, 2> refreshAll{REFRESH_ENTIRE_REPOSITORY, 0};
+    auto rc = decode_pldm_pdr_repository_chg_event_data(
+        refreshAll.data(), refreshAll.size(), &eventDataFormat,
+        &numberOfChangeRecords, &changeRecordDataOffset);
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(eventDataFormat, REFRESH_ENTIRE_REPOSITORY);
+    EXPECT_EQ(numberOfChangeRecords, 0);
+    EXPECT_EQ(changeRecordDataOffset, 2);
+
+    // Two change records with no change entries fill the buffer
+    const std::array<uint8_t, 6> twoHeaders{FORMAT_IS_PDR_HANDLES, 2,
+                                            PLDM_RECORDS_DELETED,  0,
+                                            PLDM_RECORDS_ADDED,    0};
+    rc = decode_pldm_pdr_repository_chg_event_data(
+        twoHeaders.data(), twoHeaders.size(), &eventDataFormat,
+        &numberOfChangeRecords, &changeRecordDataOffset);
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(eventDataFormat, FORMAT_IS_PDR_HANDLES);
+    EXPECT_EQ(numberOfChangeRecords, 2);
+    EXPECT_EQ(changeRecordDataOffset, 2);
+}
+
+TEST(PldmPDRRepositoryChgEventEvent, testBadDecodeChangeRecordsOverflow)
+{
+    uint8_t eventDataFormat{};
+    uint8_t numberOfChangeRecords{};
+    size_t changeRecordDataOffset{};
+
+    // Claims two change records, second record header short by a byte
+    const std::array<uint8_t, 5> shortByOne{
+        FORMAT_IS_PDR_HANDLES, 2, PLDM_RECORDS_ADDED, 0, PLDM_RECORDS_ADDED};
+    auto rc = decode_pldm_pdr_repository_chg_event_data(
+        shortByOne.data(), shortByOne.size(), &eventDataFormat,
+        &numberOfChangeRecords, &changeRecordDataOffset);
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
+
+    // 0x80 record headers need 256 bytes; a uint8_t byte count would wrap to 0
+    const std::array<uint8_t, 2> headerOnly{FORMAT_IS_PDR_HANDLES, 0x80};
+    rc = decode_pldm_pdr_repository_chg_event_data(
+        headerOnly.data(), headerOnly.size(), &eventDataFormat,
+        &numberOfChangeRecords, &changeRecordDataOffset);
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
+}
+
+TEST(PldmPDRRepositoryChgEventEvent, testBadDecodeRefreshEntireRepositoryCount)
+{
+    uint8_t eventDataFormat{};
+    uint8_t numberOfChangeRecords{};
+    size_t changeRecordDataOffset{};
+
+    // DSP0248 Table 23: numberOfChangeRecords shall be zero for
+    // refreshEntireRepository, even when change record data follows
+    const std::array<uint8_t, 4> refreshAll{REFRESH_ENTIRE_REPOSITORY, 1,
+                                            PLDM_RECORDS_ADDED, 0};
+    auto rc = decode_pldm_pdr_repository_chg_event_data(
+        refreshAll.data(), refreshAll.size(), &eventDataFormat,
+        &numberOfChangeRecords, &changeRecordDataOffset);
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_DATA);
+}
+
 TEST(PldmPDRRepositoryChgEventEvent, testGoodDecodeChangeRecordExactFit)
 {
     uint8_t eventDataOperation{};

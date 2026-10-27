@@ -2360,7 +2360,23 @@ int decode_pldm_pdr_repository_chg_event_data(const uint8_t *event_data,
 	}
 
 	pldm_msgbuf_extract_p(buf, event_data_format);
-	pldm_msgbuf_extract_p(buf, number_of_change_records);
+	rc = pldm_msgbuf_extract_p(buf, number_of_change_records);
+	if (rc) {
+		return pldm_xlate_errno(pldm_msgbuf_discard(buf, rc));
+	}
+
+	/* DSP0248 Table 23: no changeRecords for refreshEntireRepository */
+	if (*event_data_format == REFRESH_ENTIRE_REPOSITORY &&
+	    *number_of_change_records != 0) {
+		return pldm_msgbuf_discard(buf, PLDM_ERROR_INVALID_DATA);
+	}
+
+	/* Each changeRecord has at least a 2-byte header (DSP0248 Table 24) */
+	pldm_msgbuf_span_required(
+		buf,
+		(size_t)*number_of_change_records *
+			PLDM_PDR_REPOSITORY_CHANGE_RECORD_MIN_LENGTH,
+		NULL);
 
 	*change_record_data_offset =
 		sizeof(*event_data_format) + sizeof(*number_of_change_records);
