@@ -2722,7 +2722,8 @@ int encode_sensor_event_data(struct pldm_sensor_event_data *event_data,
  * this field
  *  @param[out] change_entry_data_offset - Identifies where changeEntries data
  * is located within change_record_data
- *  @return pldm_completion_codes
+ *  @return pldm_completion_codes. PLDM_ERROR_INVALID_LENGTH if
+ * change_record_data_size cannot hold number_of_change_entries changeEntries
  *  @note  Caller is responsible for memory alloc and dealloc of param
  *         'change_record_data'
  */

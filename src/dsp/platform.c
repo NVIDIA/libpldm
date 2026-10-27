@@ -2457,7 +2457,13 @@ int decode_pldm_pdr_repository_change_record_data(
 	}
 
 	pldm_msgbuf_extract_p(buf, event_data_operation);
-	pldm_msgbuf_extract_p(buf, number_of_change_entries);
+	rc = pldm_msgbuf_extract_p(buf, number_of_change_entries);
+	if (rc) {
+		return pldm_xlate_errno(pldm_msgbuf_discard(buf, rc));
+	}
+
+	pldm_msgbuf_span_required(
+		buf, *number_of_change_entries * sizeof(uint32_t), NULL);
 
 	*change_entry_data_offset = sizeof(*event_data_operation) +
 				    sizeof(*number_of_change_entries);

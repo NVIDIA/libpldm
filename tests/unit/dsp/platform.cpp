@@ -4168,8 +4168,8 @@ TEST(PldmPDRRepositoryChgEventEvent, testGoodDecodeRequest)
                         sizeof(uint32_t) * retNumberOfChangeEntries));
 
     changeRecordData += sizeof(uint32_t) * retNumberOfChangeEntries;
-    changeRecordDataSize -= sizeof(uint32_t) * retNumberOfChangeEntries -
-                            PLDM_PDR_REPOSITORY_CHANGE_RECORD_MIN_LENGTH;
+    changeRecordDataSize -=
+        retChangeEntryDataOffset + sizeof(uint32_t) * retNumberOfChangeEntries;
     rc = decode_pldm_pdr_repository_change_record_data(
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         reinterpret_cast<const uint8_t*>(changeRecordData),
@@ -4213,6 +4213,55 @@ TEST(PldmPDRRepositoryChgEventEvent, testBadDecodeRequest)
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         reinterpret_cast<const uint8_t*>(changeRecord.data()), 0,
         &eventDataOperation, &numberOfChangeEntries, &changeEntryDataOffset);
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
+}
+
+TEST(PldmPDRRepositoryChgEventEvent, testGoodDecodeChangeRecordExactFit)
+{
+    uint8_t eventDataOperation{};
+    uint8_t numberOfChangeEntries{};
+    size_t changeEntryDataOffset{};
+
+    // No change entries
+    const std::array<uint8_t, 2> empty{PLDM_RECORDS_ADDED, 0};
+    auto rc = decode_pldm_pdr_repository_change_record_data(
+        empty.data(), empty.size(), &eventDataOperation, &numberOfChangeEntries,
+        &changeEntryDataOffset);
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(eventDataOperation, PLDM_RECORDS_ADDED);
+    EXPECT_EQ(numberOfChangeEntries, 0);
+    EXPECT_EQ(changeEntryDataOffset, 2);
+
+    // Maximum number of change entries filling the buffer
+    std::array<uint8_t, 2 + (0xff * sizeof(uint32_t))> largest{};
+    largest[0] = PLDM_RECORDS_ADDED;
+    largest[1] = 0xff;
+    rc = decode_pldm_pdr_repository_change_record_data(
+        largest.data(), largest.size(), &eventDataOperation,
+        &numberOfChangeEntries, &changeEntryDataOffset);
+    EXPECT_EQ(rc, PLDM_SUCCESS);
+    EXPECT_EQ(numberOfChangeEntries, 0xff);
+}
+
+TEST(PldmPDRRepositoryChgEventEvent, testBadDecodeChangeRecordEntriesOverflow)
+{
+    uint8_t eventDataOperation{};
+    uint8_t numberOfChangeEntries{};
+    size_t changeEntryDataOffset{};
+
+    // One change entry, truncated by a byte
+    const std::array<uint8_t, 5> partial{PLDM_RECORDS_ADDED, 1, 0x01, 0x00,
+                                         0x00};
+    auto rc = decode_pldm_pdr_repository_change_record_data(
+        partial.data(), partial.size(), &eventDataOperation,
+        &numberOfChangeEntries, &changeEntryDataOffset);
+    EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
+
+    // 0x40 entries need 256 bytes; a uint8_t byte count would wrap to 0
+    const std::array<uint8_t, 2> headerOnly{PLDM_RECORDS_ADDED, 0x40};
+    rc = decode_pldm_pdr_repository_change_record_data(
+        headerOnly.data(), headerOnly.size(), &eventDataOperation,
+        &numberOfChangeEntries, &changeEntryDataOffset);
     EXPECT_EQ(rc, PLDM_ERROR_INVALID_LENGTH);
 }
 

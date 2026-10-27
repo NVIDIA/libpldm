@@ -82,6 +82,11 @@ Change categories:
 
 ### Security
 
+- platform: Bound the counts in PDR repository change event data
+  - `decode_pldm_pdr_repository_change_record_data()` returns
+    `PLDM_ERROR_INVALID_LENGTH` if the buffer cannot hold
+    `number_of_change_entries` change entries
+
 ## [v0.17.0] - 2026-07-05
 
 ### Added
